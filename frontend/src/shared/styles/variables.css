@@ -1,0 +1,17 @@
+:root {
+  --color-bg: #E0D7C2;
+  --color-cream: #DFDDC8;
+  --color-sage: #BEBEA6;
+  --color-sage-dark: #9E9B8E;
+  --color-white: #F4F4F4;
+  --color-brown: #674531;
+  --color-charcoal: #2A2825; /* inferred del mockup — el tono oscuro de los blobs */
+
+  --color-text: #2A2825;
+  --color-text-muted: #9E9B8E;
+
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+
+  --radius-blob: 50%;
+  --radius-btn: 16px;
+}
