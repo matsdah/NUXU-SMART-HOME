@@ -9,17 +9,22 @@ export class ApiError extends Error {
   }
 }
 
+export const TOKEN_KEY = 'auth_token'
+
 const BASE_URL = import.meta.env.VITE_API_BASE_URL
 const API_KEY = import.meta.env.VITE_API_KEY
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const init: RequestInit = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-API-KEY': API_KEY,
-    },
+  const token = localStorage.getItem(TOKEN_KEY)
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'X-API-KEY': API_KEY,
   }
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`
+  }
+
+  const init: RequestInit = { method, headers }
 
   if (body !== undefined) {
     init.body = JSON.stringify(body)
