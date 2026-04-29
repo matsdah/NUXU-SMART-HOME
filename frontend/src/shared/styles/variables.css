@@ -10,7 +10,8 @@
   --color-text: #2A2825;
   --color-text-muted: #9E9B8E;
 
-  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-serif: 'Inter', ui-serif, serif;
 
   --radius-blob: 50%;
   --radius-btn: 16px;
