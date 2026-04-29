@@ -1,6 +1,469 @@
+<script setup lang="ts">
+import { useHomesDashboard } from '@/modules/homes/composables/useHomesDashboard'
+
+const {
+  rooms,
+  routines,
+  activeRoomId,
+  filteredDevices,
+  loading,
+  error,
+  pendingActions,
+  toggleDevice,
+} = useHomesDashboard()
+</script>
+
 <template>
-  <div>
-    <h1>Homes</h1>
-    <p>Manage and query your homes. (RF17–RF18)</p>
-  </div>
+  <section class="homes">
+    <div class="homes__header">
+      <div>
+        <p class="section-label">Habitaciones</p>
+        <div class="room-tabs">
+          <button
+            v-for="room in rooms"
+            :key="room.id"
+            type="button"
+            class="room-tab"
+            :class="{ 'room-tab--active': room.id === activeRoomId }"
+            @click="activeRoomId = room.id"
+          >
+            {{ room.name }}
+          </button>
+          <button class="room-tab room-tab--icon" type="button" aria-label="Agregar habitación">
+            +
+          </button>
+          <button class="room-tab room-tab--icon" type="button" aria-label="Eliminar habitación">
+            <span aria-hidden="true">&#128465;</span>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div v-if="error" class="notice notice--error" role="alert">{{ error }}</div>
+    <div v-else-if="loading" class="notice">Cargando dashboard...</div>
+
+    <div v-else class="homes__content">
+      <section class="panel panel--devices">
+        <header class="panel__header">
+          <h2 class="panel__title">Dispositivos</h2>
+          <RouterLink class="panel__link" to="/devices">Ver todas</RouterLink>
+        </header>
+
+        <div class="device-grid">
+          <article
+            v-for="device in filteredDevices"
+            :key="device.id"
+            class="device-card"
+            :class="{ 'device-card--accent': device.tone === 'sage' }"
+          >
+            <div class="device-card__top">
+              <div class="device-icon" aria-hidden="true">
+                <svg v-if="device.kind === 'vacuum'" viewBox="0 0 24 24">
+                  <rect x="6" y="3" width="12" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="2" />
+                  <path d="M12 13v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <svg v-else-if="device.kind === 'speaker'" viewBox="0 0 24 24">
+                  <rect x="7" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
+                  <circle cx="12" cy="9" r="2" fill="currentColor" />
+                  <circle cx="12" cy="15" r="3" fill="none" stroke="currentColor" stroke-width="2" />
+                </svg>
+                <svg v-else-if="device.kind === 'tap'" viewBox="0 0 24 24">
+                  <path d="M6 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M9 8v5a3 3 0 0 0 6 0V8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <circle cx="12" cy="18" r="1" fill="currentColor" />
+                </svg>
+                <svg v-else-if="device.kind === 'blind'" viewBox="0 0 24 24">
+                  <rect x="6" y="4" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
+                  <path d="M6 9h12" stroke="currentColor" stroke-width="2" />
+                  <path d="M6 13h12" stroke="currentColor" stroke-width="2" />
+                </svg>
+                <svg v-else-if="device.kind === 'lamp'" viewBox="0 0 24 24">
+                  <path d="M8 10a4 4 0 0 1 8 0c0 2-2 3-2 5H10c0-2-2-3-2-5z" fill="none" stroke="currentColor" stroke-width="2" />
+                  <path d="M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <svg v-else-if="device.kind === 'oven'" viewBox="0 0 24 24">
+                  <rect x="5" y="4" width="14" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
+                  <rect x="8" y="9" width="8" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="2" />
+                  <circle cx="8" cy="6.5" r="1" fill="currentColor" />
+                  <circle cx="12" cy="6.5" r="1" fill="currentColor" />
+                </svg>
+                <svg v-else-if="device.kind === 'ac'" viewBox="0 0 24 24">
+                  <path d="M6 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M7 11h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M9 15h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <svg v-else-if="device.kind === 'door'" viewBox="0 0 24 24">
+                  <rect x="7" y="4" width="10" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
+                  <circle cx="14" cy="12" r="1" fill="currentColor" />
+                </svg>
+                <svg v-else viewBox="0 0 24 24">
+                  <rect x="6" y="4" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
+                  <path d="M6 10h12" stroke="currentColor" stroke-width="2" />
+                </svg>
+              </div>
+
+              <label class="switch" :aria-label="`Cambiar ${device.name}`">
+                <input
+                  type="checkbox"
+                  :checked="device.isOn"
+                  :disabled="pendingActions.has(device.id)"
+                  @change="toggleDevice(device.id)"
+                />
+                <span class="switch__track"></span>
+              </label>
+            </div>
+
+            <div class="device-card__body">
+              <h3>{{ device.name }}</h3>
+              <p>{{ device.status }}</p>
+            </div>
+          </article>
+
+          <button class="device-card device-card--new" type="button" aria-label="Agregar dispositivo">
+            <span class="device-card__plus">+</span>
+            <span>Nuevo</span>
+          </button>
+        </div>
+      </section>
+
+      <aside class="panel panel--routines">
+        <header class="panel__header">
+          <h2 class="panel__title">Rutinas</h2>
+          <RouterLink class="panel__link" to="/routines">Ver todas</RouterLink>
+        </header>
+
+        <div class="routine-list">
+          <article v-for="routine in routines" :key="routine.id" class="routine-card">
+            <div class="routine-icon" aria-hidden="true">
+              <svg v-if="routine.icon === 'moon'" viewBox="0 0 24 24">
+                <path d="M15 3a8 8 0 1 0 6 13 7 7 0 0 1-6-13z" fill="currentColor" />
+              </svg>
+              <svg v-else-if="routine.icon === 'sun'" viewBox="0 0 24 24">
+                <circle cx="12" cy="12" r="4" fill="currentColor" />
+                <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.5 4.5l2 2M17.5 17.5l2 2M4.5 19.5l2-2M17.5 6.5l2-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <svg v-else viewBox="0 0 24 24">
+                <path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="2" />
+                <path d="M9 10l6 3-6 3z" fill="currentColor" />
+              </svg>
+            </div>
+            <div class="routine-info">
+              <h3>{{ routine.name }}</h3>
+              <p>{{ routine.summary }}</p>
+              <span v-if="routine.time">{{ routine.time }}</span>
+            </div>
+            <span class="routine-arrow" aria-hidden="true">›</span>
+          </article>
+
+          <button class="routine-card routine-card--new" type="button" aria-label="Crear rutina">
+            <span class="routine-card__plus">+</span>
+            <span>Nuevo</span>
+          </button>
+        </div>
+      </aside>
+    </div>
+  </section>
 </template>
+
+<style scoped>
+.homes {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.homes__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.notice {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 16px;
+  padding: 0.8rem 1rem;
+  margin-top: 0.2rem;
+  font-weight: 600;
+  color: rgba(42, 40, 37, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.08);
+}
+
+.notice--error {
+  color: #8a2d2d;
+  background: rgba(180, 60, 60, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(180, 60, 60, 0.2);
+}
+
+.section-label {
+  font-size: 1.05rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin-bottom: 0.75rem;
+}
+
+.room-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  padding: 0.45rem 0.7rem;
+  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.08);
+}
+
+.room-tab {
+  border: none;
+  background: rgba(255, 255, 255, 0.65);
+  color: rgba(42, 40, 37, 0.8);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.room-tab--active {
+  background: rgba(42, 40, 37, 0.95);
+  color: #f7f3e7;
+}
+
+.room-tab--icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+}
+
+.homes__content {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(280px, 0.9fr);
+  gap: 1.8rem;
+}
+
+.panel {
+  background: rgba(244, 244, 244, 0.7);
+  border-radius: 24px;
+  padding: 1.5rem;
+  box-shadow: 0 20px 40px rgba(42, 40, 37, 0.08);
+}
+
+.panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.2rem;
+}
+
+.panel__title {
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.panel__link {
+  font-size: 0.85rem;
+  color: rgba(42, 40, 37, 0.65);
+  font-weight: 600;
+}
+
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.device-card {
+  background: rgba(255, 255, 255, 0.8);
+  border-radius: 18px;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 1.4rem;
+  min-height: 150px;
+  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
+}
+
+.device-card--accent {
+  background: rgba(190, 190, 166, 0.6);
+}
+
+.device-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.device-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.9);
+  display: grid;
+  place-items: center;
+  color: rgba(42, 40, 37, 0.85);
+  box-shadow: 0 6px 12px rgba(42, 40, 37, 0.08);
+}
+
+.device-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.device-card__body h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  margin-bottom: 0.2rem;
+}
+
+.device-card__body p {
+  font-size: 0.8rem;
+  color: rgba(42, 40, 37, 0.6);
+}
+
+.switch {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.switch input {
+  appearance: none;
+  width: 36px;
+  height: 22px;
+  background: rgba(42, 40, 37, 0.18);
+  border-radius: 999px;
+  position: relative;
+  outline: none;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.switch input:checked {
+  background: rgba(63, 129, 102, 0.65);
+}
+
+.switch__track {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  left: 4px;
+  transition: transform 0.2s ease;
+  pointer-events: none;
+}
+
+.switch input:checked + .switch__track {
+  transform: translateX(14px);
+}
+
+.device-card--new {
+  border: 1px dashed rgba(42, 40, 37, 0.2);
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  cursor: pointer;
+}
+
+.device-card__plus {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  color: rgba(42, 40, 37, 0.6);
+}
+
+.routine-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.routine-card {
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: 16px;
+  padding: 0.9rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.8rem;
+  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
+}
+
+.routine-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(190, 190, 166, 0.45);
+  color: rgba(42, 40, 37, 0.85);
+}
+
+.routine-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.routine-info h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.routine-info p {
+  font-size: 0.78rem;
+  color: rgba(42, 40, 37, 0.6);
+}
+
+.routine-info span {
+  font-size: 0.72rem;
+  color: rgba(42, 40, 37, 0.6);
+}
+
+.routine-arrow {
+  font-size: 1.2rem;
+  color: rgba(42, 40, 37, 0.55);
+}
+
+.routine-card--new {
+  border: 1px dashed rgba(42, 40, 37, 0.2);
+  background: transparent;
+  justify-content: center;
+  grid-template-columns: auto auto;
+  cursor: pointer;
+}
+
+.routine-card__plus {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.75);
+  display: grid;
+  place-items: center;
+  font-size: 1.4rem;
+  color: rgba(42, 40, 37, 0.55);
+}
+
+@media (max-width: 1024px) {
+  .homes__content {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .panel {
+    padding: 1.1rem;
+  }
+
+  .device-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+}
+</style>
