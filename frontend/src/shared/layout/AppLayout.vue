@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/app/stores/auth'
+import { useDashboardStore } from '@/app/stores/dashboard'
 
 const auth = useAuthStore()
+const dashboard = useDashboardStore()
 const router = useRouter()
 
 const navItems = [
@@ -13,8 +15,35 @@ const navItems = [
   { label: 'Historial', to: '/logs', icon: 'logs' },
 ]
 
-const homeName = 'Casa Principal'
+// 3. Lógica del menú de casas
+const isHomeMenuOpen = ref(false)
+const homeSelectorRef = ref<HTMLElement | null>(null) // <-- 1. Nueva referencia
+  
+  // 2. Función para detectar clics afuera
+function closeMenuOnClickOutside(event: MouseEvent) {
+  if (isHomeMenuOpen.value && homeSelectorRef.value && !homeSelectorRef.value.contains(event.target as Node)) {
+    isHomeMenuOpen.value = false
+  }
+}
+// 3. Agregamos el listener al montar el componente y lo limpiamos al destruirlo
+onMounted(() => {
+  document.addEventListener('click', closeMenuOnClickOutside)
+})
 
+onBeforeUnmount(() => {
+  document.removeEventListener('click', closeMenuOnClickOutside)
+})
+const activeHomeName = computed(() => {
+  const home = dashboard.homes.find(h => h.id === dashboard.activeHomeId)
+  return home ? home.name : 'Cargando...'
+})
+
+function selectHome(homeId: string) {
+  dashboard.activeHomeId = homeId
+  isHomeMenuOpen.value = false // Cerramos el menú tras seleccionar
+}
+
+// Lógica de usuario
 const displayName = computed(() => auth.user?.name ?? 'Invitado')
 const initials = computed(() => {
   const parts = displayName.value.split(' ').filter(Boolean)
@@ -36,20 +65,42 @@ async function handleLogout() {
         <span class="brand__name">NUXU</span>
       </div>
 
-      <button class="home-switch" type="button" aria-label="Cambiar hogar">
-        <span class="home-switch__icon">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M4 12l8-7 8 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            <path d="M7 11v7h10v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </span>
-        <span class="home-switch__label">{{ homeName }}</span>
-        <span class="home-switch__chev">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </span>
-      </button>
+      <div class="home-selector" ref="homeSelectorRef">
+        <button 
+          class="home-switch" 
+          type="button" 
+          aria-label="Cambiar hogar"
+          :aria-expanded="isHomeMenuOpen"
+          @click="isHomeMenuOpen = !isHomeMenuOpen"
+        >
+          <span class="home-switch__icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 12l8-7 8 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              <path d="M7 11v7h10v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+          <span class="home-switch__label">{{ activeHomeName }}</span>
+          <span class="home-switch__chev">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </span>
+        </button>
+
+        <Transition name="fade-slide">
+          <div v-if="isHomeMenuOpen" class="home-dropdown">
+            <button
+              v-for="home in dashboard.homes"
+              :key="home.id"
+              class="home-dropdown__item"
+              :class="{ 'home-dropdown__item--active': home.id === dashboard.activeHomeId }"
+              @click="selectHome(home.id)"
+            >
+              {{ home.name }}
+            </button>
+          </div>
+        </Transition>
+      </div>
 
       <nav class="topbar__nav" aria-label="Navegacion principal">
         <RouterLink
@@ -145,7 +196,18 @@ async function handleLogout() {
   font-size: 0.95rem;
 }
 
+/* ────────────────────────────────────────────────────────────────────────── */
+/* 5. Nuevos estilos para el Dropdown del Hogar                               */
+/* ────────────────────────────────────────────────────────────────────────── */
+
+.home-selector {
+  position: relative;
+  display: inline-flex;
+}
+
 .home-switch {
+  position: relative;
+  z-index: 11; /* Se asegura de estar sobre el overlay */
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -153,11 +215,16 @@ async function handleLogout() {
   border-radius: 999px;
   border: 1px solid rgba(42, 40, 37, 0.15);
   background: rgba(255, 255, 255, 0.7);
-  color: var(--color-text);
+  color: var(--color-text, rgba(42, 40, 37, 1));
   font-weight: 600;
   font-size: 0.9rem;
   box-shadow: 0 8px 20px rgba(42, 40, 37, 0.08);
   cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.home-switch:hover {
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .home-switch__icon,
@@ -166,7 +233,6 @@ async function handleLogout() {
   place-items: center;
   width: 20px;
   height: 20px;
-  color: var(--color-text);
 }
 
 .home-switch__icon svg,
@@ -174,6 +240,69 @@ async function handleLogout() {
   width: 18px;
   height: 18px;
 }
+
+/* Rotación del chevron cuando el menú está abierto */
+.home-switch__chev svg {
+  transition: transform 0.2s ease;
+}
+.home-switch[aria-expanded="true"] .home-switch__chev svg {
+  transform: rotate(180deg);
+}
+
+.home-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  min-width: 220px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(42, 40, 37, 0.1);
+  border-radius: 16px;
+  padding: 0.5rem;
+  box-shadow: 0 10px 30px rgba(42, 40, 37, 0.15);
+  backdrop-filter: blur(12px);
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.home-dropdown__item {
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: rgba(42, 40, 37, 0.8);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.home-dropdown__item:hover {
+  background: rgba(42, 40, 37, 0.05);
+}
+
+.home-dropdown__item--active {
+  background: rgba(63, 129, 102, 0.15); /* Tu color 'sage' adaptado */
+  color: rgba(42, 85, 67, 1);
+}
+
+/* Animación del Dropdown */
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-10px);
+}
+
+/* ────────────────────────────────────────────────────────────────────────── */
+/* Estilos anteriores del nav y resto de la UI                                */
+/* ────────────────────────────────────────────────────────────────────────── */
 
 .topbar__nav {
   display: flex;
@@ -230,7 +359,7 @@ async function handleLogout() {
   display: grid;
   place-items: center;
   cursor: pointer;
-  color: var(--color-text);
+  color: var(--color-text, rgba(42, 40, 37, 1));
   box-shadow: 0 6px 16px rgba(42, 40, 37, 0.08);
 }
 

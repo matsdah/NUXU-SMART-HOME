@@ -361,6 +361,14 @@ const {
   transform: translateX(14px);
 }
 
+.switch input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.switch input:disabled + .switch__track {
+  background: #e0e0e0;
+}
+
 .device-card--new {
   border: 1px dashed rgba(42, 40, 37, 0.2);
   align-items: center;
