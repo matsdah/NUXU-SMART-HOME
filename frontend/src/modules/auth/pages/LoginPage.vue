@@ -60,7 +60,7 @@ async function handleSubmit() {
 
     <!-- Logo lámpara colgante -->
     <RouterLink to="/" class="logo" aria-label="Ir al inicio">
-      <img src="@/assets/lamp.png" alt="Lámpara NUXU" class="logo__lamp" />
+      <img src="@/assets/lamp.webp" alt="Lámpara NUXU" class="logo__lamp" />
       <span class="logo__name">NUXU</span>
     </RouterLink>
 

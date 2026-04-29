@@ -32,7 +32,7 @@
     <!-- Contenido principal -->
     <div class="landing__inner">
       <img
-        src="@/assets/lamp.png"
+        src="@/assets/lamp.webp"
         alt="Lámpara NUXU"
         class="landing__lamp"
       />
