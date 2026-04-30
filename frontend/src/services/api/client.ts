@@ -20,29 +20,35 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     'Content-Type': 'application/json',
     'X-API-KEY': API_KEY,
   }
-  if (token) {
+
+  if(token){
     headers['Authorization'] = `Bearer ${token}`
   }
 
   const init: RequestInit = { method, headers }
 
-  if (body !== undefined) {
+  if(body !== undefined){
     init.body = JSON.stringify(body)
   }
 
   const response = await fetch(`${BASE_URL}${path}`, init)
 
-  if (!response.ok) {
+  if(!response.ok){
     let errorBody: unknown = null
-    try {
-      errorBody = await response.json()
-    } catch {
 
+    try{
+      errorBody = await response.json()
+    }catch{
+      // ?
     }
+
     throw new ApiError(response.status, `${method} ${path} → ${response.status}`, errorBody)
   }
 
-  if (response.status === 204) return undefined as T
+  if(response.status === 204){
+    return undefined as T
+  }
+  
   return response.json() as Promise<T>
 }
 

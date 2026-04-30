@@ -1,3 +1,5 @@
+// TODO: Implementar la página de gestión de dispositivos
+
 <template>
   <div>
     <h1>Devices</h1>

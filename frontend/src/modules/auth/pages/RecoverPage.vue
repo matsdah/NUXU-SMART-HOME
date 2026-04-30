@@ -1,7 +1,5 @@
 <script setup lang="ts">
-// RF3 — forgot password + RF4 change password
-// Flow: POST /users/forgot-password (email) → POST /users/reset-password (code + new password)
-// TODO (step 6): implement multi-step form
+//TODO: Implementar la página de recuperación de contraseña
 </script>
 
 <template>
@@ -9,13 +7,14 @@
     <div class="auth-form">
       <h1>Recover password</h1>
       <p>Enter your email to receive a recovery code, then reset your password.</p>
-      <p class="note">Full implementation: RF3–RF4 (step 6).</p>
+      <p class="note">Full implementation: RF3–RF4.</p>
       <RouterLink to="/login">Back to sign in</RouterLink>
     </div>
   </div>
 </template>
 
 <style scoped>
+
 .auth-page {
   min-height: 100vh;
   display: flex;

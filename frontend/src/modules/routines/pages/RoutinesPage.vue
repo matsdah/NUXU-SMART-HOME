@@ -1,3 +1,5 @@
+// TODO: Implementar la página de gestión de rutinas
+
 <template>
   <div>
     <h1>Routines</h1>

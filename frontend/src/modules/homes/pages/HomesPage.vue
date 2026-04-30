@@ -1,16 +1,9 @@
 <script setup lang="ts">
 import { useHomesDashboard } from '@/modules/homes/composables/useHomesDashboard'
 
-const {
-  rooms,
-  routines,
-  activeRoomId,
-  filteredDevices,
-  loading,
-  error,
-  pendingActions,
-  toggleDevice,
-} = useHomesDashboard()
+const { rooms, routines, activeRoomId, filteredDevices,
+  loading, error, pendingActions, toggleDevice } = useHomesDashboard()
+
 </script>
 
 <template>
@@ -20,11 +13,8 @@ const {
         <p class="section-label">Habitaciones</p>
         <div class="room-tabs">
           <button
-            v-for="room in rooms"
-            :key="room.id"
-            type="button"
-            class="room-tab"
-            :class="{ 'room-tab--active': room.id === activeRoomId }"
+            v-for="room in rooms" :key="room.id" type="button"
+            class="room-tab" :class="{ 'room-tab--active': room.id === activeRoomId }"
             @click="activeRoomId = room.id"
           >
             {{ room.name }}
@@ -51,10 +41,8 @@ const {
 
         <div class="device-grid">
           <article
-            v-for="device in filteredDevices"
-            :key="device.id"
-            class="device-card"
-            :class="{ 'device-card--accent': device.tone === 'sage' }"
+            v-for="device in filteredDevices" :key="device.id"
+            class="device-card" :class="{ 'device-card--accent': device.tone === 'sage' }"
           >
             <div class="device-card__top">
               <div class="device-icon" aria-hidden="true">
@@ -104,8 +92,7 @@ const {
 
               <label class="switch" :aria-label="`Cambiar ${device.name}`">
                 <input
-                  type="checkbox"
-                  :checked="device.isOn"
+                  type="checkbox" :checked="device.isOn"
                   :disabled="pendingActions.has(device.id)"
                   @change="toggleDevice(device.id)"
                 />
@@ -166,6 +153,7 @@ const {
 </template>
 
 <style scoped>
+
 .homes {
   display: flex;
   flex-direction: column;

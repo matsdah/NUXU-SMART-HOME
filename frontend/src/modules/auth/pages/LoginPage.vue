@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/app/stores/auth'
 import { ApiError } from '@/services/api/client'
 
@@ -53,7 +54,7 @@ async function handleSubmit() {
            C 158,55 295,120 278,240
            C 262,348 168,400 90,355
            C 18,312 15,200 85,118 Z"/>
-           
+
       <!-- ola inferior sage -->
       <path fill="#BEBEA6"
         d="M 10,390
@@ -102,8 +103,7 @@ async function handleSubmit() {
             </svg>
           </span>
           <input
-            v-model="password"
-            :type="showPass ? 'text' : 'password'"
+            v-model="password" :type="showPass ? 'text' : 'password'"
             placeholder="Contraseña"
             autocomplete="current-password"
             required
@@ -111,8 +111,7 @@ async function handleSubmit() {
           />
           <button
             type="button"
-            class="field__eye"
-            :aria-label="showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            class="field__eye" :aria-label="showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'"
             @click="showPass = !showPass"
           >
             <svg v-if="!showPass" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -164,7 +163,8 @@ async function handleSubmit() {
 </template>
 
 <style scoped>
-/* ── Layout ──────────────────────────────────────────────── */
+
+/* Layout del login */
 .login {
   position: relative;
   width: 100%;
@@ -177,7 +177,7 @@ async function handleSubmit() {
   font-family: var(--font-sans);
 }
 
-/* ── SVG de fondo ────────────────────────────────────────── */
+/* Fondo SVG */
 .bg-svg {
   position: absolute;
   left: 0;
@@ -188,7 +188,6 @@ async function handleSubmit() {
   z-index: 1;
 }
 
-/* ── Logo ────────────────────────────────────────────────── */
 .logo {
   position: absolute;
   top: 0;
@@ -221,7 +220,6 @@ async function handleSubmit() {
   padding-bottom: 0.3rem;
 }
 
-/* ── Card ────────────────────────────────────────────────── */
 .login__card {
   position: relative;
   z-index: 10;
@@ -232,7 +230,6 @@ async function handleSubmit() {
   width: min(340px, 90vw);
 }
 
-/* ── Título ──────────────────────────────────────────────── */
 .login__title {
   font-size: clamp(2rem, 8vw, 2.75rem);
   font-weight: 400;
@@ -240,7 +237,6 @@ async function handleSubmit() {
   margin-bottom: 0.25rem;
 }
 
-/* ── Error ───────────────────────────────────────────────── */
 .login__error {
   width: 100%;
   padding: 0.6rem 0.9rem;
@@ -252,7 +248,6 @@ async function handleSubmit() {
   text-align: center;
 }
 
-/* ── Form ────────────────────────────────────────────────── */
 .login__form {
   width: 100%;
   display: flex;
@@ -261,7 +256,6 @@ async function handleSubmit() {
   gap: 0.75rem;
 }
 
-/* ── Field ───────────────────────────────────────────────── */
 .field {
   width: 100%;
   display: flex;
@@ -310,7 +304,6 @@ async function handleSubmit() {
 }
 .field__eye:hover { opacity: 0.8; }
 
-/* ── Recover ─────────────────────────────────────────────── */
 .login__recover {
   align-self: center;
   font-size: 0.85rem;
@@ -321,7 +314,6 @@ async function handleSubmit() {
 }
 .login__recover:hover { opacity: 1; text-decoration: underline; }
 
-/* ── Submit ──────────────────────────────────────────────── */
 .login__submit {
   width: 56px;
   height: 56px;
@@ -336,16 +328,27 @@ async function handleSubmit() {
   margin-top: 0.25rem;
   transition: background-color 0.2s, transform 0.15s;
 }
+
 .login__submit:hover:not(:disabled) {
   background-color: #7a5240;
   transform: translateX(3px);
 }
-.login__submit:disabled { opacity: 0.6; cursor: not-allowed; }
 
-@keyframes spin { to { transform: rotate(360deg); } }
-.login__spinner { animation: spin 0.9s linear infinite; }
+.login__submit:disabled { 
+  opacity: 0.6; 
+  cursor: not-allowed; 
+}
 
-/* ── Social ──────────────────────────────────────────────── */
+@keyframes spin { 
+  to{ 
+    transform: rotate(360deg); 
+  } 
+}
+
+.login__spinner { 
+  animation: spin 0.9s linear infinite; 
+}
+
 .login__social {
   display: flex;
   gap: 1rem;
@@ -364,9 +367,12 @@ async function handleSubmit() {
   cursor: pointer;
   transition: background-color 0.15s, transform 0.15s;
 }
-.social-btn:hover { background: rgba(255, 255, 255, 0.85); transform: translateY(-2px); }
 
-/* ── Registro ────────────────────────────────────────────── */
+.social-btn:hover { 
+  background: rgba(255, 255, 255, 0.85); 
+  transform: translateY(-2px); 
+}
+
 .login__register {
   width: 100%;
   max-width: 220px;
@@ -380,6 +386,7 @@ async function handleSubmit() {
   text-decoration: none;
   transition: background-color 0.15s, border-color 0.15s;
 }
+
 .login__register:hover {
   background: rgba(42, 40, 37, 0.07);
   border-color: rgba(42, 40, 37, 0.5);

@@ -17,14 +17,15 @@ async function handleSubmit() {
   try {
     await api.post('/users/register', { name: name.value, email: email.value, password: password.value })
     router.push({ name: 'verify' })
-  } catch (e) {
-    if (e instanceof ApiError) {
+  }catch (e){
+
+    if(e instanceof ApiError){
       const msg = (e.body as { error?: { description?: string } })?.error?.description
       error.value = msg ?? `Registration failed (${e.status}).`
-    } else {
+    }else{
       error.value = 'Unexpected error. Try again.'
     }
-  } finally {
+  }finally{
     loading.value = false
   }
 }
@@ -58,6 +59,7 @@ async function handleSubmit() {
 </template>
 
 <style scoped>
+
 .auth-page {
   min-height: 100vh;
   display: flex;

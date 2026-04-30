@@ -1,6 +1,5 @@
 <script setup lang="ts">
-// RF2 — verify account with code sent to email
-// TODO (step 6): call POST /users/verify-account with the code
+// TODO: Implementar la página de verificación de cuenta
 </script>
 
 <template>
@@ -8,13 +7,14 @@
     <div class="auth-form">
       <h1>Verify your account</h1>
       <p>A verification code was sent to your email. Enter it below to activate your account.</p>
-      <p class="note">Full implementation: RF2 (step 6).</p>
+      <p class="note">Full implementation: RF2.</p>
       <RouterLink to="/login">Back to sign in</RouterLink>
     </div>
   </div>
 </template>
 
 <style scoped>
+
 .auth-page {
   min-height: 100vh;
   display: flex;

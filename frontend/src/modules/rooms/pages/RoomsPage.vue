@@ -1,3 +1,5 @@
+// TODO: Implementar la página de gestión de habitaciones
+
 <template>
   <div>
     <h1>Rooms</h1>
