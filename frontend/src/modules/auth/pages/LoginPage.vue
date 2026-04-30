@@ -4,30 +4,31 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/app/stores/auth'
 import { ApiError } from '@/services/api/client'
 
-const email    = ref('')
+const email = ref('')
 const password = ref('')
-const error    = ref('')
-const loading  = ref(false)
+const error = ref('')
+const loading = ref(false)
 const showPass = ref(false)
 
-const auth   = useAuthStore()
+const auth = useAuthStore()
 const router = useRouter()
 
 async function handleSubmit() {
   error.value   = ''
   loading.value = true
-  try {
+
+  try{
     await auth.login(email.value, password.value)
     router.push({ name: 'homes' })
-  } catch (e) {
-    if (e instanceof ApiError) {
+  }catch (e){
+    if(e instanceof ApiError){
       error.value = e.status === 401 || e.status === 400
         ? 'Usuario o contraseña incorrectos.'
         : `Error ${e.status}. Intentá de nuevo.`
-    } else {
+    }else{
       error.value = 'Error inesperado. Intentá de nuevo.'
     }
-  } finally {
+  }finally{
     loading.value = false
   }
 }
@@ -35,11 +36,14 @@ async function handleSubmit() {
 
 <template>
   <div class="login">
+
     <!-- Fondo vectorial -->
     <svg class="bg-svg" viewBox="0 0 320 620" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" preserveAspectRatio="xMinYMid meet">
+
       <!-- óvalo crema de fondo -->
       <ellipse cx="105" cy="300" rx="185" ry="215" fill="#DFDDC8" transform="rotate(-12 105 300)"/>
-      <!-- arco superior sage (creciente) -->
+
+      <!-- arco superior (creciente) -->
       <path fill-rule="evenodd" fill="#BEBEA6"
         d="M 20,55
            C 110,-30 320,55 305,230
@@ -49,6 +53,7 @@ async function handleSubmit() {
            C 158,55 295,120 278,240
            C 262,348 168,400 90,355
            C 18,312 15,200 85,118 Z"/>
+           
       <!-- ola inferior sage -->
       <path fill="#BEBEA6"
         d="M 10,390

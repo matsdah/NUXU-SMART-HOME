@@ -6,10 +6,8 @@
 
     <!-- Ripples al hacer click -->
     <div
-      v-for="r in ripples"
-      :key="r.id"
-      class="ripple"
-      :style="{ left: `${r.x}px`, top: `${r.y}px` }"
+      v-for="r in ripples" :key="r.id"
+      class="ripple" :style="{ left: `${r.x}px`, top: `${r.y}px` }"
     ></div>
 
     <!-- Partículas flotantes -->
@@ -19,23 +17,18 @@
     <div class="particle" style="top:75%;left:90%;animation-delay:2s"   aria-hidden="true"></div>
 
     <!-- Blobs decorativos -->
-    <div class="blob blob--sage-r"      aria-hidden="true"></div>
+    <div class="blob blob--sage-r" aria-hidden="true"></div>
     <div class="blob blob--charcoal-tr" aria-hidden="true"></div>
-    <div class="blob blob--brown-tr"    aria-hidden="true"></div>
+    <div class="blob blob--brown-tr" aria-hidden="true"></div>
    
-
-    <div class="blob blob--sage-l"      aria-hidden="true"></div>
+    <div class="blob blob--sage-l" aria-hidden="true"></div>
     <div class="blob blob--charcoal-bl" aria-hidden="true"></div>
-    <div class="blob blob--brown-bl"    aria-hidden="true"></div>
-    <div class="blob blob--sand-bl"     aria-hidden="true"></div>
+    <div class="blob blob--brown-bl" aria-hidden="true"></div>
+    <div class="blob blob--sand-bl" aria-hidden="true"></div>
 
     <!-- Contenido principal -->
     <div class="landing__inner">
-      <img
-        src="@/assets/lamp.webp"
-        alt="Lámpara NUXU"
-        class="landing__lamp"
-      />
+      <img src="@/assets/lamp.webp" alt="Lámpara NUXU" class="landing__lamp"/>
       <h1 class="landing__title">
         <span class="word-animate" style="animation-delay:700ms">¡Bienvenido</span>
         <span class="word-animate" style="animation-delay:900ms">a</span>
@@ -44,11 +37,7 @@
     </div>
 
     <!-- Botón flecha -->
-    <button
-      class="landing__cta"
-      @click="goToLogin"
-      aria-label="Continuar al inicio de sesión"
-    >
+    <button class="landing__cta" @click="goToLogin" aria-label="Continuar al inicio de sesión">
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
         <path d="M4 11h14M13 5l6 6-6 6" stroke="currentColor" stroke-width="1.75"
               stroke-linecap="round" stroke-linejoin="round"/>
@@ -59,6 +48,7 @@
 </template>
 
 <script setup lang="ts">
+
 import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
@@ -88,9 +78,7 @@ function onMouseLeave() {
 function onClick(e: MouseEvent) {
   const r: Ripple = { id: Date.now(), x: e.clientX, y: e.clientY }
   ripples.value.push(r)
-  setTimeout(() => {
-    ripples.value = ripples.value.filter(x => x.id !== r.id)
-  }, 1000)
+  setTimeout(() => {ripples.value = ripples.value.filter(x => x.id !== r.id)}, 1000)
 }
 
 function goToLogin() {
@@ -111,7 +99,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* ── Layout base ───────────────────────────────────────── */
+
 .landing {
   position: relative;
   width: 100%;
@@ -122,7 +110,7 @@ onUnmounted(() => {
   font-family: var(--font-sans);
 }
 
-/* ── Mouse gradient ────────────────────────────────────── */
+/* Gradiente circular que sigue el cursor */
 .mouse-gradient {
   position: fixed;
   width: 500px;
@@ -142,7 +130,7 @@ onUnmounted(() => {
   z-index: 5;
 }
 
-/* ── Ripple ────────────────────────────────────────────── */
+/* Ripple al hacer click */
 .ripple {
   position: fixed;
   width: 6px;
@@ -152,10 +140,10 @@ onUnmounted(() => {
   transform: translate(-50%, -50%);
   pointer-events: none;
   animation: ripple-out 1s ease-out forwards;
-  z-index: 9999;
+  z-index: 999;  /* Asegura que esté por encima de todo */
 }
 
-/* ── Partículas ────────────────────────────────────────── */
+/* Partículas flotantes */
 .particle {
   position: absolute;
   width: 3px;
@@ -168,7 +156,7 @@ onUnmounted(() => {
   z-index: 2;
 }
 
-/* ── Blobs ─────────────────────────────────────────────── */
+/* Blobs decorativos */
 .blob {
   position: absolute;
   border-radius: 50%;
@@ -226,7 +214,7 @@ onUnmounted(() => {
   bottom: -1vw; left: 26vw;
 }
 
-/* ── Contenedor central ────────────────────────────────── */
+/* Contenedor del contenido principal */
 .landing__inner {
   position: relative;
   z-index: 10;
@@ -237,7 +225,7 @@ onUnmounted(() => {
   align-items: center;
 }
 
-/* ── Lámpara — cuelga desde arriba ────────────────────── */
+/* Imagen principal de la lampara. */
 .landing__lamp {
   width: clamp(150px, 14vw, 220px);
   height: 62vh;
@@ -247,7 +235,7 @@ onUnmounted(() => {
   filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.10));
 }
 
-/* ── Título ────────────────────────────────────────────── */
+/* Título principal */
 .landing__title {
   display: flex;
   align-items: center;
@@ -265,7 +253,7 @@ onUnmounted(() => {
   font-weight: 700;
 }
 
-/* ── Botón CTA ─────────────────────────────────────────── */
+/* Botón de llamada a la acción (flecha) */
 .landing__cta {
   position: absolute;
   bottom: 2rem;
@@ -294,7 +282,7 @@ onUnmounted(() => {
   outline-offset: 3px;
 }
 
-/* ── Animación de palabras ─────────────────────────────── */
+/* Animación de aparición para cada palabra del título */
 .word-animate {
   display: inline-block;
   opacity: 0;
@@ -305,22 +293,58 @@ onUnmounted(() => {
   text-shadow: 0 0 20px rgba(158, 155, 142, 0.45);
 }
 
-/* ── Keyframes ─────────────────────────────────────────── */
+/* Keyframes para la animación de aparición de las palabras */
 @keyframes word-appear {
-  0%   { opacity: 0; transform: translateY(24px) scale(0.88); filter: blur(8px); }
-  55%  { opacity: 0.8; transform: translateY(8px) scale(0.96); filter: blur(2px); }
-  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  0%{ 
+    opacity: 0; 
+    transform: translateY(24px) scale(0.88); 
+    filter: blur(8px); 
+  }
+
+  55%{ 
+    opacity: 0.8; 
+    transform: translateY(8px) scale(0.96); 
+    filter: blur(2px); 
+  }
+
+  100%{ 
+    opacity: 1; 
+    transform: translateY(0) scale(1); 
+    filter: blur(0); 
+  }
 }
 
 @keyframes ripple-out {
-  0%   { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
-  100% { opacity: 0; transform: translate(-50%, -50%) scale(8); }
+  0%{ 
+    opacity: 0.6; 
+    transform: translate(-50%, -50%) scale(1); 
+  }
+
+  100%{ 
+    opacity: 0; 
+    transform: translate(-50%, -50%) scale(8);
+  }
 }
 
-@keyframes float {
-  0%, 100% { transform: translateY(0) translateX(0); opacity: 0.15; }
-  25%       { transform: translateY(-10px) translateX(5px); opacity: 0.5; }
-  50%       { transform: translateY(-5px) translateX(-3px); opacity: 0.3; }
-  75%       { transform: translateY(-15px) translateX(7px); opacity: 0.6; }
+@keyframes float{
+  0%, 100%{
+    transform: translateY(0) translateX(0); 
+    opacity: 0.15; 
+  }
+  
+  25%{ 
+    transform: translateY(-10px) translateX(5px); 
+    opacity: 0.5; 
+  }
+
+  50%{ 
+    transform: translateY(-5px) translateX(-3px);
+    opacity: 0.3;
+  }
+
+  75%{
+    transform: translateY(-15px) translateX(7px);
+    opacity: 0.6; 
+  }
 }
 </style>

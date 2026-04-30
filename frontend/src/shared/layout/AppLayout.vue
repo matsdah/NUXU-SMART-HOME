@@ -40,14 +40,16 @@ const activeHomeName = computed(() => {
 
 function selectHome(homeId: string) {
   dashboard.activeHomeId = homeId
-  isHomeMenuOpen.value = false // Cerramos el menú tras seleccionar
+  isHomeMenuOpen.value = false /* Cerramos el menú tras seleccionar */
 }
 
-// Lógica de usuario
+/* Lógica de usuario */
 const displayName = computed(() => auth.user?.name ?? 'Invitado')
 const initials = computed(() => {
   const parts = displayName.value.split(' ').filter(Boolean)
-  if (parts.length === 0) return 'NN'
+  if(parts.length === 0){
+    return 'NN'
+  }
   return parts.slice(0, 2).map(part => part[0]).join('').toUpperCase()
 })
 
@@ -55,6 +57,7 @@ async function handleLogout() {
   await auth.logout()
   router.push({ name: 'login' })
 }
+
 </script>
 
 <template>
@@ -90,12 +93,10 @@ async function handleLogout() {
         <Transition name="fade-slide">
           <div v-if="isHomeMenuOpen" class="home-dropdown">
             <button
-              v-for="home in dashboard.homes"
-              :key="home.id"
-              class="home-dropdown__item"
-              :class="{ 'home-dropdown__item--active': home.id === dashboard.activeHomeId }"
+              v-for="home in dashboard.homes" :key="home.id"
+              class="home-dropdown__item" :class="{ 'home-dropdown__item--active': home.id === dashboard.activeHomeId }"
               @click="selectHome(home.id)"
-            >
+              >
               {{ home.name }}
             </button>
           </div>
@@ -104,9 +105,7 @@ async function handleLogout() {
 
       <nav class="topbar__nav" aria-label="Navegacion principal">
         <RouterLink
-          v-for="item in navItems"
-          :key="item.to"
-          :to="item.to"
+          v-for="item in navItems" :key="item.to" :to="item.to"
           class="nav-pill"
         >
           <span class="nav-pill__icon" aria-hidden="true">
@@ -196,10 +195,6 @@ async function handleLogout() {
   font-size: 0.95rem;
 }
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* 5. Nuevos estilos para el Dropdown del Hogar                               */
-/* ────────────────────────────────────────────────────────────────────────── */
-
 .home-selector {
   position: relative;
   display: inline-flex;
@@ -207,7 +202,7 @@ async function handleLogout() {
 
 .home-switch {
   position: relative;
-  z-index: 11; /* Se asegura de estar sobre el overlay */
+  z-index: 11; /* Se asegura de estar sobre el overlay con z-index mayor. */
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -241,10 +236,10 @@ async function handleLogout() {
   height: 18px;
 }
 
-/* Rotación del chevron cuando el menú está abierto */
 .home-switch__chev svg {
   transition: transform 0.2s ease;
 }
+
 .home-switch[aria-expanded="true"] .home-switch__chev svg {
   transform: rotate(180deg);
 }
@@ -300,12 +295,8 @@ async function handleLogout() {
   transform: translateY(-10px);
 }
 
-/* ────────────────────────────────────────────────────────────────────────── */
-/* Estilos anteriores del nav y resto de la UI                                */
-/* ────────────────────────────────────────────────────────────────────────── */
-
 .topbar__nav {
-  display: flex;
+  display: flex;    /* Alineados horizontalmente */
   align-items: center;
   gap: 0.65rem;
   justify-content: center;

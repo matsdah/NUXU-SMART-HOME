@@ -19,12 +19,12 @@ const router = createRouter({
     {
       path: '/login',
       name: 'login',
-      component: () => import('@/modules/auth/pages/LoginPage.vue'),
+      component: () => import('@/modules/auth/pages/LoginPage.vue'),  // Importo a demanda o lazy-load
     },
     {
       path: '/register',
       name: 'register',
-      component: () => import('@/modules/auth/pages/RegisterPage.vue'),
+      component: () => import('@/modules/auth/pages/RegisterPage.vue'), // Importo a demanda o lazy-load
     },
     {
       path: '/homes',
