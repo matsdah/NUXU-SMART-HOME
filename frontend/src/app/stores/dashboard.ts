@@ -9,6 +9,13 @@ type ApiHome = {
   name: string
 }
 
+type ApiMember = {
+  id: string
+  name: string
+  email: string
+  role: 'admin' | 'user'
+}
+
 type ApiRoom = {
   id: string
   name: string
@@ -40,6 +47,13 @@ type ApiDeviceState = {
 export type Room = {
   id: string
   name: string
+}
+
+export type Member = {
+  id: string
+  name: string
+  email: string
+  role: 'admin' | 'user'
 }
 
 export type DeviceKind =          /* Mapeo de dispositivos. */
@@ -174,6 +188,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const rooms = ref<Room[]>([])
   const devices = ref<Device[]>([])
   const routines = ref<Routine[]>([])
+  const members = ref<Member[]>([])
   const activeHomeId = ref('')
   const activeRoomId = ref('')
   const loading = ref(false)
@@ -266,6 +281,64 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }))
   }
 
+  async function loadMembers(homeId: string): Promise<void> {
+    if (!homeId) {
+      members.value = []
+      return
+    }
+    const data = await api.get<ApiMember[]>(`/homes/${homeId}/share`)
+    members.value = data.map(m => ({
+      id: m.id,
+      name: m.name,
+      email: m.email,
+      role: m.role as Member['role'],
+    }))
+  }
+
+  async function addMember(homeId: string, email: string): Promise<void> {
+    const newMembers = await api.post<ApiMember[]>(`/homes/${homeId}/share`, { emails: [email] })
+    const existingIds = new Set(members.value.map(m => m.id))
+    for (const m of newMembers) {
+      if (!existingIds.has(m.id)) {
+        members.value.push({
+          id: m.id,
+          name: m.name,
+          email: m.email,
+          role: m.role as Member['role'],
+        })
+      }
+    }
+  }
+
+  async function removeMember(homeId: string, email: string): Promise<void> {
+    await api.delete(`/homes/${homeId}/share`, { emails: [email] })
+    members.value = members.value.filter(m => m.email !== email)
+  }
+
+  async function updateHomeName(homeId: string, name: string): Promise<void> {
+    const home = homes.value.find(h => h.id === homeId)
+    if (!home) return
+    await api.put(`/homes/${homeId}`, { name })
+    home.name = name
+  }
+
+  async function deleteHome(homeId: string): Promise<void> {
+    await api.delete(`/homes/${homeId}`)
+    const idx = homes.value.findIndex(h => h.id === homeId)
+    if (idx !== -1) {
+      homes.value.splice(idx, 1)
+    }
+    if (activeHomeId.value === homeId) {
+      activeHomeId.value = homes.value[0]?.id ?? ''
+    }
+  }
+
+  async function createHome(name: string): Promise<void> {
+    const home = await api.post<ApiHome>('/homes', { name })
+    homes.value.push(home)
+    activeHomeId.value = home.id
+  }
+
 /* Carga inicial del dashboard, se llama desde AppLayout.vue */
   async function loadDashboard(): Promise<void> {
 
@@ -351,7 +424,18 @@ export const useDashboardStore = defineStore('dashboard', () => {
         : 'Error inesperado cargando dispositivos.'
     }
   })
-
+  function reset(): void {
+    homes.value = []
+    rooms.value = []
+    devices.value = []
+    routines.value = []
+    members.value = []
+    activeHomeId.value = ''
+    activeRoomId.value = ''
+    loading.value = false
+    error.value = ''
+    pendingActions.value = new Set()
+  }
 /* Retorno del store: estado y acciones disponibles para los componentes. */
   return {
     /* Estado */
@@ -359,6 +443,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     rooms,
     devices,
     routines,
+    members,
     activeHomeId,
     activeRoomId,
     filteredDevices,
@@ -367,8 +452,16 @@ export const useDashboardStore = defineStore('dashboard', () => {
     pendingActions,
     /* Acciones */
     loadDashboard,
-    loadRoutines,   /* para refetchear desde RoutinesPage si hace falta */
-    loadDevices,    /* para refetchear desde DevicesPage si hace falta */
+    loadRoutines,
+    loadDevices,
+    loadMembers,
+    addMember,
+    removeMember,
+    updateHomeName,
+    createHome,
+    deleteHome,
     toggleDevice,
+
+    reset,
   }
 })

@@ -36,7 +36,7 @@ const { rooms, routines, activeRoomId, filteredDevices,
       <section class="panel panel--devices">
         <header class="panel__header">
           <h2 class="panel__title">Dispositivos</h2>
-          <RouterLink class="panel__link" to="/devices">Ver todas</RouterLink>
+<RouterLink class="panel__link" to="/devices">Ver todas</RouterLink>
         </header>
 
         <div class="device-grid">
@@ -191,12 +191,19 @@ const { rooms, routines, activeRoomId, filteredDevices,
 
 .room-tabs {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.6rem;
+  overflow-x: auto;
+  scroll-behavior: smooth;
   background: rgba(255, 255, 255, 0.55);
   border-radius: 999px;
   padding: 0.45rem 0.7rem;
   box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.08);
+  scrollbar-width: none;
+}
+
+.room-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .room-tab {

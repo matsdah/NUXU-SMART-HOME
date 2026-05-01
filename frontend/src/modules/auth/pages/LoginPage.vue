@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/app/stores/auth'
 import { ApiError } from '@/services/api/client'
-import AuthLayout from '../components/AuthLayout.vue'
+import { UserIcon } from '@heroicons/vue/24/outline'
 
 const email = ref('')
 const password = ref('')
@@ -46,11 +46,20 @@ async function handleSubmit() {
 
     <form class="login__form" @submit.prevent="handleSubmit" novalidate>
 
-      <div class="field">
-        <input v-model="email" type="email" id="login-email" placeholder=" "
-          autocomplete="email" required class="field__input" />
-        <label for="login-email" class="field__label">Usuario</label>
-      </div>
+        <!-- Email / Usuario -->
+        <div class="field">
+            <span class="field__icon" aria-hidden="true">
+              <UserIcon style="width: 16px; height: 16px;" />
+            </span>
+          <input
+            v-model="email"
+            type="email"
+            placeholder="Usuario"
+            autocomplete="email"
+            required
+            class="field__input"
+          />
+        </div>
 
       <div class="field">
         <input v-model="password" :type="showPass ? 'text' : 'password'"
