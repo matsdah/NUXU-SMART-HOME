@@ -11,8 +11,23 @@ export class ApiError extends Error {
 
 export const TOKEN_KEY = 'auth_token'
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL
-const API_KEY = import.meta.env.VITE_API_KEY
+const BASE_URL = import.meta.env.VITE_API_BASE_URL?.trim()
+const API_KEY = import.meta.env.VITE_API_KEY?.trim()
+
+if (!BASE_URL) {
+  throw new Error('Missing VITE_API_BASE_URL. Define it in frontend/.env (or .env.local).')
+}
+
+if (!API_KEY) {
+  throw new Error('Missing VITE_API_KEY. Define it in frontend/.env (or .env.local).')
+}
+
+const normalizedBaseUrl = BASE_URL.replace(/\/+$/, '')
+
+function buildUrl(path: string): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`
+  return `${normalizedBaseUrl}${normalizedPath}`
+}
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const token = localStorage.getItem(TOKEN_KEY)
@@ -31,7 +46,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     init.body = JSON.stringify(body)
   }
 
-  const response = await fetch(`${BASE_URL}${path}`, init)
+  const response = await fetch(buildUrl(path), init)
 
   if(!response.ok){
     let errorBody: unknown = null

@@ -27,6 +27,21 @@ const router = createRouter({
       component: () => import('@/modules/auth/pages/RegisterPage.vue'), // Importo a demanda o lazy-load
     },
     {
+      path: '/recover',
+      name: 'recover',
+      component: () => import('@/modules/auth/pages/RecoverPage.vue'),
+    },
+    {
+      path: '/verify',
+      name: 'verify',
+      component: () => import('@/modules/auth/pages/VerifyPage.vue'),
+    },
+    {
+      path: '/reset-password',
+      name: 'reset-password',
+      component: () => import('@/modules/auth/pages/ResetPasswordPage.vue'),
+    },
+    {
       path: '/homes',
       component: AppLayout,
       children: [
