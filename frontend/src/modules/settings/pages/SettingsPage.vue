@@ -3,6 +3,7 @@ import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import { useAuthStore } from '@/app/stores/auth'
+import { ApiError } from '@/services/api/client'
 import { EyeIcon, EyeSlashIcon } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
@@ -125,18 +126,31 @@ function cancelEditName() {
 
 //Delete home 
 const showDeleteModal = ref(false)
+const deletingHome = ref(false)
 
 function openDeleteModal() { showDeleteModal.value = true }
 function closeDeleteModal() { showDeleteModal.value = false }
 
 async function confirmDeleteHome() {
-  if (!dashboard.activeHomeId) return
+  const homeId = dashboard.activeHomeId
+  if (!homeId) return
+  deletingHome.value = true
   try {
-    await dashboard.deleteHome(dashboard.activeHomeId)
+    await dashboard.deleteHome(homeId)
     showDeleteModal.value = false
-    router.push('/homes')
+    showToastMsg('Hogar eliminado correctamente', 'success')
+    await new Promise(resolve => setTimeout(resolve, 1200))
+    if (router.currentRoute.value.path !== '/homes') {
+      router.push('/homes')
+    }
   } catch (e) {
-    console.error(e)
+    if (e instanceof ApiError) {
+      showToastMsg(`No se pudo eliminar el hogar (${e.status})`, 'error')
+    } else {
+      showToastMsg('No se pudo eliminar el hogar', 'error')
+    }
+  } finally {
+    deletingHome.value = false
   }
 }
 
@@ -216,13 +230,18 @@ const initials = computed(() => getInitials(displayName.value))
 //Lifecycle 
 onMounted(async () => {
   initProfileData()
-  if (dashboard.activeHomeId && dashboard.members.length === 0) {
+  if (dashboard.homes.length === 0) {
+    await dashboard.loadDashboard()
+  }
+  if (dashboard.activeHomeId) {
     await dashboard.loadMembers(dashboard.activeHomeId)
   }
 })
 
 watch(() => dashboard.activeHomeId, async (newId) => {
-  if (newId) await dashboard.loadMembers(newId)
+  if (newId) {
+    await dashboard.loadMembers(newId)
+  }
 })
 </script>
 
@@ -400,7 +419,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
             <p class="danger-desc">
               Al eliminar este hogar, se borrarán todas las habitaciones, dispositivos y rutinas asociadas. Esta acción no se puede deshacer.
             </p>
-            <button class="danger-btn" type="button" @click="openDeleteModal">
+            <button class="danger-btn" type="button" :disabled="!dashboard.activeHomeId" @click="openDeleteModal">
               Eliminar Hogar
             </button>
           </div>
@@ -457,7 +476,9 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 
           <div class="modal-actions">
             <button class="cancel-btn cancel-btn--gray" type="button" @click="closeDeleteModal">Cancelar</button>
-            <button class="danger-btn danger-btn--confirm" type="button" @click="confirmDeleteHome">Sí, eliminar</button>
+            <button class="danger-btn danger-btn--confirm" type="button" :disabled="deletingHome" @click="confirmDeleteHome">
+              {{ deletingHome ? 'Eliminando...' : 'Sí, eliminar' }}
+            </button>
           </div>
         </div>
       </div>

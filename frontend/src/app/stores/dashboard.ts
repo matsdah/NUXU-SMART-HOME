@@ -179,6 +179,10 @@ function mapRoutineIcon(name: string): Routine['icon'] {
   return 'movie'
 }
 
+function wait(ms: number): Promise<void> {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
 /* Store de dashboard */
 
 export const useDashboardStore = defineStore('dashboard', () => {
@@ -322,15 +326,136 @@ export const useDashboardStore = defineStore('dashboard', () => {
     home.name = name
   }
 
+  async function clearHomeResources(homeId: string): Promise<void> {
+    let homeMembers: ApiMember[] = []
+    let homeRooms: ApiRoom[] = []
+    try {
+      ;[homeMembers, homeRooms] = await Promise.all([
+        api.get<ApiMember[]>(`/homes/${homeId}/share`),
+        api.get<ApiRoom[]>(`/homes/${homeId}/rooms`),
+      ])
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        return
+      }
+      throw err
+    }
+
+    if (homeMembers.length > 0) {
+      try {
+        await api.delete(`/homes/${homeId}/share`, {
+          emails: homeMembers.map(member => member.email),
+        })
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.status !== 404) {
+          throw err
+        }
+      }
+    }
+
+    for (const room of homeRooms) {
+      let roomDevices: ApiDevice[] = []
+      try {
+        roomDevices = await api.get<ApiDevice[]>(`/rooms/${room.id}/devices`)
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.status !== 404) {
+          throw err
+        }
+      }
+      await Promise.all(roomDevices.map(async (device) => {
+        try {
+          await api.delete(`/devices/${device.id}`)
+        } catch (err) {
+          if (!(err instanceof ApiError) || err.status !== 404) {
+            throw err
+          }
+        }
+      }))
+      try {
+        await api.delete(`/rooms/${room.id}`)
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.status !== 404) {
+          throw err
+        }
+      }
+    }
+  }
+
+  function finalizeHomeDeletion(homeId: string, updatedHomes?: ApiHome[]): void {
+    const wasActiveDeleted = activeHomeId.value === homeId
+    const nextHomes = updatedHomes ?? homes.value.filter(h => h.id !== homeId)
+    homes.value = nextHomes
+
+    const activeStillExists = nextHomes.some(h => h.id === activeHomeId.value)
+    if (!activeStillExists) {
+      activeHomeId.value = nextHomes[0]?.id ?? ''
+      members.value = []
+    } else if (wasActiveDeleted) {
+      members.value = []
+    }
+
+    if (!activeHomeId.value) {
+      rooms.value = []
+      devices.value = []
+      routines.value = []
+      activeRoomId.value = ''
+    }
+  }
+
+  async function reconcileDeletedHome(homeId: string): Promise<boolean> {
+    const attempts = 4
+    for (let i = 0; i < attempts; i += 1) {
+      const serverHomes = await api.get<ApiHome[]>('/homes')
+      const homeStillExists = serverHomes.some(h => h.id === homeId)
+      if (!homeStillExists) {
+        finalizeHomeDeletion(homeId, serverHomes)
+        return true
+      }
+      if (i < attempts - 1) {
+        await wait(250)
+      }
+    }
+    return false
+  }
+
   async function deleteHome(homeId: string): Promise<void> {
-    await api.delete(`/homes/${homeId}`)
-    const idx = homes.value.findIndex(h => h.id === homeId)
-    if (idx !== -1) {
-      homes.value.splice(idx, 1)
+    try {
+      try {
+        await api.delete(`/homes/${homeId}`)
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          finalizeHomeDeletion(homeId)
+          return
+        }
+        if (!(err instanceof ApiError) || err.status !== 409) {
+          throw err
+        }
+        await clearHomeResources(homeId)
+        try {
+          await api.delete(`/homes/${homeId}`)
+        } catch (secondErr) {
+          if (secondErr instanceof ApiError && secondErr.status === 404) {
+            finalizeHomeDeletion(homeId)
+            return
+          }
+          throw secondErr
+        }
+      }
+    } catch (err) {
+      if (err instanceof ApiError) {
+        try {
+          const reconciled = await reconcileDeletedHome(homeId)
+          if (reconciled) {
+            return
+          }
+        } catch {
+          // Si no podemos reconciliar contra backend, propagamos el error original.
+        }
+      }
+      throw err
     }
-    if (activeHomeId.value === homeId) {
-      activeHomeId.value = homes.value[0]?.id ?? ''
-    }
+
+    finalizeHomeDeletion(homeId)
   }
 
   async function createHome(name: string): Promise<void> {

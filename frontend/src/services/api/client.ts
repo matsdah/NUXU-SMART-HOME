@@ -29,6 +29,18 @@ function buildUrl(path: string): string {
   return `${normalizedBaseUrl}${normalizedPath}`
 }
 
+function parseResponseBody(rawBody: string, contentType: string): unknown {
+  if (!rawBody.trim()) {
+    return undefined
+  }
+
+  if (contentType.includes('application/json')) {
+    return JSON.parse(rawBody)
+  }
+
+  return rawBody
+}
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const token = localStorage.getItem(TOKEN_KEY)
   const headers: Record<string, string> = {
@@ -47,24 +59,25 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
   }
 
   const response = await fetch(buildUrl(path), init)
+  const contentType = (response.headers.get('content-type') ?? '').toLowerCase()
 
   if(!response.ok){
+    const rawErrorBody = await response.text()
     let errorBody: unknown = null
-
-    try{
-      errorBody = await response.json()
-    }catch{
-      // ?
+    if (rawErrorBody) {
+      try {
+        errorBody = parseResponseBody(rawErrorBody, contentType)
+      } catch {
+        errorBody = rawErrorBody
+      }
     }
 
     throw new ApiError(response.status, `${method} ${path} → ${response.status}`, errorBody)
   }
 
-  if(response.status === 204){
-    return undefined as T
-  }
-  
-  return response.json() as Promise<T>
+  const rawBody = await response.text()
+  const parsedBody = parseResponseBody(rawBody, contentType)
+  return parsedBody as T
 }
 
 export const api = {
