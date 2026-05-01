@@ -1,37 +1,38 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
-import { api, ApiError } from '@/services/api/client'
+import { useRoute, useRouter } from 'vue-router'
+import { LockClosedIcon, UserIcon } from '@heroicons/vue/24/outline'
 import AuthLayout from '../components/AuthLayout.vue'
 
+const route = useRoute()
+const initialEmail = typeof route.query.email === 'string' ? route.query.email : ''
+
+const email = ref(initialEmail)
 const password = ref('')
 const confirm = ref('')
 const error = ref('')
-const loading = ref(false)
 const showPass = ref(false)
 const showConfirm = ref(false)
+const step = ref<'email' | 'password'>(initialEmail ? 'password' : 'email')
 
 const router = useRouter()
 
-async function handleSubmit() {
+function handleEmailStep() {
+  error.value = ''
+  if (!email.value.trim()) {
+    error.value = 'Ingresá tu email para continuar.'
+    return
+  }
+  step.value = 'password'
+}
+
+function handlePasswordStep() {
   error.value = ''
   if (password.value !== confirm.value) {
     error.value = 'Las contraseñas no coinciden.'
     return
   }
-  loading.value = true
-  try {
-    await api.post('/users/reset-password', { password: password.value })
-    router.push({ name: 'login' })
-  } catch (e) {
-    if (e instanceof ApiError) {
-      error.value = `Error ${e.status}. Intentá de nuevo.`
-    } else {
-      error.value = 'Error inesperado. Intentá de nuevo.'
-    }
-  } finally {
-    loading.value = false
-  }
+  router.push({ name: 'login' })
 }
 </script>
 
@@ -39,21 +40,50 @@ async function handleSubmit() {
   <AuthLayout>
 
     <div class="reset__header">
-      <h1 class="reset__title">Nueva contraseña</h1>
-      <p class="reset__subtitle">Ingresá tu nueva contraseña</p>
+      <h1 class="reset__title">{{ step === 'email' ? 'Recuperar contraseña' : 'Nueva contraseña' }}</h1>
+      <p class="reset__subtitle">
+        {{ step === 'email' ? 'Ingresá tu email para continuar' : 'Elegí tu nueva contraseña' }}
+      </p>
     </div>
 
     <div v-if="error" class="reset__error" role="alert">{{ error }}</div>
 
-    <form class="reset__form" @submit.prevent="handleSubmit" novalidate>
+    <form v-if="step === 'email'" class="reset__form" @submit.prevent="handleEmailStep" novalidate>
 
       <div class="field">
+        <span class="field__icon" aria-hidden="true">
+          <UserIcon style="width: 16px; height: 16px;" />
+        </span>
+        <input
+          v-model="email"
+          type="email"
+          id="reset-email"
+          placeholder=" "
+          autocomplete="email"
+          required
+          class="field__input field__input--with-icon"
+        />
+        <label for="reset-email" class="field__label field__label--with-icon">Email</label>
+      </div>
+
+      <button type="submit" class="auth-submit">
+        <span>Continuar</span>
+      </button>
+
+    </form>
+
+    <form v-else class="reset__form" @submit.prevent="handlePasswordStep" novalidate>
+
+      <div class="field">
+        <span class="field__icon" aria-hidden="true">
+          <LockClosedIcon style="width: 16px; height: 16px;" />
+        </span>
         <input v-model="password" :type="showPass ? 'text' : 'password'"
           id="reset-password" placeholder=" " autocomplete="new-password"
-          required class="field__input field__input--pass" />
-        <label for="reset-password" class="field__label">Nueva contraseña</label>
+          required class="field__input field__input--with-icon field__input--pass" />
+        <label for="reset-password" class="field__label field__label--with-icon">Nueva contraseña</label>
         <button type="button" class="field__eye"
-          :aria-label="showPass ? 'Ocultar' : 'Mostrar'"
+          :aria-label="showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'"
           @click="showPass = !showPass">
           <svg v-if="!showPass" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -68,12 +98,15 @@ async function handleSubmit() {
       </div>
 
       <div class="field">
+        <span class="field__icon" aria-hidden="true">
+          <LockClosedIcon style="width: 16px; height: 16px;" />
+        </span>
         <input v-model="confirm" :type="showConfirm ? 'text' : 'password'"
           id="reset-confirm" placeholder=" " autocomplete="new-password"
-          required class="field__input field__input--pass" />
-        <label for="reset-confirm" class="field__label">Repetir contraseña</label>
+          required class="field__input field__input--with-icon field__input--pass" />
+        <label for="reset-confirm" class="field__label field__label--with-icon">Confirmar contraseña</label>
         <button type="button" class="field__eye"
-          :aria-label="showConfirm ? 'Ocultar' : 'Mostrar'"
+          :aria-label="showConfirm ? 'Ocultar contraseña' : 'Mostrar contraseña'"
           @click="showConfirm = !showConfirm">
           <svg v-if="!showConfirm" width="16" height="16" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -87,13 +120,8 @@ async function handleSubmit() {
         </button>
       </div>
 
-      <button type="submit" class="auth-submit" :disabled="loading">
-        <svg v-if="loading" width="20" height="20" viewBox="0 0 24 24" fill="none"
-          aria-hidden="true" class="spinner">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"
-            stroke-dasharray="60" stroke-dashoffset="20"/>
-        </svg>
-        <span v-else>Cambiar contraseña</span>
+      <button type="submit" class="auth-submit">
+        <span>Confirmar cambios</span>
       </button>
 
     </form>
@@ -162,8 +190,20 @@ async function handleSubmit() {
   transition: border-color 0.2s;
 }
 
+.field__input--with-icon { padding-left: 2.5rem; }
 .field__input--pass { padding-right: 2.75rem; }
 .field__input:focus { border-color: var(--color-brown); }
+
+.field__icon {
+  position: absolute;
+  left: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
 
 .field__label {
   position: absolute;
@@ -176,6 +216,8 @@ async function handleSubmit() {
   pointer-events: none;
   transition: top 0.18s ease, font-size 0.18s ease, color 0.18s ease;
 }
+
+.field__label--with-icon { left: 2.5rem; }
 
 .field__input:focus ~ .field__label,
 .field__input:not(:placeholder-shown) ~ .field__label {
@@ -216,11 +258,7 @@ async function handleSubmit() {
   justify-content: center;
   transition: background-color 0.2s;
 }
-.auth-submit:hover:not(:disabled) { background-color: #7a5240; }
-.auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
-
-@keyframes spin { to { transform: rotate(360deg); } }
-.spinner { animation: spin 0.9s linear infinite; }
+.auth-submit:hover { background-color: #7a5240; }
 
 .auth-footer {
   font-size: 0.85rem;

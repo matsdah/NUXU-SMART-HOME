@@ -1,28 +1,20 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { api, ApiError } from '@/services/api/client'
+import { useRouter } from 'vue-router'
 import AuthLayout from '../components/AuthLayout.vue'
 
 const email = ref('')
 const error = ref('')
-const loading = ref(false)
-const sent = ref(false)
+const router = useRouter()
 
-async function handleSubmit() {
+function handleSubmit() {
   error.value = ''
-  loading.value = true
-  try {
-    await api.post('/users/recover', { email: email.value })
-    sent.value = true
-  } catch (e) {
-    if (e instanceof ApiError) {
-      error.value = `Error ${e.status}. Intentá de nuevo.`
-    } else {
-      error.value = 'Error inesperado. Intentá de nuevo.'
-    }
-  } finally {
-    loading.value = false
+  const normalizedEmail = email.value.trim()
+  if (!normalizedEmail) {
+    error.value = 'Ingresá tu email para continuar.'
+    return
   }
+  router.push({ name: 'reset-password', query: { email: normalizedEmail } })
 }
 </script>
 
@@ -31,16 +23,12 @@ async function handleSubmit() {
 
     <div class="recover__header">
       <h1 class="recover__title">Recuperar contraseña</h1>
-      <p class="recover__subtitle">Te enviamos un código a tu email</p>
-    </div>
-
-    <div v-if="sent" class="recover__success" role="status">
-      Revisá tu email, te enviamos un código de recuperación.
+      <p class="recover__subtitle">Ingresá tu email para continuar</p>
     </div>
 
     <div v-if="error" class="recover__error" role="alert">{{ error }}</div>
 
-    <form v-if="!sent" class="recover__form" @submit.prevent="handleSubmit" novalidate>
+    <form class="recover__form" @submit.prevent="handleSubmit" novalidate>
 
       <div class="field">
         <input v-model="email" type="email" id="rec-email" placeholder=" "
@@ -48,13 +36,8 @@ async function handleSubmit() {
         <label for="rec-email" class="field__label">Email</label>
       </div>
 
-      <button type="submit" class="auth-submit" :disabled="loading">
-        <svg v-if="loading" width="20" height="20" viewBox="0 0 24 24" fill="none"
-          aria-hidden="true" class="spinner">
-          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"
-            stroke-dasharray="60" stroke-dashoffset="20"/>
-        </svg>
-        <span v-else>Enviar código</span>
+      <button type="submit" class="auth-submit">
+        <span>Continuar</span>
       </button>
 
     </form>
@@ -83,18 +66,6 @@ async function handleSubmit() {
 .recover__subtitle {
   font-size: 0.875rem;
   color: var(--color-text-muted);
-  font-weight: 300;
-}
-
-.recover__success {
-  width: 100%;
-  padding: 0.6rem 0.9rem;
-  background: rgba(60, 140, 80, 0.1);
-  border: 1px solid rgba(60, 140, 80, 0.3);
-  border-radius: 12px;
-  color: #2d6e3e;
-  font-size: 0.85rem;
-  text-align: center;
   font-weight: 300;
 }
 
@@ -172,11 +143,7 @@ async function handleSubmit() {
   justify-content: center;
   transition: background-color 0.2s;
 }
-.auth-submit:hover:not(:disabled) { background-color: #7a5240; }
-.auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
-
-@keyframes spin { to { transform: rotate(360deg); } }
-.spinner { animation: spin 0.9s linear infinite; }
+.auth-submit:hover { background-color: #7a5240; }
 
 .auth-footer {
   font-size: 0.85rem;

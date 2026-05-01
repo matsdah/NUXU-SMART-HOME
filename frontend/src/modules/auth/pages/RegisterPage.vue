@@ -18,7 +18,7 @@ async function handleSubmit() {
   loading.value = true
   try {
     await api.post('/users/register', { name: name.value, email: email.value, password: password.value })
-    router.push({ name: 'verify' })
+    router.push({ name: 'verify', query: { email: email.value.trim() } })
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description

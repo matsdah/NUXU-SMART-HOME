@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/app/stores/auth'
 import { ApiError } from '@/services/api/client'
-import { UserIcon } from '@heroicons/vue/24/outline'
+import { LockClosedIcon, UserIcon } from '@heroicons/vue/24/outline'
 import AuthLayout from '../components/AuthLayout.vue'
 
 
@@ -50,24 +50,29 @@ async function handleSubmit() {
 
         <!-- Email / Usuario -->
         <div class="field">
+          <span class="field__icon" aria-hidden="true">
+            <UserIcon style="width: 16px; height: 16px;" />
+          </span>
           <input
             v-model="email"
             type="email"
-            placeholder="Usuario"
+            id="login-email"
+            placeholder=" "
             autocomplete="email"
             required
-            class="field__input"
+            class="field__input field__input--with-icon"
           />
-            <span class="field__icon" aria-hidden="true">
-              <UserIcon style="width: 16px; height: 16px;" />
-            </span>
+          <label for="login-email" class="field__label field__label--with-icon">Usuario</label>
         </div>
 
       <div class="field">
+        <span class="field__icon" aria-hidden="true">
+          <LockClosedIcon style="width: 16px; height: 16px;" />
+        </span>
         <input v-model="password" :type="showPass ? 'text' : 'password'"
           id="login-password" placeholder=" " autocomplete="current-password"
-          required class="field__input field__input--pass" />
-        <label for="login-password" class="field__label">Contraseña</label>
+          required class="field__input field__input--with-icon field__input--pass" />
+        <label for="login-password" class="field__label field__label--with-icon">Contraseña</label>
         <button type="button" class="field__eye"
           :aria-label="showPass ? 'Ocultar contraseña' : 'Mostrar contraseña'"
           @click="showPass = !showPass">
@@ -178,8 +183,20 @@ async function handleSubmit() {
   transition: border-color 0.2s;
 }
 
+.field__input--with-icon { padding-left: 2.5rem; }
 .field__input--pass { padding-right: 2.75rem; }
 .field__input:focus { border-color: var(--color-brown); }
+
+.field__icon {
+  position: absolute;
+  left: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
 
 .field__label {
   position: absolute;
@@ -192,6 +209,8 @@ async function handleSubmit() {
   pointer-events: none;
   transition: top 0.18s ease, font-size 0.18s ease, color 0.18s ease;
 }
+
+.field__label--with-icon { left: 2.5rem; }
 
 .field__input:focus ~ .field__label,
 .field__input:not(:placeholder-shown) ~ .field__label {
