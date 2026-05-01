@@ -4,6 +4,8 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/app/stores/auth'
 import { ApiError } from '@/services/api/client'
 import { UserIcon } from '@heroicons/vue/24/outline'
+import AuthLayout from '../components/AuthLayout.vue'
+
 
 const email = ref('')
 const password = ref('')
@@ -48,9 +50,6 @@ async function handleSubmit() {
 
         <!-- Email / Usuario -->
         <div class="field">
-            <span class="field__icon" aria-hidden="true">
-              <UserIcon style="width: 16px; height: 16px;" />
-            </span>
           <input
             v-model="email"
             type="email"
@@ -59,6 +58,9 @@ async function handleSubmit() {
             required
             class="field__input"
           />
+            <span class="field__icon" aria-hidden="true">
+              <UserIcon style="width: 16px; height: 16px;" />
+            </span>
         </div>
 
       <div class="field">
