@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useRoute } from 'vue-router'
 import { useAuthStore } from '@/app/stores/auth'
 import { ApiError } from '@/services/api/client'
+import { UserIcon } from '@heroicons/vue/24/outline'
 
 const email = ref('')
 const password = ref('')
@@ -80,11 +81,9 @@ async function handleSubmit() {
 
         <!-- Email / Usuario -->
         <div class="field">
-          <span class="field__icon" aria-hidden="true">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
-            </svg>
-          </span>
+            <span class="field__icon" aria-hidden="true">
+              <UserIcon style="width: 16px; height: 16px;" />
+            </span>
           <input
             v-model="email"
             type="email"
