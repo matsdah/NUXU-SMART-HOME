@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import { useAuthStore } from '@/app/stores/auth'
 import { ApiError } from '@/services/api/client'
-import { EyeIcon, EyeSlashIcon } from '@heroicons/vue/24/outline'
 
 const router = useRouter()
 const dashboard = useDashboardStore()
@@ -47,32 +46,25 @@ function getInitials(name: string): string {
 const profileData = ref({
   name: '',
   email: '',
-  currentPassword: '',
-  newPassword: '',
 })
-const showCurrentPassword = ref(false)
-const showNewPassword = ref(false)
 const profileSaving = ref(false)
 
 const originalProfile = ref({ name: '', email: '' })
 
 const hasProfileChanges = computed(() =>
   profileData.value.name !== originalProfile.value.name ||
-  profileData.value.email !== originalProfile.value.email ||
-  !!profileData.value.newPassword
+  profileData.value.email !== originalProfile.value.email
 )
 
 const canSaveProfile = computed(() =>
-  hasProfileChanges.value && !!profileData.value.currentPassword && !profileSaving.value
+  hasProfileChanges.value && !profileSaving.value
 )
 
 function initProfileData() {
   const name = auth.user?.name ?? ''
   const email = auth.user?.email ?? ''
-  profileData.value = { name, email, currentPassword: '', newPassword: '' }
+  profileData.value = { name, email }
   originalProfile.value = { name, email }
-  showCurrentPassword.value = false
-  showNewPassword.value = false
 }
 
 async function saveProfile() {
@@ -82,12 +74,8 @@ async function saveProfile() {
     await auth.updateProfile({
       name: profileData.value.name,
       email: profileData.value.email,
-      currentPassword: profileData.value.currentPassword,
-      newPassword: profileData.value.newPassword || undefined,
     })
     originalProfile.value = { name: profileData.value.name, email: profileData.value.email }
-    profileData.value.currentPassword = ''
-    profileData.value.newPassword = ''
     showToastMsg('Perfil actualizado correctamente')
   } catch (e) {
     showToastMsg('Error al actualizar el perfil', 'error')
@@ -95,6 +83,10 @@ async function saveProfile() {
   } finally {
     profileSaving.value = false
   }
+}
+
+function goToRecoverPassword() {
+  router.push('/recover')
 }
 
 //Home name 
@@ -269,45 +261,6 @@ watch(() => dashboard.activeHomeId, async (newId) => {
                 <input v-model="profileData.email" class="form-input" type="email" />
                 <span class="form-hint">Tu dirección de correo electrónico</span>
               </div>
-
-              <div class="form-group">
-                <label class="form-label">Contraseña actual</label>
-                <div class="password-input-wrapper">
-                  <input
-                    v-model="profileData.currentPassword"
-                    class="form-input"
-                    :type="showCurrentPassword ? 'text' : 'password'"
-                  />
-                  <button
-                    class="password-toggle"
-                    type="button"
-                    @click="showCurrentPassword = !showCurrentPassword"
-                  >
-                     <EyeSlashIcon v-if="showCurrentPassword" class="password-toggle-icon" />
-                     <EyeIcon v-else class="password-toggle-icon" />
-                  </button>
-                </div>
-                <span class="form-hint">Requerida para confirmar cambios</span>
-              </div>
-              <div class="form-group">
-                <label class="form-label">Nueva contraseña</label>
-                <div class="password-input-wrapper">
-                  <input
-                    v-model="profileData.newPassword"
-                    class="form-input"
-                    :type="showNewPassword ? 'text' : 'password'"
-                  />
-                  <button
-                    class="password-toggle"
-                    type="button"
-                    @click="showNewPassword = !showNewPassword"
-                  >
-                    <EyeSlashIcon v-if="showNewPassword" class="password-toggle-icon" />
-                    <EyeIcon v-else class="password-toggle-icon" />
-                  </button>
-                </div>
-                <span class="form-hint">Dejá en blanco si no querés cambiarla</span>
-              </div>
             </div>
 
             <div class="profile-actions">
@@ -318,6 +271,19 @@ watch(() => dashboard.activeHomeId, async (newId) => {
                 @click="saveProfile"
               >
                 {{ profileSaving ? 'Guardando...' : 'Guardar' }}
+              </button>
+              <button class="change-password-btn" type="button" @click="goToRecoverPassword">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6.4 7.4A8 8 0 0 1 18.6 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M18.6 8V5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M18.6 8h-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M17.6 16.6A8 8 0 0 1 5.4 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M5.4 16v3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M5.4 16h3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                  <rect x="9" y="11" width="6" height="6" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.7" />
+                  <path d="M10.8 11V9.8a1.2 1.2 0 1 1 2.4 0V11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                </svg>
+                <span>Cambiar Contraseña</span>
               </button>
             </div>
           </div>
@@ -816,38 +782,6 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   margin-top: 0.35rem;
 }
 
-.password-input-wrapper {
-  position: relative;
-}
-
-.password-input-wrapper .form-input {
-  padding-right: 2.5rem;
-}
-
-.password-toggle {
-  position: absolute;
-  right: 0.6rem;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  background: none;
-  border: none;
-  cursor: pointer;
-  color: rgba(42, 40, 37, 0.5);
-  transition: color 0.2s ease;
-}
-
-.password-toggle:hover {
-  color: rgba(42, 40, 37, 0.8);
-}
-
-.password-toggle-icon {
-  width: 18px;
-  height: 18px;
-}
 .profile-fields {
   display: flex;
   flex-direction: column;
@@ -858,6 +792,9 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   margin-top: 1.25rem;
   padding-top: 1rem;
   border-top: 1px solid rgba(42, 40, 37, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
 }
 
 .profile-actions .save-btn {
@@ -877,6 +814,34 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 .profile-actions .save-btn:disabled {
   background: rgba(45, 106, 79, 0.5);
   cursor: not-allowed;
+}
+
+.change-password-btn {
+  width: 100%;
+  padding: 0.7rem;
+  border-radius: 10px;
+  border: 1px solid rgba(45, 106, 79, 0.35);
+  background: rgba(45, 106, 79, 0.08);
+  color: #2d6a4f;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+}
+
+.change-password-btn:hover {
+  background: rgba(45, 106, 79, 0.14);
+  border-color: rgba(45, 106, 79, 0.55);
+}
+
+.change-password-btn svg {
+  width: 24px;
+  height: 24px;
 }
 
 .create-home-btn {

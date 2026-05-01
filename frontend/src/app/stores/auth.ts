@@ -34,7 +34,7 @@ export const useAuthStore = defineStore('auth', () => {
   async function updateProfile(data: {
     name: string
     email: string
-    currentPassword: string
+    currentPassword?: string
     newPassword?: string
   }): Promise<void> {
     await api.put('/users/profile', { name: data.name, email: data.email })
