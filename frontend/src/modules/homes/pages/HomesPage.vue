@@ -1,19 +1,39 @@
 <script setup lang="ts">
+<<<<<<< HEAD
 import { ref } from 'vue'
+=======
+import { computed, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+>>>>>>> 902b8de366bfb1cbf8a6dcc87951ef5cc02879a8
 import { useHomesDashboard } from '@/modules/homes/composables/useHomesDashboard'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import type { Device } from '@/app/stores/dashboard'
+import { ApiError } from '@/services/api/client'
 import DeviceModal from '@/modules/devices/components/DeviceModal.vue'
 import AddDeviceModal from '@/modules/devices/components/AddDeviceModal.vue'
+import AddRoomModal from '@/modules/homes/components/AddRoomModal.vue'
+import DeleteRoomConfirmModal from '@/modules/homes/components/DeleteRoomConfirmModal.vue'
+import EditRoomModal from '@/modules/homes/components/EditRoomModal.vue'
 
-const { rooms, routines, activeRoomId, filteredDevices,
-  loading, error, pendingActions, toggleDevice } = useHomesDashboard()
+const { rooms, routines, activeHomeId, activeRoomId, loading, error, pendingActions } = useHomesDashboard()
 
 const store = useDashboardStore()
 
 const showAddDevice = ref(false)
+const showAddRoom = ref(false)
+const showDeleteRoomConfirm = ref(false)
+const showEditRoomModal = ref(false)
 const selectedDevice = ref<Device | null>(null)
 const selectedRoomName = ref('')
+const activeRoomFilter = ref<'all' | string>('all')
+const allDevices = ref<Device[]>([])
+const loadingDevices = ref(false)
+const roomActionError = ref('')
+const pendingRoomDeletion = ref<{ id: string; name: string } | null>(null)
+const deletingRoom = ref(false)
+const pendingRoomEdition = ref<{ id: string; name: string } | null>(null)
+const renamingRoom = ref(false)
+const editRoomError = ref('')
 
 function openDeviceModal(device: Device) {
   selectedDevice.value = device
@@ -29,8 +49,178 @@ type CreatedDevicePayload = { deviceId: string; typeName: string }
 async function onDeviceCreated(payload: CreatedDevicePayload) {
   showAddDevice.value = false
 
+<<<<<<< HEAD
   await store.loadDevices(store.activeRoomId)
+=======
+  const isAirConditioner = payload.typeName.toLowerCase().includes('aire acondicionado')
+  if (isAirConditioner) {
+    await router.push({ name: 'device-ac-controls', params: { deviceId: payload.deviceId } })
+    return
+  }
+
+  await refreshHomeDevices()
+>>>>>>> 902b8de366bfb1cbf8a6dcc87951ef5cc02879a8
 }
+
+const displayedDevices = computed(() => {
+  if (activeRoomFilter.value === 'all') {
+    return allDevices.value
+  }
+  return allDevices.value.filter(device => device.roomId === activeRoomFilter.value)
+})
+
+async function refreshHomeDevices() {
+  if (!activeHomeId.value) {
+    allDevices.value = []
+    return
+  }
+
+  loadingDevices.value = true
+  try {
+    allDevices.value = await store.fetchHomeDevices(activeHomeId.value)
+  } finally {
+    loadingDevices.value = false
+  }
+}
+
+function selectAllRooms() {
+  roomActionError.value = ''
+  activeRoomFilter.value = 'all'
+}
+
+function selectRoom(roomId: string) {
+  roomActionError.value = ''
+  activeRoomFilter.value = roomId
+  activeRoomId.value = roomId
+}
+
+async function onToggleDevice(id: string) {
+  await store.toggleDevice(id)
+  await refreshHomeDevices()
+}
+
+async function onRoomCreated() {
+  showAddRoom.value = false
+  activeRoomFilter.value = store.activeRoomId || 'all'
+  await refreshHomeDevices()
+}
+
+function requestRoomRename() {
+  roomActionError.value = ''
+  editRoomError.value = ''
+  if (activeRoomFilter.value === 'all') {
+    roomActionError.value = 'Seleccioná una habitación para editar.'
+    return
+  }
+
+  const room = store.rooms.find(currentRoom => currentRoom.id === activeRoomFilter.value)
+  if (!room) {
+    roomActionError.value = 'No se encontró la habitación seleccionada.'
+    return
+  }
+
+  pendingRoomEdition.value = { id: room.id, name: room.name }
+  showEditRoomModal.value = true
+}
+
+function closeEditRoomModal() {
+  if (renamingRoom.value) {
+    return
+  }
+  showEditRoomModal.value = false
+  pendingRoomEdition.value = null
+  editRoomError.value = ''
+}
+
+async function confirmRoomRename(name: string) {
+  if (!pendingRoomEdition.value) {
+    return
+  }
+
+  renamingRoom.value = true
+  editRoomError.value = ''
+  try {
+    await store.updateRoomName(pendingRoomEdition.value.id, name)
+    showEditRoomModal.value = false
+    pendingRoomEdition.value = null
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const msg = (e.body as { error?: { description?: string } })?.error?.description
+      editRoomError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      return
+    }
+    editRoomError.value = e instanceof Error ? e.message : 'Error inesperado. Intentá de nuevo.'
+  } finally {
+    renamingRoom.value = false
+  }
+}
+
+function requestRoomDeletion() {
+  roomActionError.value = ''
+  if (activeRoomFilter.value === 'all') {
+    roomActionError.value = 'Seleccioná una habitación para eliminar.'
+    return
+  }
+
+  const room = store.rooms.find(currentRoom => currentRoom.id === activeRoomFilter.value)
+  if (!room) {
+    roomActionError.value = 'No se encontró la habitación seleccionada.'
+    return
+  }
+
+  pendingRoomDeletion.value = { id: room.id, name: room.name }
+  showDeleteRoomConfirm.value = true
+}
+
+function closeDeleteRoomConfirm() {
+  if (deletingRoom.value) {
+    return
+  }
+  showDeleteRoomConfirm.value = false
+  pendingRoomDeletion.value = null
+}
+
+async function confirmRoomDeletion() {
+  if (!pendingRoomDeletion.value) {
+    return
+  }
+
+  deletingRoom.value = true
+  try {
+    await store.deleteRoom(pendingRoomDeletion.value.id)
+    activeRoomFilter.value = store.activeRoomId || 'all'
+    showDeleteRoomConfirm.value = false
+    pendingRoomDeletion.value = null
+    await refreshHomeDevices()
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const msg = (e.body as { error?: { description?: string } })?.error?.description
+      roomActionError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      return
+    }
+    roomActionError.value = 'Error inesperado. Intentá de nuevo.'
+  } finally {
+    deletingRoom.value = false
+  }
+}
+
+watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
+  const previousHomeId = previousValue?.[1]
+
+  if (!homeId) {
+    allDevices.value = []
+    activeRoomFilter.value = 'all'
+    return
+  }
+
+  if (homeId !== previousHomeId) {
+    activeRoomFilter.value = 'all'
+  }
+
+  if (!isLoading) {
+    await refreshHomeDevices()
+  }
+}, { immediate: true })
 </script>
 
 <template>
@@ -40,24 +230,53 @@ async function onDeviceCreated(payload: CreatedDevicePayload) {
         <p class="section-label">Habitaciones</p>
         <div class="room-tabs">
           <button
+            type="button"
+            class="room-tab"
+            :class="{ 'room-tab--active': activeRoomFilter === 'all' }"
+            @click="selectAllRooms"
+          >
+            Todos
+          </button>
+          <button
             v-for="room in rooms" :key="room.id" type="button"
-            class="room-tab" :class="{ 'room-tab--active': room.id === activeRoomId }"
-            @click="activeRoomId = room.id"
+            class="room-tab" :class="{ 'room-tab--active': room.id === activeRoomFilter }"
+            @click="selectRoom(room.id)"
           >
             {{ room.name }}
           </button>
-          <button class="room-tab room-tab--icon" type="button" aria-label="Agregar habitación">
+          <button
+            class="room-tab room-tab--icon"
+            type="button"
+            aria-label="Agregar habitación"
+            @click="showAddRoom = true"
+          >
             +
           </button>
-          <button class="room-tab room-tab--icon" type="button" aria-label="Eliminar habitación">
+          <button
+            class="room-tab room-tab--icon"
+            type="button"
+            aria-label="Eliminar habitación"
+            :disabled="rooms.length === 0 || activeRoomFilter === 'all'"
+            @click="requestRoomDeletion"
+          >
             <span aria-hidden="true">&#128465;</span>
+          </button>
+          <button
+            class="room-tab room-tab--icon"
+            type="button"
+            aria-label="Editar habitación"
+            :disabled="rooms.length === 0 || activeRoomFilter === 'all'"
+            @click="requestRoomRename"
+          >
+            <span aria-hidden="true">&#9998;</span>
           </button>
         </div>
       </div>
     </div>
 
+    <div v-if="roomActionError" class="notice notice--error" role="alert">{{ roomActionError }}</div>
     <div v-if="error" class="notice notice--error" role="alert">{{ error }}</div>
-    <div v-else-if="loading" class="notice">Cargando dashboard...</div>
+    <div v-else-if="loading || loadingDevices" class="notice">Cargando dashboard...</div>
 
     <div v-else class="homes__content">
       <section class="panel panel--devices">
@@ -68,7 +287,7 @@ async function onDeviceCreated(payload: CreatedDevicePayload) {
 
         <div class="device-grid">
           <article
-            v-for="device in filteredDevices" :key="device.id"
+            v-for="device in displayedDevices" :key="device.id"
             class="device-card" :class="{ 'device-card--accent': device.tone === 'sage' }"
             @click="openDeviceModal(device)"
           >
@@ -122,7 +341,7 @@ async function onDeviceCreated(payload: CreatedDevicePayload) {
                 <input
                   type="checkbox" :checked="device.isOn"
                   :disabled="pendingActions.has(device.id)"
-                  @change="toggleDevice(device.id)"
+                  @change="onToggleDevice(device.id)"
                 />
                 <span class="switch__track"></span>
               </label>
@@ -194,6 +413,29 @@ async function onDeviceCreated(payload: CreatedDevicePayload) {
       @created="onDeviceCreated"
     />
 
+    <AddRoomModal
+      v-if="showAddRoom"
+      @close="showAddRoom = false"
+      @created="onRoomCreated"
+    />
+
+    <DeleteRoomConfirmModal
+      v-if="showDeleteRoomConfirm && pendingRoomDeletion"
+      :room-name="pendingRoomDeletion.name"
+      :loading="deletingRoom"
+      @close="closeDeleteRoomConfirm"
+      @confirm="confirmRoomDeletion"
+    />
+
+    <EditRoomModal
+      v-if="showEditRoomModal && pendingRoomEdition"
+      :room-name="pendingRoomEdition.name"
+      :loading="renamingRoom"
+      :error="editRoomError"
+      @close="closeEditRoomModal"
+      @updated="confirmRoomRename"
+    />
+
   </section>
 </template>
 
@@ -240,7 +482,7 @@ async function onDeviceCreated(payload: CreatedDevicePayload) {
   gap: 0.6rem;
   overflow-x: auto;
   scroll-behavior: smooth;
-  background: rgba(255, 255, 255, 0.55);
+  background: #9e9b8e;
   border-radius: 999px;
   padding: 0.45rem 0.7rem;
   box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.08);
@@ -275,6 +517,11 @@ async function onDeviceCreated(payload: CreatedDevicePayload) {
   display: grid;
   place-items: center;
   font-size: 1.1rem;
+}
+
+.room-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .homes__content {
