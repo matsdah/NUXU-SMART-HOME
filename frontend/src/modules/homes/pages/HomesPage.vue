@@ -1,9 +1,44 @@
 <script setup lang="ts">
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useHomesDashboard } from '@/modules/homes/composables/useHomesDashboard'
+import { useDashboardStore } from '@/app/stores/dashboard'
+import type { Device } from '@/app/stores/dashboard'
+import DeviceModal from '@/modules/devices/components/DeviceModal.vue'
+import AddDeviceModal from '@/modules/devices/components/AddDeviceModal.vue'
 
 const { rooms, routines, activeRoomId, filteredDevices,
   loading, error, pendingActions, toggleDevice } = useHomesDashboard()
 
+const store = useDashboardStore()
+const router = useRouter()
+
+const showAddDevice = ref(false)
+const selectedDevice = ref<Device | null>(null)
+const selectedRoomName = ref('')
+
+function openDeviceModal(device: Device) {
+  selectedDevice.value = device
+  selectedRoomName.value = store.rooms.find(r => r.id === device.roomId)?.name ?? ''
+}
+
+function closeDeviceModal() {
+  selectedDevice.value = null
+}
+
+type CreatedDevicePayload = { deviceId: string; typeName: string }
+
+async function onDeviceCreated(payload: CreatedDevicePayload) {
+  showAddDevice.value = false
+
+  const isAirConditioner = payload.typeName.toLowerCase().includes('aire acondicionado')
+  if (isAirConditioner) {
+    await router.push({ name: 'device-ac-controls', params: { deviceId: payload.deviceId } })
+    return
+  }
+
+  await store.loadDevices(store.activeRoomId)
+}
 </script>
 
 <template>
@@ -43,6 +78,7 @@ const { rooms, routines, activeRoomId, filteredDevices,
           <article
             v-for="device in filteredDevices" :key="device.id"
             class="device-card" :class="{ 'device-card--accent': device.tone === 'sage' }"
+            @click="openDeviceModal(device)"
           >
             <div class="device-card__top">
               <div class="device-icon" aria-hidden="true">
@@ -90,7 +126,7 @@ const { rooms, routines, activeRoomId, filteredDevices,
                 </svg>
               </div>
 
-              <label class="switch" :aria-label="`Cambiar ${device.name}`">
+              <label class="switch" :aria-label="`Cambiar ${device.name}`" @click.stop>
                 <input
                   type="checkbox" :checked="device.isOn"
                   :disabled="pendingActions.has(device.id)"
@@ -106,7 +142,8 @@ const { rooms, routines, activeRoomId, filteredDevices,
             </div>
           </article>
 
-          <button class="device-card device-card--new" type="button" aria-label="Agregar dispositivo">
+          <button class="device-card device-card--new" type="button" aria-label="Agregar dispositivo"
+            @click="showAddDevice = true">
             <span class="device-card__plus">+</span>
             <span>Nuevo</span>
           </button>
@@ -149,6 +186,22 @@ const { rooms, routines, activeRoomId, filteredDevices,
         </div>
       </aside>
     </div>
+
+    <DeviceModal
+      v-if="selectedDevice"
+      :device="selectedDevice"
+      :room-name="selectedRoomName"
+      @close="closeDeviceModal"
+    />
+
+    <AddDeviceModal
+      v-if="showAddDevice"
+      :room-id="activeRoomId"
+      :room-name="store.rooms.find(r => r.id === activeRoomId)?.name ?? ''"
+      @close="showAddDevice = false"
+      @created="onDeviceCreated"
+    />
+
   </section>
 </template>
 
@@ -280,6 +333,13 @@ const { rooms, routines, activeRoomId, filteredDevices,
   gap: 1.4rem;
   min-height: 150px;
   box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.device-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
 }
 
 .device-card--accent {
@@ -370,6 +430,8 @@ const { rooms, routines, activeRoomId, filteredDevices,
   justify-content: center;
   background: transparent;
   cursor: pointer;
+  transform: none !important;
+  box-shadow: none !important;
 }
 
 .device-card__plus {

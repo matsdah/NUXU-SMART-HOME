@@ -24,7 +24,7 @@ type ApiRoom = {
 type ApiDevice = {
   id: string
   name: string
-  type?: { name?: string }  /* type o typeId pueden ser opcionales. */
+  type?: { id?: string; name?: string }
   typeId?: string
 }
 
@@ -49,6 +49,11 @@ export type Room = {
   name: string
 }
 
+export type DeviceType = {
+  id: string
+  name: string
+}
+
 export type Member = {
   id: string
   name: string
@@ -69,6 +74,7 @@ export type Device = {
   kind: DeviceKind
   isOn: boolean
   tone?: 'sage' | 'neutral'   /* sage -> encendido, neutral -> apagado */
+  typeId?: string              /* ID del tipo, para poder crear dispositivos del mismo tipo */
 }
 
 export type Routine = {
@@ -191,6 +197,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const homes = ref<ApiHome[]>([])
   const rooms = ref<Room[]>([])
   const devices = ref<Device[]>([])
+  const deviceTypes = ref<DeviceType[]>([])
   const routines = ref<Routine[]>([])
   const members = ref<Member[]>([])
   const activeHomeId = ref('')
@@ -262,6 +269,16 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
     devices.value = data.map(device => {
       const state = stateMap.get(device.id)
+
+      /* Acumulamos tipos únicos para usarlos al crear nuevos dispositivos. */
+      const typeId   = device.type?.id ?? device.typeId
+      const typeName = device.type?.name
+      if (typeId && typeName && !deviceTypes.value.find(t => t.id === typeId)) {
+        deviceTypes.value.push({ id: typeId, name: typeName })
+      }
+
+      const rawTypeId = device.type?.id ?? device.typeId
+
       return {
         id: device.id,
         name: device.name,
@@ -270,6 +287,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
         status: formatStatus(state),
         isOn: resolveIsOn(state),
         tone: resolveIsOn(state) ? 'sage' : 'neutral',
+        typeId: rawTypeId,
       }
     })
   }
@@ -553,6 +571,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     homes.value = []
     rooms.value = []
     devices.value = []
+    deviceTypes.value = []
     routines.value = []
     members.value = []
     activeHomeId.value = ''
@@ -567,6 +586,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     homes,
     rooms,
     devices,
+    deviceTypes,
     routines,
     members,
     activeHomeId,
@@ -577,6 +597,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     pendingActions,
     /* Acciones */
     loadDashboard,
+    loadRooms,
     loadRoutines,
     loadDevices,
     loadMembers,
