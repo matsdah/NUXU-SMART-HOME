@@ -18,43 +18,25 @@ const targetEmail = computed(() => {
 
 function handleCodeInput(event: Event) {
   const target = event.target as HTMLInputElement
-  code.value = target.value.replace(/\D/g, '').slice(0, 6)
+  code.value = target.value.trim()
 }
 
 async function handleSubmit() {
   error.value = ''
 
-  if (code.value.length !== 6) {
-    error.value = 'Ingresá un código de 6 dígitos.'
-    return
-  }
-
-  const savedCode = sessionStorage.getItem('verification_code')
-  if (code.value !== savedCode) {
-    error.value = 'Código incorrecto. Revisá tu mail e intentá de nuevo.'
-    return
-  }
-
-  // Código correcto: registrar la cuenta en el backend
-  const raw = sessionStorage.getItem('pending_registration')
-  if (!raw) {
-    error.value = 'Sesión expirada. Volvé a registrarte.'
+  if (!code.value) {
+    error.value = 'Ingresá el código de verificación.'
     return
   }
 
   loading.value = true
   try {
-    const { name, email, password } = JSON.parse(raw)
-    await api.post('/users/register', { name, email, password })
-
-    sessionStorage.removeItem('verification_code')
-    sessionStorage.removeItem('pending_registration')
-
+    await api.post('/users/verify-account', { email: targetEmail.value, code: code.value })
     router.push({ name: 'login' })
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      error.value = msg ?? 'Código incorrecto. Revisá tu mail e intentá de nuevo.'
     } else {
       error.value = 'Error inesperado. Intentá de nuevo.'
     }
@@ -82,8 +64,6 @@ async function handleSubmit() {
           type="text"
           id="verify-code"
           placeholder=" "
-          inputmode="numeric"
-          maxlength="6"
           autocomplete="one-time-code"
           required
           class="field__input field__input--code"

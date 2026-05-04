@@ -1,20 +1,49 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { api, ApiError } from '@/services/api/client'
+import { generateVerificationCode, sendVerificationEmail } from '@/services/email'
 import AuthLayout from '../components/AuthLayout.vue'
 
 const email = ref('')
 const error = ref('')
+const loading = ref(false)
 const router = useRouter()
 
-function handleSubmit() {
+async function handleSubmit() {
   error.value = ''
   const normalizedEmail = email.value.trim()
   if (!normalizedEmail) {
     error.value = 'Ingresá tu email para continuar.'
     return
   }
-  router.push({ name: 'reset-password', query: { email: normalizedEmail } })
+
+  loading.value = true
+  try {
+    // Verificar que el mail exista en el sistema antes de enviar nada
+    await api.post('/users/forgot-password', { email: normalizedEmail })
+
+    // Generar código propio y enviarlo por EmailJS
+    const code = generateVerificationCode()
+    sessionStorage.setItem('recovery_code', code)
+    sessionStorage.setItem('recovery_session', crypto.randomUUID())
+    await sendVerificationEmail(normalizedEmail, code)
+
+    router.push({ name: 'reset-password', query: { email: normalizedEmail } })
+  } catch (e) {
+    sessionStorage.removeItem('recovery_code')
+    sessionStorage.removeItem('recovery_session')
+    if (e instanceof ApiError && e.status === 404) {
+      error.value = 'No existe una cuenta con ese email.'
+    } else if (e instanceof ApiError) {
+      const msg = (e.body as { error?: { description?: string } })?.error?.description
+      error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+    } else {
+      error.value = 'No se pudo enviar el mail. Intentá de nuevo.'
+    }
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -22,7 +51,7 @@ function handleSubmit() {
   <AuthLayout>
 
     <div class="recover__header">
-      <h1 class="recover__title">Recuperar contraseña</h1>
+      <h1 class="recover__title">Cambiar contraseña</h1>
       <p class="recover__subtitle">Ingresá tu email para continuar</p>
     </div>
 
@@ -36,8 +65,13 @@ function handleSubmit() {
         <label for="rec-email" class="field__label">Email</label>
       </div>
 
-      <button type="submit" class="auth-submit">
-        <span>Continuar</span>
+      <button type="submit" class="auth-submit" :disabled="loading">
+        <svg v-if="loading" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          aria-hidden="true" class="spinner">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"
+            stroke-dasharray="60" stroke-dashoffset="20"/>
+        </svg>
+        <span v-else>Continuar</span>
       </button>
 
     </form>
@@ -143,7 +177,11 @@ function handleSubmit() {
   justify-content: center;
   transition: background-color 0.2s;
 }
-.auth-submit:hover { background-color: #7a5240; }
+.auth-submit:hover:not(:disabled) { background-color: #7a5240; }
+.auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { animation: spin 0.9s linear infinite; }
 
 .auth-footer {
   font-size: 0.85rem;

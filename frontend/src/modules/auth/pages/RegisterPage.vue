@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { generateVerificationCode, sendVerificationEmail } from '@/services/email'
+import { api, ApiError } from '@/services/api/client'
+import { sendVerificationEmail } from '@/services/email'
 import AuthLayout from '../components/AuthLayout.vue'
 
 const name = ref('')
@@ -17,22 +18,27 @@ async function handleSubmit() {
   error.value = ''
   loading.value = true
   try {
-    // Guarda los datos del usuario para registrarlo recién después de verificar el mail
-    sessionStorage.setItem('pending_registration', JSON.stringify({
-      name: name.value.trim(),
-      email: email.value.trim(),
-      password: password.value,
-    }))
+    const normalizedEmail = email.value.trim()
 
-    const code = generateVerificationCode()
-    sessionStorage.setItem('verification_code', code)
-    await sendVerificationEmail(email.value.trim(), code)
+    // 1. Crear la cuenta en el backend
+    await api.post('/users/register', { name: name.value.trim(), email: normalizedEmail, password: password.value })
 
-    router.push({ name: 'verify', query: { email: email.value.trim() } })
+    // 2. Pedir al backend el código de verificación
+    const { code } = await api.post<{ code: string }>('/users/send-verification', { email: normalizedEmail })
+
+    // 3. Enviar ese código al mail del usuario via EmailJS
+    await sendVerificationEmail(normalizedEmail, code)
+
+    router.push({ name: 'verify', query: { email: normalizedEmail } })
   } catch (e) {
-    sessionStorage.removeItem('pending_registration')
-    sessionStorage.removeItem('verification_code')
-    error.value = 'No se pudo enviar el mail de verificación. Intentá de nuevo.'
+    if (e instanceof ApiError && e.status === 409) {
+      error.value = 'Este mail ya tiene una cuenta. Podés iniciar sesión directamente.'
+    } else if (e instanceof ApiError) {
+      const msg = (e.body as { error?: { description?: string } })?.error?.description
+      error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+    } else {
+      error.value = 'No se pudo enviar el mail de verificación. Intentá de nuevo.'
+    }
   } finally {
     loading.value = false
   }
