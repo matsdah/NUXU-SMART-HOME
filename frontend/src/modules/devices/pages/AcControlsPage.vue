@@ -29,13 +29,16 @@ const deviceId = computed(() => String(route.params.deviceId ?? ''))
 .ac-controls-page {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
+  min-height: calc(100vh - 6rem);
+  padding: 0;
 }
 
 .ac-controls-page__header {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
+  padding: 0 0.25rem;
 }
 
 .ac-controls-page__header h1 {
@@ -45,9 +48,9 @@ const deviceId = computed(() => String(route.params.deviceId ?? ''))
 }
 
 .ac-controls-page__content {
-  background: rgba(255, 255, 255, 0.72);
-  border-radius: 24px;
-  padding: 1.5rem;
-  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.08);
+  width: 100%;
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0;
 }
 </style>

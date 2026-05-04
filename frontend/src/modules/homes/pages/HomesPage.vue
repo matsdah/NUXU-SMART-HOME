@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { useRouter } from 'vue-router'
 import { useHomesDashboard } from '@/modules/homes/composables/useHomesDashboard'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import type { Device } from '@/app/stores/dashboard'
@@ -11,7 +10,6 @@ const { rooms, routines, activeRoomId, filteredDevices,
   loading, error, pendingActions, toggleDevice } = useHomesDashboard()
 
 const store = useDashboardStore()
-const router = useRouter()
 
 const showAddDevice = ref(false)
 const selectedDevice = ref<Device | null>(null)
@@ -30,12 +28,6 @@ type CreatedDevicePayload = { deviceId: string; typeName: string }
 
 async function onDeviceCreated(payload: CreatedDevicePayload) {
   showAddDevice.value = false
-
-  const isAirConditioner = payload.typeName.toLowerCase().includes('aire acondicionado')
-  if (isAirConditioner) {
-    await router.push({ name: 'device-ac-controls', params: { deviceId: payload.deviceId } })
-    return
-  }
 
   await store.loadDevices(store.activeRoomId)
 }

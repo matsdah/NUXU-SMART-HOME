@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
 import type { Device } from '@/app/stores/dashboard'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import AcControls from './controls/AcControls.vue'
@@ -13,7 +13,36 @@ const emit = defineEmits<{ close: [] }>()
 
 const store = useDashboardStore()
 
+let previousBodyOverflow = ''
+let previousHtmlOverflow = ''
+
+onMounted(() => {
+  previousBodyOverflow = document.body.style.overflow
+  previousHtmlOverflow = document.documentElement.style.overflow
+  document.body.style.overflow = 'hidden'
+  document.documentElement.style.overflow = 'hidden'
+})
+
+onBeforeUnmount(() => {
+  document.body.style.overflow = previousBodyOverflow
+  document.documentElement.style.overflow = previousHtmlOverflow
+})
+
 const isPending = computed(() => store.pendingActions.has(props.device.id))
+const isAirConditioner = computed(() => {
+  const source = [
+    props.device.kind,
+    props.device.typeId ?? '',
+    props.device.name,
+    props.device.status,
+  ].join(' ').toLowerCase()
+
+  return source.includes('air')
+    || source.includes('ac')
+    || source.includes('conditioner')
+    || source.includes('aire')
+    || source.includes('acondicion')
+})
 
 function toggle() {
   store.toggleDevice(props.device.id)
@@ -29,34 +58,12 @@ function onOverlayClick(e: MouseEvent) {
   <Teleport to="body">
     <div class="modal-overlay" @click="onOverlayClick">
       <div class="modal">
-
-        <!-- Panel izquierdo: info del dispositivo -->
-        <div class="modal__left">
-          <p class="modal__room">{{ roomName }}</p>
-          <h2 class="modal__name">{{ device.name }}</h2>
-
-          <div class="modal__status">{{ device.status }}</div>
-
-          <button
-            class="modal__power"
-            :class="{ 'modal__power--on': device.isOn }"
-            :disabled="isPending"
-            @click="toggle"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
-              stroke="currentColor" stroke-width="2" stroke-linecap="round">
-              <path d="M12 2v6"/>
-              <path d="M6.3 6.3a8 8 0 1 0 11.4 0"/>
-            </svg>
-            {{ device.isOn ? 'Encendido' : 'Apagado' }}
-          </button>
-        </div>
-
-        <!-- Panel derecho: controles específicos del dispositivo -->
         <div class="modal__right">
           <button class="modal__close" @click="emit('close')" aria-label="Cerrar">✕</button>
 
-          <AcControls v-if="device.kind === 'ac'" :device-id="device.id" />
+          <!-- Header removed as requested; keep close button above and controls below -->
+
+          <AcControls v-if="isAirConditioner" :device-id="device.id" />
           <p v-else class="modal__no-controls">Sin controles disponibles para este dispositivo.</p>
         </div>
 
@@ -75,52 +82,27 @@ function onOverlayClick(e: MouseEvent) {
   justify-content: center;
   backdrop-filter: blur(12px);
   background: rgba(42, 40, 37, 0.25);
-  padding: 1.5rem;
+  padding: 0;
+  overscroll-behavior: contain;
 }
 
 .modal {
   display: flex;
-  width: 100%;
-  max-width: 780px;
+  width: min(92vw, 900px);
+  max-width: 760px;
   max-height: 90vh;
-  border-radius: 24px;
+  box-sizing: border-box;
+  border-radius: 40px;
   overflow: hidden;
   box-shadow: 0 32px 64px rgba(42, 40, 37, 0.22);
 }
 
-/* Panel izquierdo */
-.modal__left {
-  width: 240px;
-  flex-shrink: 0;
-  background: var(--color-beige, #f2ede0);
-  padding: 2rem 1.75rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.modal__room {
-  font-size: 0.78rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: rgba(42, 40, 37, 0.5);
-}
-
-.modal__name {
-  font-size: 1.5rem;
-  font-weight: 300;
-  color: var(--color-text);
-  line-height: 1.2;
-  margin-bottom: 0.5rem;
-}
-
-.modal__status {
-  font-size: 3.5rem;
-  font-weight: 300;
-  color: var(--color-text);
-  line-height: 1;
-  margin: auto 0;
+.modal__right {
+  flex: 1;
+  background: #fff;
+  padding: 0rem;
+  overflow: visible;
+  position: relative;
 }
 
 .modal__power {
@@ -147,15 +129,6 @@ function onOverlayClick(e: MouseEvent) {
 
 .modal__power--on {
   background: rgba(63, 129, 102, 0.85);
-}
-
-/* Panel derecho */
-.modal__right {
-  flex: 1;
-  background: #fff;
-  padding: 2rem;
-  overflow-y: auto;
-  position: relative;
 }
 
 .modal__close {
@@ -188,15 +161,14 @@ function onOverlayClick(e: MouseEvent) {
 
 @media (max-width: 600px) {
   .modal {
-    flex-direction: column;
+    width: 95%;
+    max-width: 420px;
     max-height: 95vh;
   }
-  .modal__left {
-    width: 100%;
-    padding: 1.5rem;
+
+  .modal__right {
+    padding: 0.5rem;
   }
-  .modal__status {
-    font-size: 2.5rem;
-  }
+
 }
 </style>
