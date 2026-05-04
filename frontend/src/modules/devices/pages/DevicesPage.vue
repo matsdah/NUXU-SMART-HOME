@@ -2,10 +2,11 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { useRouter } from 'vue-router'
-import { ApiError } from '@/services/api/client'
+import { api, ApiError } from '@/services/api/client'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import type { Device } from '@/app/stores/dashboard'
 import DeviceModal from '../components/DeviceModal.vue'
+import DeleteDeviceConfirmModal from '@/modules/devices/components/DeleteDeviceConfirmModal.vue'
 import AddDeviceModal from '@/modules/devices/components/AddDeviceModal.vue'
 import AddRoomModal from '@/modules/homes/components/AddRoomModal.vue'
 import DeleteRoomConfirmModal from '@/modules/homes/components/DeleteRoomConfirmModal.vue'
@@ -19,15 +20,20 @@ const allDevices = ref<Device[]>([])
 const loadingDevices = ref(false)
 const activeFilter = ref<'all' | string>('all')
 const roomActionError = ref('')
+const deviceActionError = ref('')
 const showAddDevice = ref(false)
 const showAddRoom = ref(false)
+const showDeleteDeviceConfirm = ref(false)
 const showDeleteRoomConfirm = ref(false)
 const showEditRoomModal = ref(false)
+const pendingDeviceDeletion = ref<{ id: string; name: string } | null>(null)
+const deletingDevice = ref(false)
 const pendingRoomDeletion = ref<{ id: string; name: string } | null>(null)
 const deletingRoom = ref(false)
 const pendingRoomEdition = ref<{ id: string; name: string } | null>(null)
 const renamingRoom = ref(false)
 const editRoomError = ref('')
+const isDeviceEditMode = ref(false)
 
 const selectedDevice = ref<Device | null>(null)
 const selectedRoomName = ref('')
@@ -59,6 +65,64 @@ function openModal(device: Device) {
 function closeModal() {
   selectedDevice.value = null
   selectedRoomName.value = ''
+}
+
+function toggleDeviceEditMode() {
+  isDeviceEditMode.value = !isDeviceEditMode.value
+  if (isDeviceEditMode.value) {
+    closeModal()
+  }
+}
+
+function onDeviceCardClick(device: Device) {
+  if (isDeviceEditMode.value) {
+    requestDeviceDeletion(device)
+    return
+  }
+  openModal(device)
+}
+
+function requestDeviceDeletion(device: Device) {
+  if (deletingDevice.value) {
+    return
+  }
+  deviceActionError.value = ''
+  pendingDeviceDeletion.value = { id: device.id, name: device.name }
+  showDeleteDeviceConfirm.value = true
+}
+
+function closeDeleteDeviceConfirm() {
+  if (deletingDevice.value) {
+    return
+  }
+  showDeleteDeviceConfirm.value = false
+  pendingDeviceDeletion.value = null
+}
+
+async function confirmDeviceDeletion() {
+  if (!pendingDeviceDeletion.value) {
+    return
+  }
+
+  deletingDevice.value = true
+  try {
+    await api.delete(`/devices/${pendingDeviceDeletion.value.id}`)
+    if (selectedDevice.value?.id === pendingDeviceDeletion.value.id) {
+      closeModal()
+    }
+    showDeleteDeviceConfirm.value = false
+    pendingDeviceDeletion.value = null
+    await refreshHomeDevices()
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const msg = (e.body as { error?: { description?: string } })?.error?.description
+      deviceActionError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      return
+    }
+    deviceActionError.value = 'Error inesperado. Intentá de nuevo.'
+  } finally {
+    deletingDevice.value = false
+  }
 }
 
 async function refreshHomeDevices() {
@@ -284,19 +348,36 @@ onMounted(async () => {
     </div>
 
     <div v-if="roomActionError" class="notice notice--error" role="alert">{{ roomActionError }}</div>
+    <div v-if="deviceActionError" class="notice notice--error" role="alert">{{ deviceActionError }}</div>
     <div v-if="error" class="notice notice--error" role="alert">{{ error }}</div>
     <div v-else-if="loading || loadingDevices" class="notice">Cargando dispositivos...</div>
 
     <section v-else class="panel panel--devices">
       <header class="panel__header">
         <h2 class="panel__title">Dispositivos</h2>
+        <button
+          type="button"
+          class="panel__edit-toggle"
+          :class="{ 'panel__edit-toggle--active': isDeviceEditMode }"
+          @click="toggleDeviceEditMode"
+        >
+          {{ isDeviceEditMode ? 'Salir edición' : 'Modo edición' }}
+        </button>
       </header>
+
+      <p v-if="isDeviceEditMode" class="panel__edit-hint">
+        Modo edición activo: tocá un dispositivo para eliminarlo.
+      </p>
 
       <div class="device-grid">
         <article
           v-for="device in filteredDevices" :key="device.id"
-          class="device-card" :class="{ 'device-card--accent': device.tone === 'sage' }"
-          @click="openModal(device)"
+          class="device-card"
+          :class="{
+            'device-card--accent': device.tone === 'sage',
+            'device-card--delete-mode': isDeviceEditMode,
+          }"
+          @click="onDeviceCardClick(device)"
         >
           <div class="device-card__top">
             <div class="device-icon" aria-hidden="true">
@@ -347,7 +428,7 @@ onMounted(async () => {
             <label class="switch" :aria-label="`Cambiar ${device.name}`" @click.stop>
               <input
                 type="checkbox" :checked="device.isOn"
-                :disabled="pendingActions.has(device.id)"
+                :disabled="pendingActions.has(device.id) || isDeviceEditMode"
                 @change="onToggleDevice(device.id)"
               />
               <span class="switch__track"></span>
@@ -391,6 +472,14 @@ onMounted(async () => {
       :room-name="selectedCreationRoomName"
       @close="showAddDevice = false"
       @created="onDeviceCreated"
+    />
+
+    <DeleteDeviceConfirmModal
+      v-if="showDeleteDeviceConfirm && pendingDeviceDeletion"
+      :device-name="pendingDeviceDeletion.name"
+      :loading="deletingDevice"
+      @close="closeDeleteDeviceConfirm"
+      @confirm="confirmDeviceDeletion"
     />
 
     <AddRoomModal
@@ -445,7 +534,7 @@ onMounted(async () => {
   gap: 0.6rem;
   overflow-x: auto;
   scroll-behavior: smooth;
-  background: rgba(255, 255, 255, 0.55);
+  background: #9e9b8e;
   border-radius: 999px;
   padding: 0.45rem 0.7rem;
   box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.08);
@@ -520,6 +609,34 @@ onMounted(async () => {
   font-weight: 600;
 }
 
+.panel__edit-hint {
+  margin: -0.4rem 0 1rem;
+  padding: 0.55rem 0.8rem;
+  border-radius: 10px;
+  background: rgba(181, 68, 68, 0.14);
+  color: #7a2323;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.panel__edit-toggle {
+  border: none;
+  background: rgba(255, 255, 255, 0.7);
+  color: rgba(42, 40, 37, 0.85);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.panel__edit-toggle--active {
+  background: #b54444;
+  color: #fff;
+  box-shadow: 0 0 0 1px rgba(122, 35, 35, 0.45);
+}
+
 .device-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
@@ -547,6 +664,13 @@ onMounted(async () => {
 
 .device-card--accent {
   background: rgba(190, 190, 166, 0.6);
+}
+
+.device-card--delete-mode {
+  box-shadow:
+    inset 0 0 0 2px #b54444,
+    0 0 0 1px rgba(181, 68, 68, 0.22);
+  background: rgba(255, 244, 244, 0.88);
 }
 
 .device-card__top {
