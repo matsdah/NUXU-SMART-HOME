@@ -250,11 +250,11 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
-  async function loadDevices(roomId: string): Promise<void> {
+  async function mapRoomDevices(roomId: string): Promise<Device[]> {
     if(!roomId){
-      devices.value = []
-      return
+      return []
     }
+
     const data = await api.get<ApiDevice[]>(`/rooms/${roomId}/devices`)
 
     /* Fetcheamos todos los estados en paralelo */
@@ -267,7 +267,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     )
     const stateMap = new Map(states.map(s => [s.id, s.state]))
 
-    devices.value = data.map(device => {
+    return data.map(device => {
       const state = stateMap.get(device.id)
 
       /* Acumulamos tipos únicos para usarlos al crear nuevos dispositivos. */
@@ -290,6 +290,32 @@ export const useDashboardStore = defineStore('dashboard', () => {
         typeId: rawTypeId,
       }
     })
+  }
+
+  async function loadDevices(roomId: string): Promise<void> {
+    devices.value = await mapRoomDevices(roomId)
+  }
+
+  async function fetchHomeDevices(homeId: string): Promise<Device[]> {
+    if (!homeId) {
+      return []
+    }
+
+    const homeRooms = await api.get<ApiRoom[]>(`/homes/${homeId}/rooms`)
+    const devicesByRoom = await Promise.all(
+      homeRooms.map(async (room) => {
+        try {
+          return await mapRoomDevices(room.id)
+        } catch (err) {
+          if (err instanceof ApiError && err.status === 404) {
+            return []
+          }
+          throw err
+        }
+      }),
+    )
+
+    return devicesByRoom.flat()
   }
 
   async function loadRoutines(): Promise<void> {
@@ -342,6 +368,143 @@ export const useDashboardStore = defineStore('dashboard', () => {
     if (!home) return
     await api.put(`/homes/${homeId}`, { name })
     home.name = name
+  }
+
+  async function updateRoomName(roomId: string, name: string, homeId = activeHomeId.value): Promise<void> {
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      throw new Error('Ingresá un nombre para la habitación.')
+    }
+
+    const targetRoom = rooms.value.find(room => room.id === roomId)
+    if (!targetRoom) {
+      throw new Error('No se encontró la habitación seleccionada.')
+    }
+
+    try {
+      await api.put(`/rooms/${roomId}`, { name: trimmedName })
+    } catch (err) {
+      if (!(err instanceof ApiError) || err.status !== 404 || !homeId) {
+        throw err
+      }
+      await api.put(`/homes/${homeId}/rooms/${roomId}`, { name: trimmedName })
+    }
+
+    targetRoom.name = trimmedName
+  }
+
+  async function createRoom(name: string, homeId = activeHomeId.value): Promise<void> {
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      throw new Error('Ingresá un nombre para la habitación.')
+    }
+    if (!homeId) {
+      throw new Error('No hay un hogar seleccionado.')
+    }
+
+    let room: ApiRoom
+    try {
+      room = await api.post<ApiRoom>(`/homes/${homeId}/rooms`, {
+        name: trimmedName,
+        metadata: {},
+      })
+    } catch (err) {
+      if (!(err instanceof ApiError) || err.status !== 404) {
+        throw err
+      }
+
+      // Algunos backends exponen creación de habitaciones en /rooms.
+      room = await api.post<ApiRoom>('/rooms', {
+        name: trimmedName,
+        home: { id: homeId },
+        metadata: {},
+      })
+    }
+
+    if (!room?.id) {
+      await loadRooms(homeId)
+      const createdRoom = rooms.value.find(currentRoom => currentRoom.name === trimmedName)
+      if (createdRoom) {
+        activeRoomId.value = createdRoom.id
+      }
+      return
+    }
+
+    rooms.value.push({ id: room.id, name: room.name ?? trimmedName })
+    activeRoomId.value = room.id
+  }
+
+  function finalizeRoomDeletion(roomId: string): void {
+    rooms.value = rooms.value.filter(room => room.id !== roomId)
+    devices.value = devices.value.filter(device => device.roomId !== roomId)
+
+    const activeStillExists = rooms.value.some(room => room.id === activeRoomId.value)
+    if (!activeStillExists) {
+      activeRoomId.value = rooms.value[0]?.id ?? ''
+    }
+  }
+
+  async function clearRoomDevices(roomId: string): Promise<void> {
+    let roomDevices: ApiDevice[] = []
+    try {
+      roomDevices = await api.get<ApiDevice[]>(`/rooms/${roomId}/devices`)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        return
+      }
+      throw err
+    }
+
+    await Promise.all(roomDevices.map(async (device) => {
+      try {
+        await api.delete(`/devices/${device.id}`)
+      } catch (err) {
+        if (!(err instanceof ApiError) || err.status !== 404) {
+          throw err
+        }
+      }
+    }))
+  }
+
+  async function deleteRoomRequest(roomId: string, homeId = activeHomeId.value): Promise<void> {
+    try {
+      await api.delete(`/rooms/${roomId}`)
+      return
+    } catch (err) {
+      if (!(err instanceof ApiError) || err.status !== 404 || !homeId) {
+        throw err
+      }
+    }
+
+    await api.delete(`/homes/${homeId}/rooms/${roomId}`)
+  }
+
+  async function deleteRoom(roomId: string): Promise<void> {
+    try {
+      await deleteRoomRequest(roomId)
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 404) {
+        finalizeRoomDeletion(roomId)
+        return
+      }
+
+      if (!(err instanceof ApiError) || err.status !== 409) {
+        throw err
+      }
+
+      await clearRoomDevices(roomId)
+      try {
+        await deleteRoomRequest(roomId)
+      } catch (secondErr) {
+        if (secondErr instanceof ApiError && secondErr.status === 404) {
+          finalizeRoomDeletion(roomId)
+          return
+        }
+        throw secondErr
+      }
+    }
+
+    finalizeRoomDeletion(roomId)
   }
 
   async function clearHomeResources(homeId: string): Promise<void> {
@@ -508,27 +671,42 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
 /* Acción para alternar el estado de un dispositivo (encender/apagar).*/
   async function toggleDevice(id: string): Promise<void> {
-    const target = devices.value.find(d => d.id === id)
-    if(!target || pendingActions.value.has(id)){
+    if(pendingActions.value.has(id)){
       return
     }
 
+    const target = devices.value.find(d => d.id === id)
     pendingActions.value.add(id)
-    const nextAction = target.isOn ? 'turnOff' : 'turnOn'
-    const previous = target.isOn
-    target.isOn = !target.isOn // optimistic update
+    const previous = target?.isOn
+
+    if (target) {
+      target.isOn = !target.isOn // optimistic update
+      target.tone = target.isOn ? 'sage' : 'neutral'
+    }
 
     try {
+      let isCurrentlyOn = previous
+      if (typeof isCurrentlyOn !== 'boolean') {
+        const currentState = await api.get<ApiDeviceState>(`/devices/${id}/state`).catch(() => undefined)
+        isCurrentlyOn = resolveIsOn(currentState)
+      }
+
+      const nextAction = isCurrentlyOn ? 'turnOff' : 'turnOn'
       await api.patch(`/devices/${id}/${nextAction}`, {})
-      const state = await api.get<ApiDeviceState>(`/devices/${id}/state`).catch(() => undefined)
-      target.status = formatStatus(state)
-      target.isOn = resolveIsOn(state)
-      target.tone = target.isOn ? 'sage' : 'neutral'
+      if (target) {
+        const state = await api.get<ApiDeviceState>(`/devices/${id}/state`).catch(() => undefined)
+        target.status = formatStatus(state)
+        target.isOn = resolveIsOn(state)
+        target.tone = target.isOn ? 'sage' : 'neutral'
+      }
     }catch (err){
-      target.isOn = previous // rollback
+      if (target && typeof previous === 'boolean') {
+        target.isOn = previous // rollback
+        target.tone = previous ? 'sage' : 'neutral'
+      }
       error.value = err instanceof ApiError
-        ? `No se pudo actualizar ${target.name}. (${err.status})`
-        : `No se pudo actualizar ${target.name}.`
+        ? `No se pudo actualizar ${target?.name ?? 'dispositivo'}. (${err.status})`
+        : `No se pudo actualizar ${target?.name ?? 'dispositivo'}.`
     }finally{
       pendingActions.value.delete(id)   /* Libero el dispositivo. */
     }
@@ -600,12 +778,16 @@ export const useDashboardStore = defineStore('dashboard', () => {
     loadRooms,
     loadRoutines,
     loadDevices,
+    fetchHomeDevices,
     loadMembers,
     addMember,
     removeMember,
     updateHomeName,
+    updateRoomName,
     createHome,
+    createRoom,
     deleteHome,
+    deleteRoom,
     toggleDevice,
 
     reset,

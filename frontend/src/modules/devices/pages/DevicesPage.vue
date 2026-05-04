@@ -1,20 +1,34 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import { api } from '@/services/api/client'
+import { computed, onMounted, ref, watch } from 'vue'
+import { storeToRefs } from 'pinia'
+import { useRouter } from 'vue-router'
+import { ApiError } from '@/services/api/client'
 import { useDashboardStore } from '@/app/stores/dashboard'
-import type { Device, DeviceKind } from '@/app/stores/dashboard'
+import type { Device } from '@/app/stores/dashboard'
 import DeviceModal from '../components/DeviceModal.vue'
+import AddDeviceModal from '@/modules/devices/components/AddDeviceModal.vue'
+import AddRoomModal from '@/modules/homes/components/AddRoomModal.vue'
+import DeleteRoomConfirmModal from '@/modules/homes/components/DeleteRoomConfirmModal.vue'
+import EditRoomModal from '@/modules/homes/components/EditRoomModal.vue'
 
 const store = useDashboardStore()
+const router = useRouter()
+const { rooms, activeHomeId, loading, error, pendingActions } = storeToRefs(store)
 
-// Dispositivos de todos los cuartos cargados localmente (sin pisar el store)
 const allDevices = ref<Device[]>([])
-const loadingDevices = ref(true)
-
-// Filtro activo: 'all' o un roomId
+const loadingDevices = ref(false)
 const activeFilter = ref<'all' | string>('all')
+const roomActionError = ref('')
+const showAddDevice = ref(false)
+const showAddRoom = ref(false)
+const showDeleteRoomConfirm = ref(false)
+const showEditRoomModal = ref(false)
+const pendingRoomDeletion = ref<{ id: string; name: string } | null>(null)
+const deletingRoom = ref(false)
+const pendingRoomEdition = ref<{ id: string; name: string } | null>(null)
+const renamingRoom = ref(false)
+const editRoomError = ref('')
 
-// Modal
 const selectedDevice = ref<Device | null>(null)
 const selectedRoomName = ref('')
 
@@ -23,8 +37,18 @@ const filteredDevices = computed(() => {
   return allDevices.value.filter(d => d.roomId === activeFilter.value)
 })
 
+const selectedCreationRoomId = computed(() =>
+  activeFilter.value === 'all'
+    ? (store.activeRoomId || rooms.value[0]?.id || '')
+    : activeFilter.value,
+)
+
+const selectedCreationRoomName = computed(() =>
+  rooms.value.find(room => room.id === selectedCreationRoomId.value)?.name ?? '',
+)
+
 function roomName(roomId: string): string {
-  return store.rooms.find(r => r.id === roomId)?.name ?? ''
+  return rooms.value.find(r => r.id === roomId)?.name ?? ''
 }
 
 function openModal(device: Device) {
@@ -37,103 +61,175 @@ function closeModal() {
   selectedRoomName.value = ''
 }
 
-type ApiDevice  = { id: string; name: string; type?: { name?: string }; typeId?: string }
-type ApiState   = { status?: string; on?: boolean; temperature?: number; brightness?: number }
-
-function toKind(d: ApiDevice): DeviceKind {
-  const s = `${d.type?.name ?? ''} ${d.typeId ?? ''}`.toLowerCase()
-  if (s.includes('vacuum'))                          return 'vacuum'
-  if (s.includes('speaker') || s.includes('audio')) return 'speaker'
-  if (s.includes('tap')     || s.includes('faucet'))return 'tap'
-  if (s.includes('blind')   || s.includes('curtain'))return 'blind'
-  if (s.includes('lamp')    || s.includes('light')) return 'lamp'
-  if (s.includes('oven'))                            return 'oven'
-  if (s.includes('air')     || s.includes('ac') || s.includes('conditioner')) return 'ac'
-  if (s.includes('door')    || s.includes('lock'))  return 'door'
-  if (s.includes('fridge')  || s.includes('refrigerator')) return 'fridge'
-  return 'other'
-}
-
-function toStatus(state?: ApiState): string {
-  if (!state) return 'Sin estado'
-  if (typeof state.status      === 'string') return state.status
-  if (typeof state.on          === 'boolean') return state.on ? 'Encendido' : 'Apagado'
-  if (typeof state.temperature === 'number') return `${state.temperature}°C`
-  if (typeof state.brightness  === 'number') return `Brillo ${state.brightness}%`
-  return 'Sin estado'
-}
-
-function toIsOn(state?: ApiState): boolean {
-  if (!state) return false
-  if (typeof state.on === 'boolean') return state.on
-  if (typeof state.status === 'string') {
-    return ['on','encendido','abierto','open','active','running',
-            'playing','cool','cooling','heat','heating','locked']
-      .includes(state.status.toLowerCase())
+async function refreshHomeDevices() {
+  if (!activeHomeId.value) {
+    allDevices.value = []
+    return
   }
-  return false
-}
 
-async function loadRoomDevices(roomId: string): Promise<Device[]> {
-  const raw = await api.get<ApiDevice[]>(`/rooms/${roomId}/devices`)
-  const states = await Promise.all(
-    raw.map(d =>
-      api.get<ApiState>(`/devices/${d.id}/state`)
-        .then(s => ({ id: d.id, state: s }))
-        .catch(() => ({ id: d.id, state: undefined }))
-    )
-  )
-  const stateMap = new Map(states.map(s => [s.id, s.state]))
-  return raw.map(d => {
-    const state = stateMap.get(d.id)
-    const isOn  = toIsOn(state)
-    return {
-      id: d.id, name: d.name, roomId,
-      kind:   toKind(d),
-      status: toStatus(state),
-      isOn,
-      tone: isOn ? 'sage' : 'neutral',
-    }
-  })
-}
-
-async function loadAllDevices() {
   loadingDevices.value = true
   try {
-    const results = await Promise.all(
-      store.rooms.map(room => loadRoomDevices(room.id).catch(() => [] as Device[]))
-    )
-    allDevices.value = results.flat()
+    allDevices.value = await store.fetchHomeDevices(activeHomeId.value)
   } finally {
     loadingDevices.value = false
   }
 }
 
-async function toggleDevice(device: Device) {
-  if (store.pendingActions.has(device.id)) return
-  // Optimistic update en la lista local
-  device.isOn = !device.isOn
-  device.tone = device.isOn ? 'sage' : 'neutral'
-  const action = device.isOn ? 'turnOn' : 'turnOff'
-  store.pendingActions.add(device.id)
+function selectAllRooms() {
+  roomActionError.value = ''
+  activeFilter.value = 'all'
+}
+
+function selectRoom(roomId: string) {
+  roomActionError.value = ''
+  activeFilter.value = roomId
+  store.activeRoomId = roomId
+}
+
+async function onToggleDevice(id: string) {
+  await store.toggleDevice(id)
+  await refreshHomeDevices()
+}
+
+type CreatedDevicePayload = { deviceId: string; typeName: string }
+
+async function onDeviceCreated(payload: CreatedDevicePayload) {
+  showAddDevice.value = false
+
+  const isAirConditioner = payload.typeName.toLowerCase().includes('aire acondicionado')
+  if (isAirConditioner) {
+    await router.push({ name: 'device-ac-controls', params: { deviceId: payload.deviceId } })
+    return
+  }
+
+  await refreshHomeDevices()
+}
+
+async function onRoomCreated() {
+  showAddRoom.value = false
+  activeFilter.value = store.activeRoomId || 'all'
+  await refreshHomeDevices()
+}
+
+function requestRoomRename() {
+  roomActionError.value = ''
+  editRoomError.value = ''
+  if (activeFilter.value === 'all') {
+    roomActionError.value = 'Seleccioná una habitación para editar.'
+    return
+  }
+
+  const room = rooms.value.find(currentRoom => currentRoom.id === activeFilter.value)
+  if (!room) {
+    roomActionError.value = 'No se encontró la habitación seleccionada.'
+    return
+  }
+
+  pendingRoomEdition.value = { id: room.id, name: room.name }
+  showEditRoomModal.value = true
+}
+
+function closeEditRoomModal() {
+  if (renamingRoom.value) {
+    return
+  }
+  showEditRoomModal.value = false
+  pendingRoomEdition.value = null
+  editRoomError.value = ''
+}
+
+async function confirmRoomRename(name: string) {
+  if (!pendingRoomEdition.value) {
+    return
+  }
+
+  renamingRoom.value = true
+  editRoomError.value = ''
   try {
-    await api.patch(`/devices/${device.id}/${action}`, {})
-    const state = await api.get<ApiState>(`/devices/${device.id}/state`).catch(() => undefined)
-    device.status = toStatus(state)
-    device.isOn   = toIsOn(state)
-    device.tone   = device.isOn ? 'sage' : 'neutral'
-  } catch {
-    // Revertir si falla
-    device.isOn = !device.isOn
-    device.tone = device.isOn ? 'sage' : 'neutral'
+    await store.updateRoomName(pendingRoomEdition.value.id, name)
+    showEditRoomModal.value = false
+    pendingRoomEdition.value = null
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const msg = (e.body as { error?: { description?: string } })?.error?.description
+      editRoomError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      return
+    }
+    editRoomError.value = e instanceof Error ? e.message : 'Error inesperado. Intentá de nuevo.'
   } finally {
-    store.pendingActions.delete(device.id)
+    renamingRoom.value = false
   }
 }
 
+function requestRoomDeletion() {
+  roomActionError.value = ''
+  if (activeFilter.value === 'all') {
+    roomActionError.value = 'Seleccioná una habitación para eliminar.'
+    return
+  }
+
+  const room = rooms.value.find(currentRoom => currentRoom.id === activeFilter.value)
+  if (!room) {
+    roomActionError.value = 'No se encontró la habitación seleccionada.'
+    return
+  }
+
+  pendingRoomDeletion.value = { id: room.id, name: room.name }
+  showDeleteRoomConfirm.value = true
+}
+
+function closeDeleteRoomConfirm() {
+  if (deletingRoom.value) {
+    return
+  }
+  showDeleteRoomConfirm.value = false
+  pendingRoomDeletion.value = null
+}
+
+async function confirmRoomDeletion() {
+  if (!pendingRoomDeletion.value) {
+    return
+  }
+
+  deletingRoom.value = true
+  try {
+    await store.deleteRoom(pendingRoomDeletion.value.id)
+    activeFilter.value = store.activeRoomId || 'all'
+    showDeleteRoomConfirm.value = false
+    pendingRoomDeletion.value = null
+    await refreshHomeDevices()
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const msg = (e.body as { error?: { description?: string } })?.error?.description
+      roomActionError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      return
+    }
+    roomActionError.value = 'Error inesperado. Intentá de nuevo.'
+  } finally {
+    deletingRoom.value = false
+  }
+}
+
+watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
+  const previousHomeId = previousValue?.[1]
+
+  if (!homeId) {
+    allDevices.value = []
+    activeFilter.value = 'all'
+    return
+  }
+
+  if (homeId !== previousHomeId) {
+    activeFilter.value = 'all'
+  }
+
+  if (!isLoading) {
+    await refreshHomeDevices()
+  }
+}, { immediate: true })
+
 onMounted(async () => {
   await store.loadDashboard()
-  await loadAllDevices()
 })
 </script>
 
@@ -141,107 +237,183 @@ onMounted(async () => {
   <section class="devices-page">
 
     <div class="devices-page__header">
-      <p class="section-label">Dispositivos</p>
-
-      <div class="room-tabs">
-        <button
-          class="room-tab" :class="{ 'room-tab--active': activeFilter === 'all' }"
-          type="button" @click="activeFilter = 'all'"
-        >
-          Todos
-        </button>
-        <button
-          v-for="room in store.rooms" :key="room.id"
-          class="room-tab" :class="{ 'room-tab--active': activeFilter === room.id }"
-          type="button" @click="activeFilter = room.id"
-        >
-          {{ room.name }}
-        </button>
+      <div>
+        <p class="section-label">Habitaciones</p>
+        <div class="room-tabs">
+          <button
+            class="room-tab" :class="{ 'room-tab--active': activeFilter === 'all' }"
+            type="button" @click="selectAllRooms"
+          >
+            Todos
+          </button>
+          <button
+            v-for="room in rooms" :key="room.id"
+            class="room-tab" :class="{ 'room-tab--active': activeFilter === room.id }"
+            type="button" @click="selectRoom(room.id)"
+          >
+            {{ room.name }}
+          </button>
+          <button
+            class="room-tab room-tab--icon"
+            type="button"
+            aria-label="Agregar habitación"
+            @click="showAddRoom = true"
+          >
+            +
+          </button>
+          <button
+            class="room-tab room-tab--icon"
+            type="button"
+            aria-label="Eliminar habitación"
+            :disabled="rooms.length === 0 || activeFilter === 'all'"
+            @click="requestRoomDeletion"
+          >
+            <span aria-hidden="true">&#128465;</span>
+          </button>
+          <button
+            class="room-tab room-tab--icon"
+            type="button"
+            aria-label="Editar habitación"
+            :disabled="rooms.length === 0 || activeFilter === 'all'"
+            @click="requestRoomRename"
+          >
+            <span aria-hidden="true">&#9998;</span>
+          </button>
+        </div>
       </div>
     </div>
 
-    <div v-if="store.error" class="notice notice--error" role="alert">{{ store.error }}</div>
-    <div v-else-if="store.loading || loadingDevices" class="notice">Cargando dispositivos...</div>
+    <div v-if="roomActionError" class="notice notice--error" role="alert">{{ roomActionError }}</div>
+    <div v-if="error" class="notice notice--error" role="alert">{{ error }}</div>
+    <div v-else-if="loading || loadingDevices" class="notice">Cargando dispositivos...</div>
 
-    <div v-else class="device-grid">
-      <article
-        v-for="device in filteredDevices" :key="device.id"
-        class="device-card" :class="{ 'device-card--accent': device.tone === 'sage' }"
-        @click="openModal(device)"
-      >
-        <div class="device-card__top">
-          <div class="device-icon" aria-hidden="true">
-            <svg v-if="device.kind === 'vacuum'" viewBox="0 0 24 24">
-              <rect x="6" y="3" width="12" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="2" />
-              <path d="M12 13v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-            </svg>
-            <svg v-else-if="device.kind === 'speaker'" viewBox="0 0 24 24">
-              <rect x="7" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-              <circle cx="12" cy="9" r="2" fill="currentColor" />
-              <circle cx="12" cy="15" r="3" fill="none" stroke="currentColor" stroke-width="2" />
-            </svg>
-            <svg v-else-if="device.kind === 'tap'" viewBox="0 0 24 24">
-              <path d="M6 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              <path d="M9 8v5a3 3 0 0 0 6 0V8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              <circle cx="12" cy="18" r="1" fill="currentColor" />
-            </svg>
-            <svg v-else-if="device.kind === 'blind'" viewBox="0 0 24 24">
-              <rect x="6" y="4" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-              <path d="M6 9h12" stroke="currentColor" stroke-width="2" />
-              <path d="M6 13h12" stroke="currentColor" stroke-width="2" />
-            </svg>
-            <svg v-else-if="device.kind === 'lamp'" viewBox="0 0 24 24">
-              <path d="M8 10a4 4 0 0 1 8 0c0 2-2 3-2 5H10c0-2-2-3-2-5z" fill="none" stroke="currentColor" stroke-width="2" />
-              <path d="M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-            </svg>
-            <svg v-else-if="device.kind === 'oven'" viewBox="0 0 24 24">
-              <rect x="5" y="4" width="14" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-              <rect x="8" y="9" width="8" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="2" />
-              <circle cx="8" cy="6.5" r="1" fill="currentColor" />
-              <circle cx="12" cy="6.5" r="1" fill="currentColor" />
-            </svg>
-            <svg v-else-if="device.kind === 'ac'" viewBox="0 0 24 24">
-              <path d="M6 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              <path d="M7 11h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              <path d="M9 15h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-            </svg>
-            <svg v-else-if="device.kind === 'door'" viewBox="0 0 24 24">
-              <rect x="7" y="4" width="10" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-              <circle cx="14" cy="12" r="1" fill="currentColor" />
-            </svg>
-            <svg v-else viewBox="0 0 24 24">
-              <rect x="6" y="4" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-              <path d="M6 10h12" stroke="currentColor" stroke-width="2" />
-            </svg>
+    <section v-else class="panel panel--devices">
+      <header class="panel__header">
+        <h2 class="panel__title">Dispositivos</h2>
+      </header>
+
+      <div class="device-grid">
+        <article
+          v-for="device in filteredDevices" :key="device.id"
+          class="device-card" :class="{ 'device-card--accent': device.tone === 'sage' }"
+          @click="openModal(device)"
+        >
+          <div class="device-card__top">
+            <div class="device-icon" aria-hidden="true">
+              <svg v-if="device.kind === 'vacuum'" viewBox="0 0 24 24">
+                <rect x="6" y="3" width="12" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="2" />
+                <path d="M12 13v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <svg v-else-if="device.kind === 'speaker'" viewBox="0 0 24 24">
+                <rect x="7" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
+                <circle cx="12" cy="9" r="2" fill="currentColor" />
+                <circle cx="12" cy="15" r="3" fill="none" stroke="currentColor" stroke-width="2" />
+              </svg>
+              <svg v-else-if="device.kind === 'tap'" viewBox="0 0 24 24">
+                <path d="M6 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                <path d="M9 8v5a3 3 0 0 0 6 0V8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                <circle cx="12" cy="18" r="1" fill="currentColor" />
+              </svg>
+              <svg v-else-if="device.kind === 'blind'" viewBox="0 0 24 24">
+                <rect x="6" y="4" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
+                <path d="M6 9h12" stroke="currentColor" stroke-width="2" />
+                <path d="M6 13h12" stroke="currentColor" stroke-width="2" />
+              </svg>
+              <svg v-else-if="device.kind === 'lamp'" viewBox="0 0 24 24">
+                <path d="M8 10a4 4 0 0 1 8 0c0 2-2 3-2 5H10c0-2-2-3-2-5z" fill="none" stroke="currentColor" stroke-width="2" />
+                <path d="M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <svg v-else-if="device.kind === 'oven'" viewBox="0 0 24 24">
+                <rect x="5" y="4" width="14" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
+                <rect x="8" y="9" width="8" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="2" />
+                <circle cx="8" cy="6.5" r="1" fill="currentColor" />
+                <circle cx="12" cy="6.5" r="1" fill="currentColor" />
+              </svg>
+              <svg v-else-if="device.kind === 'ac'" viewBox="0 0 24 24">
+                <path d="M6 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                <path d="M7 11h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                <path d="M9 15h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              </svg>
+              <svg v-else-if="device.kind === 'door'" viewBox="0 0 24 24">
+                <rect x="7" y="4" width="10" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
+                <circle cx="14" cy="12" r="1" fill="currentColor" />
+              </svg>
+              <svg v-else viewBox="0 0 24 24">
+                <rect x="6" y="4" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
+                <path d="M6 10h12" stroke="currentColor" stroke-width="2" />
+              </svg>
+            </div>
+
+            <label class="switch" :aria-label="`Cambiar ${device.name}`" @click.stop>
+              <input
+                type="checkbox" :checked="device.isOn"
+                :disabled="pendingActions.has(device.id)"
+                @change="onToggleDevice(device.id)"
+              />
+              <span class="switch__track"></span>
+            </label>
           </div>
 
-          <label class="switch" :aria-label="`Cambiar ${device.name}`" @click.stop>
-            <input
-              type="checkbox" :checked="device.isOn"
-              :disabled="store.pendingActions.has(device.id)"
-              @change="toggleDevice(device)"
-            />
-            <span class="switch__track"></span>
-          </label>
-        </div>
+          <div class="device-card__body">
+            <h3>{{ device.name }}</h3>
+            <p class="device-card__status">{{ device.status }}</p>
+            <p v-if="activeFilter === 'all'" class="device-card__room">{{ roomName(device.roomId) }}</p>
+          </div>
+        </article>
 
-        <div class="device-card__body">
-          <p class="device-card__room">{{ roomName(device.roomId) }}</p>
-          <h3>{{ device.name }}</h3>
-          <p>{{ device.status }}</p>
-        </div>
-      </article>
+        <button
+          class="device-card device-card--new"
+          type="button"
+          aria-label="Agregar dispositivo"
+          :disabled="rooms.length === 0"
+          @click="showAddDevice = true"
+        >
+          <span class="device-card__plus">+</span>
+          <span>Nuevo</span>
+        </button>
 
-      <div v-if="filteredDevices.length === 0" class="devices-empty">
-        No hay dispositivos en esta habitación.
+        <div v-if="filteredDevices.length === 0" class="devices-empty">
+          No tiene dispositivos
+        </div>
       </div>
-    </div>
+    </section>
 
     <DeviceModal
       v-if="selectedDevice"
       :device="selectedDevice"
       :room-name="selectedRoomName"
       @close="closeModal"
+    />
+
+    <AddDeviceModal
+      v-if="showAddDevice"
+      :room-id="selectedCreationRoomId"
+      :room-name="selectedCreationRoomName"
+      @close="showAddDevice = false"
+      @created="onDeviceCreated"
+    />
+
+    <AddRoomModal
+      v-if="showAddRoom"
+      @close="showAddRoom = false"
+      @created="onRoomCreated"
+    />
+
+    <DeleteRoomConfirmModal
+      v-if="showDeleteRoomConfirm && pendingRoomDeletion"
+      :room-name="pendingRoomDeletion.name"
+      :loading="deletingRoom"
+      @close="closeDeleteRoomConfirm"
+      @confirm="confirmRoomDeletion"
+    />
+
+    <EditRoomModal
+      v-if="showEditRoomModal && pendingRoomEdition"
+      :room-name="pendingRoomEdition.name"
+      :loading="renamingRoom"
+      :error="editRoomError"
+      @close="closeEditRoomModal"
+      @updated="confirmRoomRename"
     />
 
   </section>
@@ -256,14 +428,15 @@ onMounted(async () => {
 
 .devices-page__header {
   display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  align-items: flex-end;
+  justify-content: space-between;
 }
 
 .section-label {
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: 0.02em;
+  margin-bottom: 0.75rem;
 }
 
 .room-tabs {
@@ -290,13 +463,26 @@ onMounted(async () => {
   padding: 0.4rem 0.9rem;
   border-radius: 999px;
   cursor: pointer;
-  white-space: nowrap;
   transition: all 0.2s ease;
 }
 
 .room-tab--active {
   background: rgba(42, 40, 37, 0.95);
   color: #f7f3e7;
+}
+
+.room-tab--icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+}
+
+.room-tab:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .notice {
@@ -312,6 +498,26 @@ onMounted(async () => {
   color: #8a2d2d;
   background: rgba(180, 60, 60, 0.12);
   box-shadow: inset 0 0 0 1px rgba(180, 60, 60, 0.2);
+}
+
+.panel {
+  background: rgba(244, 244, 244, 0.7);
+  border-radius: 24px;
+  padding: 1.5rem;
+  box-shadow: 0 20px 40px rgba(42, 40, 37, 0.08);
+}
+
+.panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.2rem;
+}
+
+.panel__title {
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  font-weight: 600;
 }
 
 .device-grid {
@@ -365,13 +571,21 @@ onMounted(async () => {
   height: 20px;
 }
 
+.device-card__body {
+  display: flex;
+  flex-direction: column;
+  min-height: 68px;
+}
+
 .device-card__room {
   font-size: 0.7rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: rgba(42, 40, 37, 0.45);
-  margin-bottom: 0.15rem;
+  margin-top: auto;
+  align-self: flex-end;
+  text-align: right;
 }
 
 .device-card__body h3 {
@@ -380,7 +594,7 @@ onMounted(async () => {
   margin-bottom: 0.2rem;
 }
 
-.device-card__body p {
+.device-card__status {
   font-size: 0.8rem;
   color: rgba(42, 40, 37, 0.6);
 }
@@ -421,6 +635,32 @@ onMounted(async () => {
 .switch input:disabled { opacity: 0.5; cursor: not-allowed; }
 .switch input:disabled + .switch__track { background: #e0e0e0; }
 
+.device-card--new {
+  border: 1px dashed rgba(42, 40, 37, 0.2);
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  cursor: pointer;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.device-card__plus {
+  width: 40px;
+  height: 40px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.7);
+  display: grid;
+  place-items: center;
+  font-size: 1.6rem;
+  color: rgba(42, 40, 37, 0.6);
+}
+
+.device-card--new:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .devices-empty {
   grid-column: 1 / -1;
   text-align: center;
@@ -430,6 +670,10 @@ onMounted(async () => {
 }
 
 @media (max-width: 720px) {
+  .panel {
+    padding: 1.1rem;
+  }
+
   .device-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
