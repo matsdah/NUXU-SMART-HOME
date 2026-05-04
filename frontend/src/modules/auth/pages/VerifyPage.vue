@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { api, ApiError } from '@/services/api/client'
 import AuthLayout from '../components/AuthLayout.vue'
 
 const route = useRoute()
@@ -8,6 +9,7 @@ const router = useRouter()
 
 const code = ref('')
 const error = ref('')
+const loading = ref(false)
 
 const targetEmail = computed(() => {
   const email = typeof route.query.email === 'string' ? route.query.email.trim() : ''
@@ -19,13 +21,46 @@ function handleCodeInput(event: Event) {
   code.value = target.value.replace(/\D/g, '').slice(0, 6)
 }
 
-function handleSubmit() {
+async function handleSubmit() {
   error.value = ''
+
   if (code.value.length !== 6) {
     error.value = 'Ingresá un código de 6 dígitos.'
     return
   }
-  router.push({ name: 'login' })
+
+  const savedCode = sessionStorage.getItem('verification_code')
+  if (code.value !== savedCode) {
+    error.value = 'Código incorrecto. Revisá tu mail e intentá de nuevo.'
+    return
+  }
+
+  // Código correcto: registrar la cuenta en el backend
+  const raw = sessionStorage.getItem('pending_registration')
+  if (!raw) {
+    error.value = 'Sesión expirada. Volvé a registrarte.'
+    return
+  }
+
+  loading.value = true
+  try {
+    const { name, email, password } = JSON.parse(raw)
+    await api.post('/users/register', { name, email, password })
+
+    sessionStorage.removeItem('verification_code')
+    sessionStorage.removeItem('pending_registration')
+
+    router.push({ name: 'login' })
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const msg = (e.body as { error?: { description?: string } })?.error?.description
+      error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+    } else {
+      error.value = 'Error inesperado. Intentá de nuevo.'
+    }
+  } finally {
+    loading.value = false
+  }
 }
 </script>
 
@@ -57,8 +92,13 @@ function handleSubmit() {
         <label for="verify-code" class="field__label">Código de verificación</label>
       </div>
 
-      <button type="submit" class="auth-submit">
-        <span>Verificar cuenta</span>
+      <button type="submit" class="auth-submit" :disabled="loading">
+        <svg v-if="loading" width="20" height="20" viewBox="0 0 24 24" fill="none"
+          aria-hidden="true" class="spinner">
+          <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"
+            stroke-dasharray="60" stroke-dashoffset="20"/>
+        </svg>
+        <span v-else>Verificar cuenta</span>
       </button>
 
     </form>
@@ -170,7 +210,11 @@ function handleSubmit() {
   justify-content: center;
   transition: background-color 0.2s;
 }
-.auth-submit:hover { background-color: #7a5240; }
+.auth-submit:hover:not(:disabled) { background-color: #7a5240; }
+.auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+@keyframes spin { to { transform: rotate(360deg); } }
+.spinner { animation: spin 0.9s linear infinite; }
 
 .auth-footer {
   font-size: 0.85rem;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { api, ApiError } from '@/services/api/client'
+import { generateVerificationCode, sendVerificationEmail } from '@/services/email'
 import AuthLayout from '../components/AuthLayout.vue'
 
 const name = ref('')
@@ -17,15 +17,22 @@ async function handleSubmit() {
   error.value = ''
   loading.value = true
   try {
-    await api.post('/users/register', { name: name.value, email: email.value, password: password.value })
+    // Guarda los datos del usuario para registrarlo recién después de verificar el mail
+    sessionStorage.setItem('pending_registration', JSON.stringify({
+      name: name.value.trim(),
+      email: email.value.trim(),
+      password: password.value,
+    }))
+
+    const code = generateVerificationCode()
+    sessionStorage.setItem('verification_code', code)
+    await sendVerificationEmail(email.value.trim(), code)
+
     router.push({ name: 'verify', query: { email: email.value.trim() } })
   } catch (e) {
-    if (e instanceof ApiError) {
-      const msg = (e.body as { error?: { description?: string } })?.error?.description
-      error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
-    } else {
-      error.value = 'Error inesperado. Intentá de nuevo.'
-    }
+    sessionStorage.removeItem('pending_registration')
+    sessionStorage.removeItem('verification_code')
+    error.value = 'No se pudo enviar el mail de verificación. Intentá de nuevo.'
   } finally {
     loading.value = false
   }
