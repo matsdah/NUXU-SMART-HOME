@@ -88,7 +88,7 @@ export type Routine = {
 /* Helpers de mapeo y formateo */
 
 function normalizeDeviceKind(device: ApiDevice): DeviceKind {
-  const source = `${device.type?.name ?? ''} ${device.typeId ?? ''}`.toLowerCase()
+  const source = `${device.type?.name ?? ''} ${device.typeId ?? ''} ${device.name ?? ''}`.toLowerCase()
   if (source.includes('vacuum')){
     return 'vacuum'
   }
@@ -121,7 +121,7 @@ function normalizeDeviceKind(device: ApiDevice): DeviceKind {
     return 'door'
   }
 
-  if (source.includes('fridge') || source.includes('refrigerator')){
+  if (source.includes('fridge') || source.includes('refrigerator') || source.includes('heladera')){
     return 'fridge'
   }
 

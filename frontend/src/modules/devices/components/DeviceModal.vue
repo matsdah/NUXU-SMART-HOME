@@ -129,7 +129,6 @@ function onOverlayClick(e: MouseEvent) {
   background: #fff;
   padding: 0;
   overflow-y: auto;
-  max-height: 90vh;
   position: relative;
 }
 

@@ -200,7 +200,6 @@ async function saveChanges() {
 .fridge-card {
   display: grid;
   grid-template-columns: 240px minmax(0, 1fr);
-  min-height: 640px;
   border-radius: 28px;
   overflow: hidden;
   background: #f7f5f0;
