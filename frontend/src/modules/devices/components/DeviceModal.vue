@@ -4,6 +4,7 @@ import type { Device } from '@/app/stores/dashboard'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import AcControls from './controls/AcControls.vue'
 import OvenControls from './controls/OvenControls.vue'
+import FridgeControls from './controls/FridgeControls.vue'
 
 const props = defineProps<{
   device: Device
@@ -58,6 +59,20 @@ const isOven = computed(() => {
     || source.includes('stove')
 })
 
+const isFridge = computed(() => {
+  const source = [
+    props.device.kind,
+    props.device.typeId ?? '',
+    props.device.name,
+    props.device.status,
+  ].join(' ').toLowerCase()
+
+  return source.includes('fridge')
+    || source.includes('heladera')
+    || source.includes('refrigerator')
+    || source.includes('freezer')
+})
+
 function toggle() {
   store.toggleDevice(props.device.id)
 }
@@ -76,6 +91,7 @@ function onOverlayClick(e: MouseEvent) {
 
           <AcControls v-if="isAirConditioner" :device-id="device.id" :device-name="device.name" />
           <OvenControls v-else-if="isOven" :device-id="device.id" :device-name="device.name" />
+          <FridgeControls v-else-if="isFridge" :device-id="device.id" :device-name="device.name" />
           <p v-else class="modal__no-controls">Sin controles disponibles para este dispositivo.</p>
         </div>
       </div>
