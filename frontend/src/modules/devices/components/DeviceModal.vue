@@ -11,7 +11,7 @@ const props = defineProps<{
   roomName: string
 }>()
 
-const emit = defineEmits<{ close: [] }>()
+const emit = defineEmits<{ close: []; deviceUpdated: [id: string, isOn: boolean] }>()
 
 const store = useDashboardStore()
 
@@ -89,8 +89,8 @@ function onOverlayClick(e: MouseEvent) {
         <div class="modal__right">
           <button class="modal__close" @click="emit('close')" aria-label="Cerrar">✕</button>
 
-          <AcControls v-if="isAirConditioner" :device-id="device.id" :device-name="device.name" />
-          <OvenControls v-else-if="isOven" :device-id="device.id" :device-name="device.name" />
+          <AcControls v-if="isAirConditioner" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
+          <OvenControls v-else-if="isOven" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
           <FridgeControls v-else-if="isFridge" :device-id="device.id" :device-name="device.name" />
           <p v-else class="modal__no-controls">Sin controles disponibles para este dispositivo.</p>
         </div>

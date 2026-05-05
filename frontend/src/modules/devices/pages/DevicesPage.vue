@@ -464,6 +464,10 @@ onMounted(async () => {
       :device="selectedDevice"
       :room-name="selectedRoomName"
       @close="closeModal"
+      @device-updated="(id, isOn) => {
+        const d = allDevices.find(x => x.id === id)
+        if (d) { d.isOn = isOn; d.tone = isOn ? 'sage' : 'neutral' }
+      }"
     />
 
     <AddDeviceModal

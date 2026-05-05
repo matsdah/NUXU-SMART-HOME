@@ -8,6 +8,8 @@ import PillButtons from '../shared/PillButtons.vue'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 
+const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
+
 type AcState = {
   isOn: boolean
   mode: 'fan' | 'cool' | 'heat'
@@ -155,6 +157,7 @@ onBeforeUnmount(() => {
 
 function togglePower() {
   state.value.isOn = !state.value.isOn
+  emit('powerToggled', state.value.isOn)
 }
 
 async function saveChanges() {

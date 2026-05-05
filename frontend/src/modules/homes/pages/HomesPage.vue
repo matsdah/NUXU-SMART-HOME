@@ -395,6 +395,10 @@ watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
       :device="selectedDevice"
       :room-name="selectedRoomName"
       @close="closeDeviceModal"
+      @device-updated="(id, isOn) => {
+        const d = allDevices.find(x => x.id === id)
+        if (d) { d.isOn = isOn; d.tone = isOn ? 'sage' : 'neutral' }
+      }"
     />
 
     <AddDeviceModal
