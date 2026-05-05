@@ -13,7 +13,6 @@ type ApiMember = {
   id: string
   name: string
   email: string
-  role: 'admin' | 'user'
 }
 
 type ApiRoom = {
@@ -58,7 +57,6 @@ export type Member = {
   id: string
   name: string
   email: string
-  role: 'admin' | 'user'
 }
 
 export type DeviceKind =          /* Mapeo de dispositivos. */
@@ -341,7 +339,6 @@ export const useDashboardStore = defineStore('dashboard', () => {
       id: m.id,
       name: m.name,
       email: m.email,
-      role: m.role as Member['role'],
     }))
   }
 
@@ -354,7 +351,6 @@ export const useDashboardStore = defineStore('dashboard', () => {
           id: m.id,
           name: m.name,
           email: m.email,
-          role: m.role as Member['role'],
         })
       }
     }

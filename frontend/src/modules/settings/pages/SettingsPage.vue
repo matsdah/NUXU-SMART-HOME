@@ -149,6 +149,7 @@ const showAddMemberModal = ref(false)
 const addMemberEmail = ref('')
 const addMemberLoading = ref(false)
 const addMemberError = ref('')
+const showLeaveHomeModal = ref(false)
 
 function openAddMemberModal() {
   addMemberEmail.value = ''
@@ -157,6 +158,8 @@ function openAddMemberModal() {
 }
 
 function closeAddMemberModal() { showAddMemberModal.value = false }
+function openLeaveHomeModal() { showLeaveHomeModal.value = true }
+function closeLeaveHomeModal() { showLeaveHomeModal.value = false }
 
 async function confirmAddMember() {
   if (!addMemberEmail.value.trim() || !dashboard.activeHomeId) return
@@ -178,9 +181,24 @@ async function confirmAddMember() {
 
 async function confirmRemoveMember(email: string) {
   if (!dashboard.activeHomeId) return
+  const targetIsSelf = email.toLowerCase() === normalizedUserEmail.value
+  if (!isAdmin.value && !targetIsSelf) {
+    showToastMsg('Solo podes eliminarte a vos mismo', 'error')
+    return
+  }
+  if (!isAdmin.value && targetIsSelf) {
+    const confirmed = window.confirm('Si te eliminas, vas a salir del hogar. Queres continuar?')
+    if (!confirmed) return
+  }
   try {
     await dashboard.removeMember(dashboard.activeHomeId, email)
     showToastMsg('Miembro eliminado')
+    if (!isAdmin.value && targetIsSelf) {
+      await new Promise(resolve => setTimeout(resolve, 800))
+      if (router.currentRoute.value.path !== '/homes') {
+        router.push('/homes')
+      }
+    }
   } catch (e) {
     console.error(e)
   }
@@ -214,8 +232,12 @@ async function confirmCreateHome() {
 
 //Display
 
-const displayName = computed(() => auth.user?.name ?? 'Invitado')
-const initials = computed(() => getInitials(displayName.value))
+const normalizedUserEmail = computed(() => auth.user?.email?.toLowerCase() ?? '')
+const isAdmin = computed(() => {
+  const email = normalizedUserEmail.value
+  if (!email) return false
+  return !dashboard.members.some(member => member.email.toLowerCase() === email)
+})
 
 //Lifecycle 
 onMounted(async () => {
@@ -353,17 +375,6 @@ watch(() => dashboard.activeHomeId, async (newId) => {
                   <h3 class="member-name">{{ member.name }}</h3>
                   <p class="member-email">{{ member.email }}</p>
                 </div>
-                <button
-                  class="remove-member-btn"
-                  type="button"
-                  :aria-label="`Eliminar a ${member.name}`"
-                  :title="`Eliminar a ${member.name}`"
-                  @click="confirmRemoveMember(member.email)"
-                >
-                  <svg viewBox="0 0 24 24">
-                    <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                  </svg>
-                </button>
               </article>
             </div>
 
@@ -374,6 +385,14 @@ watch(() => dashboard.activeHomeId, async (newId) => {
               Añadir Miembro
             </button>
           </div>
+          <button
+            v-if="!isAdmin && auth.user?.email"
+            class="add-member-btn"
+            type="button"
+            @click="openLeaveHomeModal"
+          >
+            Salir del hogar
+          </button>
         </section>
 
         <section class="config-section config-section--danger">
@@ -384,9 +403,18 @@ watch(() => dashboard.activeHomeId, async (newId) => {
             <p class="danger-desc">
               Al eliminar este hogar, se borrarán todas las habitaciones, dispositivos y rutinas asociadas. Esta acción no se puede deshacer.
             </p>
-            <button class="danger-btn" type="button" :disabled="!dashboard.activeHomeId" @click="openDeleteModal">
+            <button
+              v-if="isAdmin"
+              class="danger-btn"
+              type="button"
+              :disabled="!dashboard.activeHomeId"
+              @click="openDeleteModal"
+            >
               Eliminar Hogar
             </button>
+            <p v-else class="danger-note">
+              Solo el administrador puede eliminar el hogar.
+            </p>
           </div>
         </section>
       </div>
@@ -419,6 +447,24 @@ watch(() => dashboard.activeHomeId, async (newId) => {
               @click="confirmAddMember"
             >
               {{ addMemberLoading ? 'Añadiendo...' : 'Añadir' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div v-if="showLeaveHomeModal" class="modal-overlay" @click.self="closeLeaveHomeModal">
+        <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-leave-title">
+          <h2 id="modal-leave-title" class="modal-title">Salir del hogar</h2>
+          <p class="modal-desc">Si te vas, vas a perder el acceso a este hogar.</p>
+
+          <div class="modal-actions">
+            <button class="cancel-btn cancel-btn--gray" type="button" @click="closeLeaveHomeModal">Cancelar</button>
+            <button
+              class="save-btn"
+              type="button"
+              @click="confirmRemoveMember(auth.user?.email ?? '')"
+            >
+              Salir
             </button>
           </div>
         </div>
@@ -725,29 +771,6 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   height: 18px;
 }
 
-.remove-member-btn {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(42, 40, 37, 0.08);
-  display: grid;
-  place-items: center;
-  cursor: pointer;
-  color: rgba(42, 40, 37, 0.5);
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.remove-member-btn:hover {
-  background: rgba(138, 45, 45, 0.15);
-  color: #8a2d2d;
-}
-
-.remove-member-btn svg {
-  width: 14px;
-  height: 14px;
-}
 
 .form-group {
   margin-bottom: 0;
@@ -906,6 +929,12 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   color: rgba(42, 40, 37, 0.6);
   margin-bottom: 1rem;
   line-height: 1.4;
+}
+
+.danger-note {
+  font-size: 0.8rem;
+  color: rgba(42, 40, 37, 0.6);
+  margin: 0;
 }
 
 .danger-btn {
