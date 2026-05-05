@@ -356,6 +356,25 @@ async function saveChanges() {
   box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
+.hue-slider::-webkit-slider-runnable-track {
+  height: 28px;
+  border-radius: 999px;
+}
+
+.hue-slider::-moz-range-track {
+  height: 28px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    hsl(0,100%,50%), hsl(30,100%,50%), hsl(60,100%,50%),
+    hsl(90,100%,50%), hsl(120,100%,50%), hsl(150,100%,50%),
+    hsl(180,100%,50%), hsl(210,100%,50%), hsl(240,100%,50%),
+    hsl(270,100%,50%), hsl(300,100%,50%), hsl(330,100%,50%),
+    hsl(360,100%,50%)
+  );
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+}
+
 .hue-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
@@ -367,6 +386,7 @@ async function saveChanges() {
   box-shadow: 0 2px 8px rgba(0,0,0,0.3);
   cursor: pointer;
   transition: transform 0.15s;
+  margin-top: -1px;
 }
 
 .hue-slider::-moz-range-thumb {

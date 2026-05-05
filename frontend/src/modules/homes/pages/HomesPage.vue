@@ -611,6 +611,7 @@ watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
 }
 
 .switch input {
+  -webkit-appearance: none;
   appearance: none;
   width: 36px;
   height: 22px;

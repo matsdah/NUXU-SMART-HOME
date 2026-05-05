@@ -171,6 +171,7 @@ async function handleLogout() {
   padding: 1.1rem 2rem;
   background: rgba(223, 221, 200, 0.85);
   border-bottom: 1px solid rgba(42, 40, 37, 0.08);
+  -webkit-backdrop-filter: blur(6px);
   backdrop-filter: blur(6px);
   position: sticky;
   top: 0;
@@ -254,6 +255,7 @@ async function handleLogout() {
   border-radius: 16px;
   padding: 0.5rem;
   box-shadow: 0 10px 30px rgba(42, 40, 37, 0.15);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   z-index: 12;
   display: flex;

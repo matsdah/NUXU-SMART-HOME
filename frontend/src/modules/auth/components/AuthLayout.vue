@@ -146,6 +146,7 @@
   gap: 1.25rem;
   width: min(360px, 90vw);
   background: rgba(255, 255, 255, 0.55);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.7);
   border-radius: 24px;
