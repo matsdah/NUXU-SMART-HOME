@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
-import { useRouter } from 'vue-router'
 import { api, ApiError } from '@/services/api/client'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import type { Device } from '@/app/stores/dashboard'
@@ -13,7 +12,6 @@ import DeleteRoomConfirmModal from '@/modules/homes/components/DeleteRoomConfirm
 import EditRoomModal from '@/modules/homes/components/EditRoomModal.vue'
 
 const store = useDashboardStore()
-const router = useRouter()
 const { rooms, activeHomeId, loading, error, pendingActions } = storeToRefs(store)
 
 const allDevices = ref<Device[]>([])
@@ -155,17 +153,8 @@ async function onToggleDevice(id: string) {
   await refreshHomeDevices()
 }
 
-type CreatedDevicePayload = { deviceId: string; typeName: string }
-
-async function onDeviceCreated(payload: CreatedDevicePayload) {
+async function onDeviceCreated() {
   showAddDevice.value = false
-
-  const isAirConditioner = payload.typeName.toLowerCase().includes('aire acondicionado')
-  if (isAirConditioner) {
-    await router.push({ name: 'device-ac-controls', params: { deviceId: payload.deviceId } })
-    return
-  }
-
   await refreshHomeDevices()
 }
 

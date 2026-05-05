@@ -3,7 +3,6 @@ import { useAuthStore } from '@/app/stores/auth'
 import LandingPage from '@/modules/auth/pages/LandingPage.vue'
 import AppLayout from '@/shared/layout/AppLayout.vue'
 import DevicesPage from '@/modules/devices/pages/DevicesPage.vue'
-import AcControlsPage from '@/modules/devices/pages/AcControlsPage.vue'
 import HomesPage from '@/modules/homes/pages/HomesPage.vue'
 import LogsPage from '@/modules/logs/pages/LogsPage.vue'
 import RoomsPage from '@/modules/rooms/pages/RoomsPage.vue'
@@ -69,11 +68,6 @@ const router = createRouter({
           path: '',
           name: 'devices',
           component: DevicesPage,
-        },
-        {
-          path: ':deviceId/ac-controls',
-          name: 'device-ac-controls',
-          component: AcControlsPage,
         },
       ],
     },
