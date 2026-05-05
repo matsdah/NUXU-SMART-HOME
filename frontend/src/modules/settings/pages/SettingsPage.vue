@@ -26,13 +26,11 @@ function showToastMsg(msg: string, type: 'success' | 'error' = 'success') {
 
 //Helpers
 
-const MEMBER_COLORS = [
-  '#2d6a4f', '#8b4513', '#4a4a8a', '#8b0000', '#2f4f4f',
-  '#8b008b', '#006400', '#b8860b', '#483d8b', '#556b2f',
-]
+const MEMBER_COLOR_COUNT = 10
 
-function getMemberColor(name: string): string {
-  return MEMBER_COLORS[name.charCodeAt(0) % MEMBER_COLORS.length] ?? '#2d6a4f'
+function getMemberColorIndex(name: string): number {
+  if (!name) return 0
+  return name.charCodeAt(0) % MEMBER_COLOR_COUNT
 }
 
 function getInitials(name: string): string {
@@ -300,6 +298,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
               <input
                 v-if="isEditingName"
                 v-model="editingName"
+                type="text"
                 class="home-name-input"
                 @keyup.enter="saveName"
                 @keyup.escape="cancelEditName"
@@ -346,7 +345,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
               >
                 <div
                   class="member-avatar"
-                  :style="{ backgroundColor: getMemberColor(member.name) }"
+                  :class="`member-avatar--color-${getMemberColorIndex(member.name)}`"
                 >
                   {{ getInitials(member.name) }}
                 </div>
@@ -664,6 +663,17 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   font-weight: 700;
   flex-shrink: 0;
 }
+
+.member-avatar--color-0 { background-color: #2d6a4f; }
+.member-avatar--color-1 { background-color: #8b4513; }
+.member-avatar--color-2 { background-color: #4a4a8a; }
+.member-avatar--color-3 { background-color: #8b0000; }
+.member-avatar--color-4 { background-color: #2f4f4f; }
+.member-avatar--color-5 { background-color: #8b008b; }
+.member-avatar--color-6 { background-color: #006400; }
+.member-avatar--color-7 { background-color: #b8860b; }
+.member-avatar--color-8 { background-color: #483d8b; }
+.member-avatar--color-9 { background-color: #556b2f; }
 
 .member-info {
   flex: 1;

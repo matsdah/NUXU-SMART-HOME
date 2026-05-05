@@ -94,6 +94,7 @@ async function handleLogout() {
           <div v-if="isHomeMenuOpen" class="home-dropdown">
             <button
               v-for="home in dashboard.homes" :key="home.id"
+              type="button"
               class="home-dropdown__item" :class="{ 'home-dropdown__item--active': home.id === dashboard.activeHomeId }"
               @click="selectHome(home.id)"
               >

@@ -123,7 +123,7 @@ async function handlePasswordStep() {
 
       <div class="field">
         <span class="field__icon" aria-hidden="true">
-          <UserIcon style="width: 16px; height: 16px;" />
+          <UserIcon />
         </span>
         <input
           v-model="email"
@@ -171,7 +171,7 @@ async function handlePasswordStep() {
 
       <div class="field">
         <span class="field__icon" aria-hidden="true">
-          <LockClosedIcon style="width: 16px; height: 16px;" />
+          <LockClosedIcon />
         </span>
         <input v-model="currentPassword" :type="showCurrentPass ? 'text' : 'password'"
           id="reset-current" placeholder=" " autocomplete="current-password"
@@ -194,7 +194,7 @@ async function handlePasswordStep() {
 
       <div class="field">
         <span class="field__icon" aria-hidden="true">
-          <LockClosedIcon style="width: 16px; height: 16px;" />
+          <LockClosedIcon />
         </span>
         <input v-model="password" :type="showPass ? 'text' : 'password'"
           id="reset-password" placeholder=" " autocomplete="new-password"
@@ -217,7 +217,7 @@ async function handlePasswordStep() {
 
       <div class="field">
         <span class="field__icon" aria-hidden="true">
-          <LockClosedIcon style="width: 16px; height: 16px;" />
+          <LockClosedIcon />
         </span>
         <input v-model="confirm" :type="showConfirm ? 'text' : 'password'"
           id="reset-confirm" placeholder=" " autocomplete="new-password"
@@ -326,6 +326,11 @@ async function handlePasswordStep() {
   align-items: center;
   color: var(--color-text-muted);
   pointer-events: none;
+}
+
+.field__icon :deep(svg) {
+  width: 16px;
+  height: 16px;
 }
 
 .field__label {

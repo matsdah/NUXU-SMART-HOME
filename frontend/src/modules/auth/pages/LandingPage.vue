@@ -2,25 +2,26 @@
   <div class="landing">
 
     <!-- Gradiente que sigue el cursor -->
-    <div class="mouse-gradient" :style="mouseStyle"></div>
+    <div ref="mouseGradientEl" class="mouse-gradient"></div>
 
     <!-- Ripples al hacer click -->
     <div
       v-for="r in ripples" :key="r.id"
-      class="ripple" :style="{ left: `${r.x}px`, top: `${r.y}px` }"
+      :ref="(el) => registerRippleEl(r.id, el)"
+      class="ripple"
     ></div>
 
     <!-- Partículas flotantes -->
-    <div class="particle" style="top:25%;left:15%;animation-delay:0.5s" aria-hidden="true"></div>
-    <div class="particle" style="top:60%;left:85%;animation-delay:1s"   aria-hidden="true"></div>
-    <div class="particle" style="top:40%;left:10%;animation-delay:1.5s" aria-hidden="true"></div>
-    <div class="particle" style="top:75%;left:90%;animation-delay:2s"   aria-hidden="true"></div>
+    <div class="particle particle--1" aria-hidden="true"></div>
+    <div class="particle particle--2" aria-hidden="true"></div>
+    <div class="particle particle--3" aria-hidden="true"></div>
+    <div class="particle particle--4" aria-hidden="true"></div>
 
     <!-- Blobs decorativos -->
     <div class="blob blob--sage-r" aria-hidden="true"></div>
     <div class="blob blob--charcoal-tr" aria-hidden="true"></div>
     <div class="blob blob--brown-tr" aria-hidden="true"></div>
-   
+
     <div class="blob blob--sage-l" aria-hidden="true"></div>
     <div class="blob blob--charcoal-bl" aria-hidden="true"></div>
     <div class="blob blob--brown-bl" aria-hidden="true"></div>
@@ -30,14 +31,14 @@
     <div class="landing__inner">
       <img src="@/assets/lamp.webp" alt="Lámpara NUXU" class="landing__lamp"/>
       <h1 class="landing__title">
-        <span class="word-animate" style="animation-delay:700ms">¡Bienvenido</span>
-        <span class="word-animate" style="animation-delay:900ms">a</span>
-        <span class="word-animate" style="animation-delay:1100ms"><strong>NUXU</strong>!</span>
+        <span class="word-animate">¡Bienvenido</span>
+        <span class="word-animate">a</span>
+        <span class="word-animate"><strong>NUXU</strong>!</span>
       </h1>
     </div>
 
     <!-- Botón flecha -->
-    <button class="landing__cta" @click="goToLogin" aria-label="Continuar al inicio de sesión">
+    <button type="button" class="landing__cta" @click="goToLogin" aria-label="Continuar al inicio de sesión">
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
         <path d="M4 11h14M13 5l6 6-6 6" stroke="currentColor" stroke-width="1.75"
               stroke-linecap="round" stroke-linejoin="round"/>
@@ -49,36 +50,48 @@
 
 <script setup lang="ts">
 
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 const router = useRouter()
 
-const mouse = reactive({ x: 0, y: 0, active: false })
-
-const mouseStyle = computed(() => ({
-  left: `${mouse.x}px`,
-  top: `${mouse.y}px`,
-  opacity: mouse.active ? 1 : 0,
-}))
+const mouseGradientEl = ref<HTMLElement | null>(null)
+const rippleEls = new Map<number, HTMLElement>()
 
 interface Ripple { id: number; x: number; y: number }
 const ripples = ref<Ripple[]>([])
 
+function registerRippleEl(id: number, el: Element | null) {
+  if (el instanceof HTMLElement) {
+    rippleEls.set(id, el)
+    const ripple = ripples.value.find(r => r.id === id)
+    if (ripple) {
+      el.style.left = `${ripple.x}px`
+      el.style.top = `${ripple.y}px`
+    }
+  } else {
+    rippleEls.delete(id)
+  }
+}
+
 function onMouseMove(e: MouseEvent) {
-  mouse.x = e.clientX
-  mouse.y = e.clientY
-  mouse.active = true
+  const el = mouseGradientEl.value
+  if (!el) return
+  el.style.left = `${e.clientX}px`
+  el.style.top = `${e.clientY}px`
+  el.style.opacity = '1'
 }
 
 function onMouseLeave() {
-  mouse.active = false
+  const el = mouseGradientEl.value
+  if (!el) return
+  el.style.opacity = '0'
 }
 
 function onClick(e: MouseEvent) {
   const r: Ripple = { id: Date.now(), x: e.clientX, y: e.clientY }
   ripples.value.push(r)
-  setTimeout(() => {ripples.value = ripples.value.filter(x => x.id !== r.id)}, 1000)
+  setTimeout(() => { ripples.value = ripples.value.filter(x => x.id !== r.id) }, 1000)
 }
 
 function goToLogin() {
@@ -155,6 +168,11 @@ onUnmounted(() => {
   pointer-events: none;
   z-index: 2;
 }
+
+.particle--1 { top: 25%; left: 15%; animation-delay: 0.5s; }
+.particle--2 { top: 60%; left: 85%; animation-delay: 1s; }
+.particle--3 { top: 40%; left: 10%; animation-delay: 1.5s; }
+.particle--4 { top: 75%; left: 90%; animation-delay: 2s; }
 
 /* Blobs decorativos */
 .blob {
@@ -288,6 +306,10 @@ onUnmounted(() => {
   opacity: 0;
   animation: word-appear 0.8s ease-out forwards;
 }
+
+.landing__title .word-animate:nth-child(1) { animation-delay: 700ms; }
+.landing__title .word-animate:nth-child(2) { animation-delay: 900ms; }
+.landing__title .word-animate:nth-child(3) { animation-delay: 1100ms; }
 
 .word-animate:hover {
   text-shadow: 0 0 20px rgba(158, 155, 142, 0.45);

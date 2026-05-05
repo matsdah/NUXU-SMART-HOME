@@ -103,7 +103,7 @@ function onOverlayClick(e: MouseEvent) {
     <div class="modal-overlay" @click="onOverlayClick">
       <div class="modal">
         <div class="modal__right">
-          <button class="modal__close" @click="emit('close')" aria-label="Cerrar">✕</button>
+          <button type="button" class="modal__close" @click="emit('close')" aria-label="Cerrar">✕</button>
 
           <AcControls v-if="isAirConditioner" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
           <OvenControls v-else-if="isOven" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />

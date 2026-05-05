@@ -172,7 +172,7 @@ function onOverlayClick(e: MouseEvent) {
 
         <div class="modal__header">
           <h2 class="modal__title">Agregar dispositivo</h2>
-          <button class="modal__close" @click="emit('close')" aria-label="Cerrar">✕</button>
+          <button type="button" class="modal__close" @click="emit('close')" aria-label="Cerrar">✕</button>
         </div>
 
         <div v-if="error" class="modal__error" role="alert">{{ error }}</div>

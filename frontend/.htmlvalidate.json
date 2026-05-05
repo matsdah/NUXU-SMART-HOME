@@ -1,0 +1,16 @@
+{
+  "plugins": ["html-validate-vue"],
+  "extends": ["html-validate:recommended", "html-validate-vue:recommended"],
+  "elements": ["html5"],
+  "transform": {
+    "^.*\\.vue$": "html-validate-vue"
+  },
+  "rules": {
+    "no-inline-style": "error",
+    "require-sri": "off",
+    "no-trailing-whitespace": "off",
+    "void-style": "off",
+    "element-case": "off",
+    "element-name": "off"
+  }
+}
