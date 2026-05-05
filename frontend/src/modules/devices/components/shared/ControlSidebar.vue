@@ -7,8 +7,10 @@ withDefaults(defineProps<{
   badgeIcon?: string
   badgeLabel?: string
   showPowerButton?: boolean
+  unit?: string
 }>(), {
   showPowerButton: true,
+  unit: '°C',
 })
 
 defineEmits<{
@@ -26,7 +28,7 @@ defineEmits<{
     <div class="control-sidebar__center">
       <div class="control-sidebar__temp">
         <span class="control-sidebar__temp-value">{{ temperature }}</span>
-        <span class="control-sidebar__temp-unit">°C</span>
+        <span class="control-sidebar__temp-unit">{{ unit }}</span>
       </div>
 
       <div v-if="badgeIcon && badgeLabel" class="control-sidebar__badge">

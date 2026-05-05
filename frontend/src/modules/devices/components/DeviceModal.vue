@@ -5,6 +5,7 @@ import { useDashboardStore } from '@/app/stores/dashboard'
 import AcControls from './controls/AcControls.vue'
 import OvenControls from './controls/OvenControls.vue'
 import FridgeControls from './controls/FridgeControls.vue'
+import LampControls from './controls/LampControls.vue'
 
 const props = defineProps<{
   device: Device
@@ -73,6 +74,21 @@ const isFridge = computed(() => {
     || source.includes('freezer')
 })
 
+const isLamp = computed(() => {
+  const source = [
+    props.device.kind,
+    props.device.typeId ?? '',
+    props.device.name,
+    props.device.status,
+  ].join(' ').toLowerCase()
+
+  return source.includes('lamp')
+    || source.includes('light')
+    || source.includes('luz')
+    || source.includes('lampara')
+    || source.includes('lámpara')
+})
+
 function toggle() {
   store.toggleDevice(props.device.id)
 }
@@ -92,6 +108,7 @@ function onOverlayClick(e: MouseEvent) {
           <AcControls v-if="isAirConditioner" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
           <OvenControls v-else-if="isOven" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
           <FridgeControls v-else-if="isFridge" :device-id="device.id" :device-name="device.name" />
+          <LampControls v-else-if="isLamp" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
           <p v-else class="modal__no-controls">Sin controles disponibles para este dispositivo.</p>
         </div>
       </div>

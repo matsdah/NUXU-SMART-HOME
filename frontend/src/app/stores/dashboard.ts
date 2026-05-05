@@ -105,7 +105,7 @@ function normalizeDeviceKind(device: ApiDevice): DeviceKind {
     return 'blind'
   }
 
-  if (source.includes('lamp') || source.includes('light')){
+  if (source.includes('lamp') || source.includes('light') || source.includes('luz') || source.includes('lámpara')){
     return 'lamp'
   }
 

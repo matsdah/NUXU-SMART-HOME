@@ -1,9 +1,14 @@
 <script setup lang="ts">
-defineProps<{
+withDefaults(defineProps<{
   modelValue: number
   min: number
   max: number
-}>()
+  unit?: string
+  step?: number
+}>(), {
+  unit: '°C',
+  step: 1,
+})
 
 defineEmits<{
   'update:modelValue': [value: number]
@@ -15,20 +20,20 @@ defineEmits<{
     <button
       class="temp-control__btn"
       type="button"
-      @click="$emit('update:modelValue', modelValue - 1)"
+      @click="$emit('update:modelValue', Math.max(min, modelValue - step))"
       :disabled="modelValue <= min"
     >
       −
     </button>
     <div class="temp-control__display">
       <span class="temp-control__value">{{ modelValue }}</span>
-      <span class="temp-control__unit">°C</span>
-      <span class="temp-control__range">{{ min }}° - {{ max }}°</span>
+      <span class="temp-control__unit">{{ unit }}</span>
+      <span class="temp-control__range">{{ min }}{{ unit }} - {{ max }}{{ unit }}</span>
     </div>
     <button
       class="temp-control__btn"
       type="button"
-      @click="$emit('update:modelValue', modelValue + 1)"
+      @click="$emit('update:modelValue', Math.min(max, modelValue + step))"
       :disabled="modelValue >= max"
     >
       +
