@@ -263,6 +263,12 @@ async function handleLogout() {
   gap: 0.25rem;
 }
 
+@supports not (backdrop-filter: blur(1px)) {
+  .home-dropdown {
+    background: rgba(42, 40, 37, 0.72);
+  }
+}
+
 .home-dropdown__item {
   padding: 0.6rem 1rem;
   border-radius: 10px;

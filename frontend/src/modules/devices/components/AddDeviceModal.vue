@@ -239,6 +239,12 @@ function onOverlayClick(e: MouseEvent) {
   padding: 1.5rem;
 }
 
+@supports not (backdrop-filter: blur(1px)) {
+  .overlay {
+    background: rgba(42, 40, 37, 0.72);
+  }
+}
+
 .modal {
   background: #fff;
   border-radius: 24px;
@@ -345,6 +351,7 @@ function onOverlayClick(e: MouseEvent) {
   font-family: var(--font-sans);
   color: var(--color-text);
   outline: none;
+  -webkit-appearance: none;
   appearance: none;
   cursor: pointer;
   transition: border-color 0.2s;

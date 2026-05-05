@@ -97,6 +97,12 @@ function onOverlayClick(e: MouseEvent) {
   padding: 1.5rem;
 }
 
+@supports not (backdrop-filter: blur(1px)) {
+  .overlay {
+    background: rgba(42, 40, 37, 0.72);
+  }
+}
+
 .modal {
   background: #fff;
   border-radius: 24px;

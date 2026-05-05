@@ -152,4 +152,10 @@
   border-radius: 24px;
   padding: 2rem 2rem 1.75rem;
 }
+
+@supports not (backdrop-filter: blur(1px)) {
+  .auth-card {
+    background: rgba(255, 255, 255, 0.92);
+  }
+}
 </style>

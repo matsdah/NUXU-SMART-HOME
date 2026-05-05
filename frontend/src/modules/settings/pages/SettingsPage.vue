@@ -927,6 +927,12 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   backdrop-filter: blur(4px);
 }
 
+@supports not (backdrop-filter: blur(1px)) {
+  .modal-overlay {
+    background: rgba(42, 40, 37, 0.72);
+  }
+}
+
 .modal-content {
   background: #fff;
   border-radius: 20px;

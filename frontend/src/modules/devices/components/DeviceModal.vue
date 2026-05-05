@@ -131,6 +131,12 @@ function onOverlayClick(e: MouseEvent) {
   overscroll-behavior: contain;
 }
 
+@supports not (backdrop-filter: blur(1px)) {
+  .modal-overlay {
+    background: rgba(42, 40, 37, 0.72);
+  }
+}
+
 .modal {
   display: flex;
   width: min(92vw, 900px);
