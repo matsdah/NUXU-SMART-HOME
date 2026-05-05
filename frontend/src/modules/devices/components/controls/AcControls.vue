@@ -15,6 +15,7 @@ type AcState = {
 
 const TEMP_MIN = 18
 const TEMP_MAX = 38
+const STORAGE_KEY_PREFIX = 'ac-controls-state:'
 
 const MODES = [
   { value: 'fan', label: 'Ventilación', icon: '≋' },
@@ -41,13 +42,57 @@ const state = ref<AcState>({
   fanSpeed: '50',
 })
 
+const savedState = ref<AcState | null>(null)
 const loading = ref(true)
+const saving = ref(false)
+const saveError = ref('')
 const currentModeLabel = computed(() => modeLabels[state.value.mode])
 const currentModeIcon = computed(() => {
   if (state.value.mode === 'fan') return '≋'
   if (state.value.mode === 'heat') return '☼'
   return '❄'
 })
+
+const hasUnsavedChanges = computed(() => {
+  if (!savedState.value) return false
+
+  return (
+    state.value.isOn !== savedState.value.isOn
+    || state.value.mode !== savedState.value.mode
+    || state.value.temperature !== savedState.value.temperature
+    || state.value.verticalSwing !== savedState.value.verticalSwing
+    || state.value.horizontalSwing !== savedState.value.horizontalSwing
+    || state.value.fanSpeed !== savedState.value.fanSpeed
+  )
+})
+
+function snapshotState(): AcState {
+  return { ...state.value }
+}
+
+function storageKey() {
+  return `${STORAGE_KEY_PREFIX}${props.deviceId}`
+}
+
+function readPersistedState(): Partial<AcState> | null {
+  try {
+    const raw = localStorage.getItem(storageKey())
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<AcState>
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch {
+    return null
+  }
+}
+
+function applyStatePatch(patch: Partial<AcState>) {
+  if (typeof patch.isOn === 'boolean') state.value.isOn = patch.isOn
+  if (patch.mode) state.value.mode = patch.mode
+  if (typeof patch.temperature === 'number') state.value.temperature = patch.temperature
+  if (patch.verticalSwing) state.value.verticalSwing = patch.verticalSwing
+  if (patch.horizontalSwing) state.value.horizontalSwing = patch.horizontalSwing
+  if (patch.fanSpeed) state.value.fanSpeed = patch.fanSpeed
+}
 
 onMounted(async () => {
   try {
@@ -61,17 +106,18 @@ onMounted(async () => {
   } catch {
     // Si falla, se usan los valores por defecto
   } finally {
+    const persisted = readPersistedState()
+    if (persisted) {
+      applyStatePatch(persisted)
+    }
+
+    savedState.value = snapshotState()
     loading.value = false
   }
 })
 
-async function setState(patch: Partial<AcState>) {
+function setState(patch: Partial<AcState>) {
   Object.assign(state.value, patch)
-  try {
-    await api.put(`/devices/${props.deviceId}/state`, state.value)
-  } catch {
-    // Los controles muestran el estado optimista; si falla el backend se ignora silenciosamente
-  }
 }
 
 function changeTemp(delta: number) {
@@ -87,6 +133,20 @@ function labelFor(option: string) {
 
 function togglePower() {
   setState({ isOn: !state.value.isOn })
+}
+
+async function saveChanges() {
+  saveError.value = ''
+  saving.value = true
+
+  try {
+    localStorage.setItem(storageKey(), JSON.stringify(state.value))
+    savedState.value = snapshotState()
+  } catch {
+    saveError.value = 'No se pudo guardar. Volvé a intentarlo.'
+  } finally {
+    saving.value = false
+  }
 }
 </script>
 
@@ -189,6 +249,14 @@ function togglePower() {
             >{{ f }}</button>
           </div>
         </section>
+
+        <div class="ac-actions">
+          <button class="ac-save" type="button" :disabled="saving" @click="saveChanges">
+            <span class="ac-save__dot" :class="{ 'ac-save__dot--busy': saving }"></span>
+            {{ saving ? 'GUARDANDO...' : hasUnsavedChanges ? 'GUARDAR CAMBIOS' : 'GUARDAR' }}
+          </button>
+          <p v-if="saveError" class="ac-save__error" role="alert">{{ saveError }}</p>
+        </div>
       </div>
     </section>
   </div>
@@ -524,6 +592,67 @@ function togglePower() {
   background: rgba(52, 47, 41, 0.92);
   color: #fff;
   box-shadow: 0 8px 18px rgba(52, 47, 41, 0.18);
+}
+
+.ac-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding-top: 0.1rem;
+}
+
+.ac-save {
+  border: none;
+  border-radius: 999px;
+  padding: 0.78rem 1.25rem;
+  background: rgba(52, 47, 41, 0.92);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: transform 0.15s ease, opacity 0.15s ease;
+}
+
+.ac-save:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.ac-save:disabled {
+  opacity: 0.72;
+  cursor: wait;
+}
+
+.ac-save__dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  position: relative;
+}
+
+.ac-save__dot::after {
+  content: '';
+  position: absolute;
+  inset: 2px 3px;
+  border-radius: inherit;
+  background: transparent;
+}
+
+.ac-save__dot--busy::after {
+  background: currentColor;
+}
+
+.ac-save__error {
+  margin: 0;
+  font-size: 0.78rem;
+  color: #8a2d2d;
+  text-align: center;
 }
 
 @media (max-width: 900px) {

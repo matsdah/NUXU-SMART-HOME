@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, computed } from 'vue'
 import type { Device } from '@/app/stores/dashboard'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import AcControls from './controls/AcControls.vue'
@@ -48,7 +48,6 @@ function toggle() {
   store.toggleDevice(props.device.id)
 }
 
-// Cierra al hacer click en el overlay (fuera del modal)
 function onOverlayClick(e: MouseEvent) {
   if (e.target === e.currentTarget) emit('close')
 }
@@ -61,12 +60,9 @@ function onOverlayClick(e: MouseEvent) {
         <div class="modal__right">
           <button class="modal__close" @click="emit('close')" aria-label="Cerrar">✕</button>
 
-          <!-- Header removed as requested; keep close button above and controls below -->
-
           <AcControls v-if="isAirConditioner" :device-id="device.id" />
           <p v-else class="modal__no-controls">Sin controles disponibles para este dispositivo.</p>
         </div>
-
       </div>
     </div>
   </Teleport>
@@ -100,36 +96,10 @@ function onOverlayClick(e: MouseEvent) {
 .modal__right {
   flex: 1;
   background: #fff;
-  padding: 0rem;
+  padding: 0;
   overflow-y: auto;
   max-height: 90vh;
   position: relative;
-}
-
-.modal__power {
-  margin-top: auto;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.65rem 1.2rem;
-  border-radius: 999px;
-  border: none;
-  background: rgba(42, 40, 37, 0.88);
-  color: #fff;
-  font-size: 0.9rem;
-  font-weight: 500;
-  font-family: var(--font-sans);
-  cursor: pointer;
-  transition: opacity 0.15s;
-}
-
-.modal__power:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.modal__power--on {
-  background: rgba(63, 129, 102, 0.85);
 }
 
 .modal__close {
@@ -170,10 +140,7 @@ function onOverlayClick(e: MouseEvent) {
   .modal__right {
     padding: 0.5rem;
     max-height: 95vh;
-   width: 95%;
-    max-width: 420px;
-    max-height: 95vh;
   }
+}
+</style>
 
-  .modal__right {
-    padding: 0.5rem;
