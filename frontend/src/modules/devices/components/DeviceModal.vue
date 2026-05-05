@@ -101,7 +101,8 @@ function onOverlayClick(e: MouseEvent) {
   flex: 1;
   background: #fff;
   padding: 0rem;
-  overflow: visible;
+  overflow-y: auto;
+  max-height: 90vh;
   position: relative;
 }
 
@@ -168,7 +169,11 @@ function onOverlayClick(e: MouseEvent) {
 
   .modal__right {
     padding: 0.5rem;
+    max-height: 95vh;
+   width: 95%;
+    max-width: 420px;
+    max-height: 95vh;
   }
 
-}
-</style>
+  .modal__right {
+    padding: 0.5rem;
