@@ -1,12 +1,15 @@
 <script setup lang="ts">
-defineProps<{
+withDefaults(defineProps<{
   title: string
   roomLabel: string
   temperature: number
   isOn: boolean
   badgeIcon?: string
   badgeLabel?: string
-}>()
+  showPowerButton?: boolean
+}>(), {
+  showPowerButton: true,
+})
 
 defineEmits<{
   togglePower: []
@@ -32,7 +35,7 @@ defineEmits<{
       </div>
     </div>
 
-    <button class="control-sidebar__power" type="button" @click="$emit('togglePower')">
+    <button v-if="showPowerButton !== false" class="control-sidebar__power" type="button" @click="$emit('togglePower')">
       <span class="control-sidebar__power-dot" :class="{ 'control-sidebar__power-dot--on': isOn }"></span>
       {{ isOn ? 'ENCENDIDO' : 'APAGADO' }}
     </button>

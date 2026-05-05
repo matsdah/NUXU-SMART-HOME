@@ -9,7 +9,6 @@ import PillButtons from '../shared/PillButtons.vue'
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 
 type FridgeState = {
-  isOn: boolean
   mode: 'normal' | 'party' | 'vacation'
   fridgeTemp: number
   freezerTemp: number
@@ -28,7 +27,6 @@ const MODES: PillOption[] = [
 ]
 
 const state = ref<FridgeState>({
-  isOn: true,
   mode: 'normal',
   fridgeTemp: 4,
   freezerTemp: -18,
@@ -72,7 +70,6 @@ function readPersistedState(): Partial<FridgeState> | null {
 }
 
 function applyStatePatch(patch: Partial<FridgeState>) {
-  if (typeof patch.isOn === 'boolean') state.value.isOn = patch.isOn
   if (patch.mode) state.value.mode = patch.mode
   if (typeof patch.fridgeTemp === 'number') state.value.fridgeTemp = patch.fridgeTemp
   if (typeof patch.freezerTemp === 'number') state.value.freezerTemp = patch.freezerTemp
@@ -89,7 +86,6 @@ function hasUnsavedChanges(): boolean {
 onMounted(async () => {
   try {
     const raw = await api.get<Record<string, unknown>>(`/devices/${props.deviceId}/state`)
-    if (typeof raw.on === 'boolean') state.value.isOn = raw.on
     if (raw.mode) state.value.mode = raw.mode as FridgeState['mode']
     if (raw.fridgeTemp) state.value.fridgeTemp = raw.fridgeTemp as number
     if (raw.freezerTemp) state.value.freezerTemp = raw.freezerTemp as number
@@ -118,10 +114,6 @@ onBeforeUnmount(() => {
     clearTimeout(toastTimer)
   }
 })
-
-function togglePower() {
-  state.value.isOn = !state.value.isOn
-}
 
 async function saveChanges() {
   if (saving.value) {
@@ -159,9 +151,9 @@ async function saveChanges() {
         :title="props.deviceName || 'Heladera'"
         room-label="COCINA"
         :temperature="state.fridgeTemp"
-        :is-on="state.isOn"
+        :is-on="true"
+        :show-power-button="false"
         :badge-label="`MODO ${currentModeLabel.toUpperCase()}`"
-        @toggle-power="togglePower"
       />
 
       <div class="fridge-controls">

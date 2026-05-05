@@ -425,7 +425,7 @@ onMounted(async () => {
               </svg>
             </div>
 
-            <label class="switch" :aria-label="`Cambiar ${device.name}`" @click.stop>
+            <label v-if="device.kind !== 'fridge'" class="switch" :aria-label="`Cambiar ${device.name}`" @click.stop>
               <input
                 type="checkbox" :checked="device.isOn"
                 :disabled="pendingActions.has(device.id) || isDeviceEditMode"

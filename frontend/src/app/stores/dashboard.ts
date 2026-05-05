@@ -278,15 +278,17 @@ export const useDashboardStore = defineStore('dashboard', () => {
       }
 
       const rawTypeId = device.type?.id ?? device.typeId
+      const kind = normalizeDeviceKind(device)
+      const isFridge = kind === 'fridge'
 
       return {
         id: device.id,
         name: device.name,
         roomId,
-        kind: normalizeDeviceKind(device),
+        kind,
         status: formatStatus(state),
-        isOn: resolveIsOn(state),
-        tone: resolveIsOn(state) ? 'sage' : 'neutral',
+        isOn: isFridge ? true : resolveIsOn(state),
+        tone: isFridge ? 'sage' : (resolveIsOn(state) ? 'sage' : 'neutral'),
         typeId: rawTypeId,
       }
     })
@@ -676,6 +678,10 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
 
     const target = devices.value.find(d => d.id === id)
+
+    if (target?.kind === 'fridge') {
+      return
+    }
     pendingActions.value.add(id)
     const previous = target?.isOn
 
