@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { useAuthStore } from '@/app/stores/auth'
 import LandingPage from '@/modules/auth/pages/LandingPage.vue'
 import AppLayout from '@/shared/layout/AppLayout.vue'
 import DevicesPage from '@/modules/devices/pages/DevicesPage.vue'
@@ -21,30 +22,36 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('@/modules/auth/pages/LoginPage.vue'),  // Importo a demanda o lazy-load
+      meta: { guestOnly: true },
     },
     {
       path: '/register',
       name: 'register',
       component: () => import('@/modules/auth/pages/RegisterPage.vue'), // Importo a demanda o lazy-load
+      meta: { guestOnly: true },
     },
     {
       path: '/recover',
       name: 'recover',
       component: () => import('@/modules/auth/pages/RecoverPage.vue'),
+      meta: { guestOnly: true },
     },
     {
       path: '/verify',
       name: 'verify',
       component: () => import('@/modules/auth/pages/VerifyPage.vue'),
+      meta: { guestOnly: true },
     },
     {
       path: '/reset-password',
       name: 'reset-password',
       component: () => import('@/modules/auth/pages/ResetPasswordPage.vue'),
+      meta: { guestOnly: true },
     },
     {
       path: '/homes',
       component: AppLayout,
+      meta: { requiresAuth: true },
       children: [
         {
           path: '',
@@ -56,6 +63,7 @@ const router = createRouter({
     {
       path: '/devices',
       component: AppLayout,
+      meta: { requiresAuth: true },
       children: [
         {
           path: '',
@@ -72,6 +80,7 @@ const router = createRouter({
     {
       path: '/routines',
       component: AppLayout,
+      meta: { requiresAuth: true },
       children: [
         {
           path: '',
@@ -83,6 +92,7 @@ const router = createRouter({
     {
       path: '/logs',
       component: AppLayout,
+      meta: { requiresAuth: true },
       children: [
         {
           path: '',
@@ -94,6 +104,7 @@ const router = createRouter({
     {
       path: '/rooms',
       component: AppLayout,
+      meta: { requiresAuth: true },
       children: [
         {
           path: '',
@@ -105,6 +116,7 @@ const router = createRouter({
     {
       path: '/settings',
       component: AppLayout,
+      meta: { requiresAuth: true },
       children: [
         {
           path: '',
@@ -114,6 +126,16 @@ const router = createRouter({
       ],
     },
   ],
+})
+
+router.beforeEach((to) => {
+  const auth = useAuthStore()
+  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+    return { name: 'login' }
+  }
+  if (to.meta.guestOnly && auth.isAuthenticated) {
+    return { name: 'homes' }
+  }
 })
 
 export default router
