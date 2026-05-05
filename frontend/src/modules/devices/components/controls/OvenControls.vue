@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { api } from '@/services/api/client'
 import ControlSidebar from '../shared/ControlSidebar.vue'
 import TemperatureControl from '../shared/TemperatureControl.vue'
@@ -46,10 +46,14 @@ const state = ref<OvenState>({
   convectionMode: 'conventional',
 })
 
-const savedState = ref<OvenState | null>(null)
 const loading = ref(true)
 const saving = ref(false)
 const saveError = ref('')
+const toastMessage = ref('')
+const showToast = ref(false)
+const savedState = ref<OvenState | null>(null)
+
+let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 const currentHeatSourceLabel = computed(() => {
   const source = HEAT_SOURCES.find(hs => hs.value === state.value.heatSource)
@@ -61,19 +65,16 @@ const currentHeatSourceIcon = computed(() => {
   return source?.icon || '◆'
 })
 
-const hasUnsavedChanges = computed(() => {
-  if (!savedState.value) return false
-  return (
-    state.value.isOn !== savedState.value.isOn
-    || state.value.heatSource !== savedState.value.heatSource
-    || state.value.temperature !== savedState.value.temperature
-    || state.value.powerLevel !== savedState.value.powerLevel
-    || state.value.convectionMode !== savedState.value.convectionMode
-  )
-})
-
 function snapshotState(): OvenState {
   return { ...state.value }
+}
+
+function hasUnsavedChanges(): boolean {
+  if (!savedState.value) {
+    return false
+  }
+
+  return JSON.stringify(state.value) !== JSON.stringify(savedState.value)
 }
 
 function storageKey() {
@@ -119,16 +120,43 @@ onMounted(async () => {
   }
 })
 
+watch(state, async () => {
+  if (loading.value || !hasUnsavedChanges()) {
+    return
+  }
+
+  await saveChanges()
+}, { deep: true })
+
+onBeforeUnmount(() => {
+  if (toastTimer !== null) {
+    clearTimeout(toastTimer)
+  }
+})
+
 function togglePower() {
   state.value.isOn = !state.value.isOn
 }
 
 async function saveChanges() {
+  if (saving.value) {
+    return
+  }
+
   saveError.value = ''
   saving.value = true
   try {
     localStorage.setItem(storageKey(), JSON.stringify(state.value))
     savedState.value = snapshotState()
+    toastMessage.value = 'Datos guardados correctamente.'
+    showToast.value = true
+    if (toastTimer !== null) {
+      clearTimeout(toastTimer)
+    }
+    toastTimer = setTimeout(() => {
+      showToast.value = false
+      toastTimer = null
+    }, 2000)
   } catch {
     saveError.value = 'No se pudo guardar. Volvé a intentarlo.'
   } finally {
@@ -174,14 +202,16 @@ async function saveChanges() {
         </section>
 
         <div class="oven-actions">
-          <button class="oven-save" type="button" :disabled="saving" @click="saveChanges">
-            <span class="oven-save__dot" :class="{ 'oven-save__dot--busy': saving }"></span>
-            {{ saving ? 'GUARDANDO...' : hasUnsavedChanges ? 'GUARDAR CAMBIOS' : 'GUARDAR' }}
-          </button>
           <p v-if="saveError" class="oven-save__error" role="alert">{{ saveError }}</p>
         </div>
       </div>
     </section>
+
+    <Teleport to="body">
+      <div v-if="showToast" class="toast toast--success">
+        {{ toastMessage }}
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -220,73 +250,57 @@ async function saveChanges() {
 }
 
 .oven-label {
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: rgba(52, 47, 41, 0.42);
   margin: 0;
+  font-size: 0.82rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(42, 40, 37, 0.55);
 }
 
 .oven-actions {
+  margin-top: 0.5rem;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding-top: 0.1rem;
-}
-
-.oven-save {
-  border: none;
-  border-radius: 999px;
-  padding: 0.78rem 1.25rem;
-  background: rgba(52, 47, 41, 0.92);
-  color: #fff;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.6rem;
-  font-size: 0.82rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: transform 0.15s ease, opacity 0.15s ease;
-}
-
-.oven-save:hover:not(:disabled) {
-  transform: translateY(-1px);
-}
-
-.oven-save:disabled {
-  opacity: 0.72;
-  cursor: wait;
-}
-
-.oven-save__dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 2px solid currentColor;
-  position: relative;
-}
-
-.oven-save__dot::after {
-  content: '';
-  position: absolute;
-  inset: 2px 3px;
-  border-radius: inherit;
-  background: transparent;
-}
-
-.oven-save__dot--busy::after {
-  background: currentColor;
+  gap: 0.75rem;
 }
 
 .oven-save__error {
   margin: 0;
-  font-size: 0.78rem;
-  color: #8a2d2d;
-  text-align: center;
+  font-size: 0.85rem;
+}
+
+.oven-save__error {
+  color: #9d4d43;
+}
+
+.toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  z-index: 200;
+  animation: toast-in 0.3s ease;
+}
+
+.toast--success {
+  background: #2d6a4f;
+  box-shadow: 0 4px 15px rgba(45, 106, 79, 0.3);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 @media (max-width: 900px) {
