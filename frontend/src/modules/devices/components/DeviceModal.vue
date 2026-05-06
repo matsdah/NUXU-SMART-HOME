@@ -8,6 +8,7 @@ import FridgeControls from './controls/FridgeControls.vue'
 import LampControls from './controls/LampControls.vue'
 import DoorControls from './controls/DoorControls.vue'
 import AlarmControls from './controls/AlarmControls.vue'
+import BlindControls from './controls/BlindControls.vue'
 
 const props = defineProps<{
   device: Device
@@ -110,6 +111,7 @@ const isDoor = computed(() => {
 })
 
 const isAlarm = computed(() => props.device.kind === 'alarm')
+const isBlind = computed(() => props.device.kind === 'blind')
 
 function onOverlayClick(e: MouseEvent) {
   if (e.target === e.currentTarget) emit('close')
@@ -129,6 +131,7 @@ function onOverlayClick(e: MouseEvent) {
           <LampControls v-else-if="isLamp" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
           <DoorControls v-else-if="isDoor" :device-id="device.id" :device-name="device.name" />
           <AlarmControls v-else-if="isAlarm" :device-id="device.id" :device-name="device.name" />
+          <BlindControls v-else-if="isBlind" :device-id="device.id" :device-name="device.name" />
           <p v-else class="modal__no-controls">Sin controles disponibles para este dispositivo.</p>
         </div>
       </div>

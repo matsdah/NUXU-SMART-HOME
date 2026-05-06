@@ -99,7 +99,7 @@ function normalizeDeviceKind(device: ApiDevice): DeviceKind {
     return 'tap'
   }
 
-  if (source.includes('blind') || source.includes('curtain')){
+  if (source.includes('blind') || source.includes('curtain') || source.includes('persiana') || source.includes('roller')){
     return 'blind'
   }
 

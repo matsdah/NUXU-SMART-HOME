@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Debian\\\\home\\\\cgoldbaum\\\\HCI_TP2\" -type f \\\\\\( -name \"*.json\" -o -name \"*.yaml\" -o -name \"*.yml\" -o -name \"*.md\" \\\\\\))",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Debian\\\\home\\\\cgoldbaum\\\\HCI_TP2\" -maxdepth 3 -type d \\\\\\( -name \"docs\" -o -name \"backend\" -o -name \"api\" \\\\\\))",
+      "Bash(ls -la \"\\\\\\\\wsl.localhost\\\\Debian\\\\home\\\\cgoldbaum\\\\HCI_TP2\\\\docs\\\\\")",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Debian\\\\home\\\\cgoldbaum\\\\HCI_TP2\\\\docs\" -type f)",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Debian\\\\home\\\\cgoldbaum\\\\HCI_TP2\" -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" -o -name \"*.js\" -o -name \"*.jsx\" -o -name \"*.py\" -o -name \"*.java\" \\\\\\) ! -path \"*/node_modules/*\")",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Debian\\\\home\\\\cgoldbaum\\\\HCI_TP2\" -name \"*.ts\" -o -name \"*.tsx\")",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Debian\\\\home\\\\cgoldbaum\\\\HCI_TP2\\\\frontend\\\\src\\\\modules\\\\devices\\\\components\\\\controls\" -type f -name \"*.vue\")",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Debian\\\\home\\\\cgoldbaum\\\\HCI_TP2\" -type f \\\\\\( -name \"*swagger*\" -o -name \"*openapi*\" -o -name \"*api*.json\" -o -name \"*api*.yaml\" -o -name \"*api*.yml\" \\\\\\) ! -path \"*/node_modules/*\")",
+      "Bash(find \"\\\\\\\\wsl.localhost\\\\Debian\\\\home\\\\cgoldbaum\\\\HCI_TP2\" -maxdepth 3 -type f \\\\\\( -name \"README*\" -o -name \"*.md\" \\\\\\) ! -path \"*/node_modules/*\")",
+      "Bash(grep -r \"performAction\\\\|setLevel\\\\|api\\\\.patch\" \"\\\\\\\\wsl.localhost\\\\Debian\\\\home\\\\cgoldbaum\\\\HCI_TP2\\\\frontend\\\\src\" --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.vue\")",
+      "Bash(grep -r \"blind\\\\|persiana\" \"\\\\\\\\wsl.localhost\\\\Debian\\\\home\\\\cgoldbaum\\\\HCI_TP2\" --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.js\" --include=\"*.jsx\" --include=\"*.vue\" --include=\"*.json\" --include=\"*.yaml\" --include=\"*.yml\" --include=\"*.md\" ! -path \"*/node_modules/*\" ! -path \"*/.venv/*\")",
+      "Bash(grep -ri \"blind\\\\|persiana\" \"\\\\\\\\wsl.localhost\\\\Debian\\\\home\\\\cgoldbaum\\\\HCI_TP2\" --include=\"*.ts\" --include=\"*.tsx\" --include=\"*.js\" --include=\"*.jsx\" --include=\"*.vue\" --include=\"*.json\" --include=\"*.yaml\" --include=\"*.yml\" --include=\"*.md\" ! -path \"*/node_modules/*\" ! -path \"*/.venv/*\")",
+      "Bash(cat \"\\\\\\\\wsl.localhost\\\\Debian\\\\home\\\\cgoldbaum\\\\HCI_TP2/frontend/src/modules/devices/components/controls/BlindControls.vue\")"
+    ]
+  }
+}
