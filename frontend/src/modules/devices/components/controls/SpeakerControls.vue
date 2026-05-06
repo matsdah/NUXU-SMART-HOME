@@ -1,0 +1,459 @@
+<script setup lang="ts">
+import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { api, ApiError } from '@/services/api/client'
+import ControlSidebar from '../shared/ControlSidebar.vue'
+import TemperatureControl from '../shared/TemperatureControl.vue'
+import type { PillOption } from '../shared/PillButtons.vue'
+import PillButtons from '../shared/PillButtons.vue'
+
+const props = defineProps<{ deviceId: string; deviceName?: string }>()
+
+type PlaybackStatus = 'playing' | 'paused' | 'stopped'
+
+const GENRES: PillOption[] = [
+  { value: 'clasica',  label: 'Clásica'  },
+  { value: 'country',  label: 'Country'  },
+  { value: 'dance',    label: 'Dance'    },
+  { value: 'latina',   label: 'Latina'   },
+  { value: 'pop',      label: 'Pop'      },
+  { value: 'rock',     label: 'Rock'     },
+]
+
+const STATUS_LABEL: Record<PlaybackStatus, string> = {
+  playing: 'Reproduciendo',
+  paused:  'Pausado',
+  stopped: 'Detenido',
+}
+
+type PlaylistSong = { title?: string; name?: string; artist?: string; duration?: number }
+
+const playbackStatus = ref<PlaybackStatus>('stopped')
+const volume         = ref(5)
+const genre          = ref('pop')
+const songTitle      = ref('')
+const songArtist     = ref('')
+
+const playlist       = ref<PlaylistSong[]>([])
+const showPlaylist   = ref(false)
+const playlistLoading = ref(false)
+
+const loading        = ref(true)
+const actionPending  = ref(false)
+const error          = ref('')
+const toastMessage   = ref('')
+const showToast      = ref(false)
+
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+const isPlaying = computed(() => playbackStatus.value === 'playing')
+const isPaused  = computed(() => playbackStatus.value === 'paused')
+const isActive  = computed(() => isPlaying.value || isPaused.value)
+
+function parseStatus(s: unknown): PlaybackStatus {
+  if (s === 'playing') return 'playing'
+  if (s === 'paused')  return 'paused'
+  return 'stopped'
+}
+
+async function fetchState() {
+  const raw = await api.get<Record<string, unknown>>(`/devices/${props.deviceId}/state`)
+  playbackStatus.value = parseStatus(raw.status)
+  volume.value  = Number(raw.volume ?? volume.value)
+  genre.value   = String(raw.genre ?? genre.value)
+  const song = raw.song as Record<string, unknown> | string | undefined
+  if (typeof song === 'string') {
+    songTitle.value = song
+  } else if (song && typeof song === 'object') {
+    songTitle.value  = String(song.title ?? song.name ?? '')
+    songArtist.value = String(song.artist ?? '')
+  }
+}
+
+onMounted(async () => {
+  try { await fetchState() } catch { /* valores por defecto */ }
+  finally { loading.value = false }
+})
+
+onBeforeUnmount(() => {
+  if (toastTimer !== null) clearTimeout(toastTimer)
+})
+
+function showSuccessToast(msg: string) {
+  toastMessage.value = msg
+  showToast.value = true
+  if (toastTimer !== null) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { showToast.value = false; toastTimer = null }, 2000)
+}
+
+function handleError(e: unknown) {
+  if (e instanceof ApiError) {
+    const msg = (e.body as { error?: { description?: string } })?.error?.description
+    error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+  } else {
+    error.value = 'Error inesperado. Intentá de nuevo.'
+  }
+}
+
+async function doAction(action: string, body: Record<string, unknown> = {}, toast?: string) {
+  if (actionPending.value) return
+  actionPending.value = true
+  error.value = ''
+  try {
+    await api.patch(`/devices/${props.deviceId}/${action}`, body)
+    await fetchState()
+    if (toast) showSuccessToast(toast)
+  } catch (e) {
+    handleError(e)
+  } finally {
+    actionPending.value = false
+  }
+}
+
+async function onVolumeChange(val: number) {
+  volume.value = val
+  await doAction('setVolume', { volume: val }, `Volumen: ${val}`)
+}
+
+async function onGenreChange(val: string) {
+  genre.value = val
+  showPlaylist.value = false
+  playlist.value = []
+  await doAction('setGenre', { genre: val }, `Género: ${GENRES.find(g => g.value === val)?.label ?? val}`)
+}
+
+async function fetchPlaylist() {
+  if (playlistLoading.value) return
+  playlistLoading.value = true
+  error.value = ''
+  try {
+    const raw = await api.get<unknown>(`/devices/${props.deviceId}/playList`)
+    const items = Array.isArray(raw) ? raw : (raw as Record<string, unknown>)?.songs as PlaylistSong[] ?? []
+    playlist.value = items
+    showPlaylist.value = true
+  } catch (e) {
+    handleError(e)
+  } finally {
+    playlistLoading.value = false
+  }
+}
+
+function formatDuration(secs?: number): string {
+  if (!secs) return ''
+  const m = Math.floor(secs / 60)
+  const s = secs % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+</script>
+
+<template>
+  <div v-if="loading" class="spk-loading">Cargando...</div>
+
+  <div v-else class="spk-shell">
+    <section class="spk-card">
+      <ControlSidebar
+        :title="props.deviceName || 'Parlante'"
+        room-label="AMBIENTE"
+        :temperature="volume"
+        unit="vol"
+        badge-icon="♪"
+        :badge-label="`${GENRES.find(g => g.value === genre)?.label ?? genre} · ${STATUS_LABEL[playbackStatus]}`"
+        :is-on="isActive"
+        :show-power-button="false"
+      />
+
+      <div class="spk-controls">
+
+        <section class="spk-section">
+          <p class="spk-label">Reproducción</p>
+          <div class="spk-playback-row">
+            <button
+              type="button"
+              class="spk-media-btn"
+              :disabled="actionPending || !isActive"
+              aria-label="Canción anterior"
+              @click="doAction('previousSong', {}, 'Canción anterior')"
+            >⏮</button>
+
+            <button
+              type="button"
+              class="spk-media-btn spk-media-btn--primary"
+              :disabled="actionPending"
+              :aria-label="isPlaying ? 'Pausar' : 'Reproducir'"
+              @click="doAction(isPlaying ? 'pause' : 'play', {}, isPlaying ? 'Pausado' : 'Reproduciendo')"
+            >{{ isPlaying ? '⏸' : '▶' }}</button>
+
+
+            <button
+              type="button"
+              class="spk-media-btn"
+              :disabled="actionPending || !isActive"
+              aria-label="Siguiente canción"
+              @click="doAction('nextSong', {}, 'Siguiente canción')"
+            >⏭</button>
+
+            <button
+              type="button"
+              class="spk-media-btn spk-media-btn--stop"
+              :disabled="actionPending || !isActive"
+              aria-label="Detener"
+              @click="doAction('stop', {}, 'Detenido')"
+            >⏹</button>
+          </div>
+        </section>
+
+        <section class="spk-section">
+          <p class="spk-label">Volumen</p>
+          <div :class="{ 'spk-disabled': actionPending }">
+            <TemperatureControl
+              :model-value="volume"
+              :min="0"
+              :max="10"
+              unit=""
+              :step="1"
+              label="volumen"
+              @update:model-value="onVolumeChange"
+            />
+          </div>
+        </section>
+
+        <section class="spk-section">
+          <p class="spk-label">Género</p>
+          <div :class="{ 'spk-disabled': actionPending }">
+            <PillButtons
+              :model-value="genre"
+              :options="GENRES"
+              size="small"
+              @update:model-value="(v: string) => onGenreChange(v)"
+            />
+          </div>
+        </section>
+
+        <section class="spk-section">
+          <button
+            type="button"
+            class="spk-playlist-btn"
+            :disabled="playlistLoading"
+            @click="showPlaylist ? showPlaylist = false : fetchPlaylist()"
+          >
+            {{ playlistLoading ? 'Cargando...' : showPlaylist ? 'Ocultar lista' : 'Ver lista de reproducción' }}
+          </button>
+
+          <ul v-if="showPlaylist && playlist.length" class="spk-playlist">
+            <li v-for="(song, i) in playlist" :key="i" class="spk-playlist-item">
+              <span class="spk-playlist-title">{{ song.title ?? song.name ?? `Canción ${i + 1}` }}</span>
+              <span v-if="song.duration" class="spk-playlist-duration">{{ formatDuration(song.duration) }}</span>
+            </li>
+          </ul>
+          <p v-else-if="showPlaylist && !playlist.length" class="spk-hint">Lista vacía</p>
+        </section>
+
+        <div v-if="error" class="spk-error" role="alert">{{ error }}</div>
+      </div>
+    </section>
+
+    <Teleport to="body">
+      <div v-if="showToast" class="toast toast--success">{{ toastMessage }}</div>
+    </Teleport>
+  </div>
+</template>
+
+<style scoped>
+.spk-loading {
+  padding: 2rem;
+  color: rgba(42, 40, 37, 0.55);
+  font-size: 0.9rem;
+}
+
+.spk-shell { width: 100%; }
+
+.spk-card {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  border-radius: 28px;
+  overflow: hidden;
+  background: #f7f5f0;
+  box-shadow: 0 28px 70px rgba(42, 40, 37, 0.16);
+}
+
+.spk-controls {
+  padding: 2.6rem 2.2rem 2.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  overflow-y: auto;
+}
+
+.spk-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.spk-label {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(52, 47, 41, 0.42);
+}
+
+.spk-hint {
+  margin: 0;
+  font-size: 0.78rem;
+  color: rgba(52, 47, 41, 0.45);
+}
+
+.spk-disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+
+/* Playback buttons */
+
+.spk-playback-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.spk-media-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(52, 47, 41, 0.1);
+  color: rgba(52, 47, 41, 0.85);
+  font-size: 1rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background 0.15s, transform 0.15s;
+  flex-shrink: 0;
+}
+
+.spk-media-btn:hover:not(:disabled) {
+  background: rgba(52, 47, 41, 0.18);
+  transform: translateY(-1px);
+}
+
+.spk-media-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.spk-media-btn--primary {
+  width: 54px;
+  height: 54px;
+  font-size: 1.2rem;
+  background: rgba(52, 47, 41, 0.88);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(52, 47, 41, 0.22);
+}
+
+.spk-media-btn--primary:hover:not(:disabled) {
+  background: rgba(52, 47, 41, 1);
+}
+
+.spk-media-btn--stop {
+  color: rgba(160, 48, 48, 0.8);
+}
+
+/* Playlist */
+.spk-playlist-btn {
+  width: 100%;
+  height: 40px;
+  border-radius: 12px;
+  background: rgba(52, 47, 41, 0.08);
+  border: none;
+  color: rgba(52, 47, 41, 0.75);
+  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.spk-playlist-btn:hover:not(:disabled) {
+  background: rgba(52, 47, 41, 0.13);
+}
+
+.spk-playlist-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.spk-playlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.spk-playlist-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.65);
+  font-size: 0.82rem;
+}
+
+.spk-playlist-title {
+  color: rgba(52, 47, 41, 0.85);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.spk-playlist-duration {
+  color: rgba(52, 47, 41, 0.45);
+  font-size: 0.75rem;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+}
+
+.spk-error {
+  padding: 0.6rem 0.9rem;
+  background: rgba(180, 60, 60, 0.1);
+  border: 1px solid rgba(180, 60, 60, 0.3);
+  border-radius: 12px;
+  color: #a03030;
+  font-size: 0.85rem;
+}
+
+.toast {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  padding: 0.75rem 1.5rem;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 0.85rem;
+  z-index: 400;
+  animation: toast-in 0.3s ease;
+}
+
+.toast--success {
+  background: #2d6a4f;
+  box-shadow: 0 4px 15px rgba(45, 106, 79, 0.3);
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+@media (max-width: 900px) {
+  .spk-card { grid-template-columns: 1fr; }
+  .spk-controls { padding: 1.5rem; }
+}
+</style>

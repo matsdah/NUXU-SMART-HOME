@@ -10,6 +10,7 @@ import DoorControls from './controls/DoorControls.vue'
 import AlarmControls from './controls/AlarmControls.vue'
 import BlindControls from './controls/BlindControls.vue'
 import TapControls from './controls/TapControls.vue'
+import SpeakerControls from './controls/SpeakerControls.vue'
 
 const props = defineProps<{
   device: Device
@@ -41,7 +42,7 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeyDown)
 })
 
-const isPending = computed(() => store.pendingActions.has(props.device.id))
+const _isPending = computed(() => store.pendingActions.has(props.device.id))
 const isAirConditioner = computed(() => {
   const source = [
     props.device.kind,
@@ -124,6 +125,13 @@ const isBlind = computed(() => {
     || props.device.typeId === 'lsq3up3bkgqk0k0f64jf'
 })
 
+const isSpeaker = computed(() => {
+  const source = [props.device.kind, props.device.typeId ?? '', props.device.name].join(' ').toLowerCase()
+  return props.device.kind === 'speaker'
+    || source.includes('speaker') || source.includes('parlante') || source.includes('audio')
+    || props.device.typeId === 'im77xyzlyfm3oijpo3eh'
+})
+
 const isTap = computed(() => {
   const source = [props.device.kind, props.device.typeId ?? '', props.device.name].join(' ').toLowerCase()
   return props.device.kind === 'tap'
@@ -152,7 +160,8 @@ function onOverlayClick(e: MouseEvent) {
           <DoorControls v-else-if="isDoor" :device-id="device.id" :device-name="device.name" />
           <AlarmControls v-else-if="isAlarm" :device-id="device.id" :device-name="device.name" />
           <BlindControls v-else-if="isBlind" :device-id="device.id" :device-name="device.name" />
-          <TapControls   v-else-if="isTap"   :device-id="device.id" :device-name="device.name" />
+          <SpeakerControls v-else-if="isSpeaker" :device-id="device.id" :device-name="device.name" />
+          <TapControls     v-else-if="isTap"     :device-id="device.id" :device-name="device.name" />
           <p v-else class="modal__no-controls">Sin controles disponibles para este dispositivo.</p>
         </div>
       </div>
