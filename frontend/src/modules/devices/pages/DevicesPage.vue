@@ -7,6 +7,7 @@ import type { Device } from '@/app/stores/dashboard'
 import DeviceModal from '../components/DeviceModal.vue'
 import DeleteDeviceConfirmModal from '@/modules/devices/components/DeleteDeviceConfirmModal.vue'
 import AddDeviceModal from '@/modules/devices/components/AddDeviceModal.vue'
+import EditDeviceModal from '@/modules/devices/components/EditDeviceModal.vue'
 import AddRoomModal from '@/modules/homes/components/AddRoomModal.vue'
 import DeleteRoomConfirmModal from '@/modules/homes/components/DeleteRoomConfirmModal.vue'
 import EditRoomModal from '@/modules/homes/components/EditRoomModal.vue'
@@ -22,15 +23,19 @@ const deviceActionError = ref('')
 const showAddDevice = ref(false)
 const showAddRoom = ref(false)
 const showDeleteDeviceConfirm = ref(false)
+const showEditDeviceModal = ref(false)
 const showDeleteRoomConfirm = ref(false)
 const showEditRoomModal = ref(false)
 const pendingDeviceDeletion = ref<{ id: string; name: string } | null>(null)
 const deletingDevice = ref(false)
+const pendingDeviceEdition = ref<{ id: string; name: string; roomId: string } | null>(null)
+const editingDevice = ref(false)
 const pendingRoomDeletion = ref<{ id: string; name: string } | null>(null)
 const deletingRoom = ref(false)
 const pendingRoomEdition = ref<{ id: string; name: string } | null>(null)
 const renamingRoom = ref(false)
 const editRoomError = ref('')
+const editDeviceError = ref('')
 const isDeviceEditMode = ref(false)
 
 const selectedDevice = ref<Device | null>(null)
@@ -69,15 +74,75 @@ function toggleDeviceEditMode() {
   isDeviceEditMode.value = !isDeviceEditMode.value
   if (isDeviceEditMode.value) {
     closeModal()
+    closeEditDeviceModal()
   }
 }
 
 function onDeviceCardClick(device: Device) {
   if (isDeviceEditMode.value) {
-    requestDeviceDeletion(device)
+    requestDeviceEdition(device)
     return
   }
   openModal(device)
+}
+
+function requestDeviceEdition(device: Device) {
+  if (editingDevice.value) {
+    return
+  }
+
+  deviceActionError.value = ''
+  editDeviceError.value = ''
+  pendingDeviceEdition.value = { id: device.id, name: device.name, roomId: device.roomId }
+  showEditDeviceModal.value = true
+}
+
+function closeEditDeviceModal() {
+  if (editingDevice.value) {
+    return
+  }
+  showEditDeviceModal.value = false
+  pendingDeviceEdition.value = null
+  editDeviceError.value = ''
+}
+
+function requestDeviceDeletionFromEditModal() {
+  if (!pendingDeviceEdition.value || deletingDevice.value || editingDevice.value) {
+    return
+  }
+
+  pendingDeviceDeletion.value = {
+    id: pendingDeviceEdition.value.id,
+    name: pendingDeviceEdition.value.name,
+  }
+  showDeleteDeviceConfirm.value = true
+  showEditDeviceModal.value = false
+  pendingDeviceEdition.value = null
+  editDeviceError.value = ''
+}
+
+async function confirmDeviceEdition(payload: { name: string; roomId: string }) {
+  if (!pendingDeviceEdition.value) {
+    return
+  }
+
+  editingDevice.value = true
+  editDeviceError.value = ''
+  try {
+    await store.updateDevice(pendingDeviceEdition.value.id, payload)
+    showEditDeviceModal.value = false
+    pendingDeviceEdition.value = null
+    await refreshHomeDevices()
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const msg = (e.body as { error?: { description?: string } })?.error?.description
+      editDeviceError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      return
+    }
+    editDeviceError.value = e instanceof Error ? e.message : 'Error inesperado. Intentá de nuevo.'
+  } finally {
+    editingDevice.value = false
+  }
 }
 
 function requestDeviceDeletion(device: Device) {
@@ -465,6 +530,18 @@ onMounted(async () => {
       :room-name="selectedCreationRoomName"
       @close="showAddDevice = false"
       @created="onDeviceCreated"
+    />
+
+    <EditDeviceModal
+      v-if="showEditDeviceModal && pendingDeviceEdition"
+      :device-name="pendingDeviceEdition.name"
+      :room-id="pendingDeviceEdition.roomId"
+      :rooms="rooms"
+      :loading="editingDevice"
+      :error="editDeviceError"
+      @close="closeEditDeviceModal"
+      @updated="confirmDeviceEdition"
+      @delete="requestDeviceDeletionFromEditModal"
     />
 
     <DeleteDeviceConfirmModal

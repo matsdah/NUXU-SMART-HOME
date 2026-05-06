@@ -41,6 +41,19 @@ type ApiDeviceState = {
   brightness?: number
 }
 
+type ApiDeviceDetail = {
+  type?: { id?: string }
+  typeId?: string
+  room?: { id?: string }
+  roomId?: string
+  state?: Record<string, unknown>
+  metadata?: Record<string, unknown>
+}
+
+type ApiCreatedDevice = {
+  id?: string
+}
+
 /* Tipos internos */
 
 export type Room = {
@@ -176,6 +189,165 @@ function mapRoutineIcon(name: string): Routine['icon'] {
 
 function wait(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+const LOCAL_STATE_STORAGE_PREFIX: Partial<Record<DeviceKind, string>> = {
+  ac: 'ac-controls-state:',
+  oven: 'oven-controls-state:',
+  lamp: 'lamp-controls-state:',
+  fridge: 'fridge-controls-state:',
+}
+
+type PersistedControlKind = 'ac' | 'oven' | 'lamp' | 'fridge'
+
+type PersistedControlEntry = {
+  kind: PersistedControlKind
+  rawState: Record<string, unknown>
+  normalizedState: Record<string, unknown>
+}
+
+const PERSISTED_CONTROL_KINDS: PersistedControlKind[] = ['ac', 'oven', 'lamp', 'fridge']
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
+}
+
+function readPersistedControlState(kind: DeviceKind | undefined, deviceId: string): Record<string, unknown> {
+  if (!kind || typeof localStorage === 'undefined') {
+    return {}
+  }
+
+  const prefix = LOCAL_STATE_STORAGE_PREFIX[kind]
+  if (!prefix) {
+    return {}
+  }
+
+  try {
+    const raw = localStorage.getItem(`${prefix}${deviceId}`)
+    if (!raw) {
+      return {}
+    }
+    const parsed = JSON.parse(raw)
+    return isRecord(parsed) ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function writePersistedControlState(kind: DeviceKind | undefined, deviceId: string, state: Record<string, unknown>): void {
+  if (!kind || typeof localStorage === 'undefined') {
+    return
+  }
+
+  const prefix = LOCAL_STATE_STORAGE_PREFIX[kind]
+  if (!prefix) {
+    return
+  }
+
+  localStorage.setItem(`${prefix}${deviceId}`, JSON.stringify(state))
+}
+
+function removePersistedControlState(kind: DeviceKind | undefined, deviceId: string): void {
+  if (!kind || typeof localStorage === 'undefined') {
+    return
+  }
+
+  const prefix = LOCAL_STATE_STORAGE_PREFIX[kind]
+  if (!prefix) {
+    return
+  }
+
+  localStorage.removeItem(`${prefix}${deviceId}`)
+}
+
+function normalizePersistedControlState(kind: DeviceKind | undefined, persisted: Record<string, unknown>): Record<string, unknown> {
+  if (!kind) {
+    return {}
+  }
+
+  if (kind === 'ac') {
+    return {
+      on: persisted.isOn,
+      mode: persisted.mode,
+      temperature: persisted.temperature,
+      verticalSwing: persisted.verticalSwing,
+      horizontalSwing: persisted.horizontalSwing,
+      fanSpeed: persisted.fanSpeed,
+    }
+  }
+
+  if (kind === 'lamp') {
+    return {
+      on: persisted.isOn,
+      brightness: persisted.brightness,
+      color: persisted.color,
+    }
+  }
+
+  if (kind === 'oven') {
+    return {
+      on: persisted.isOn,
+      temperature: persisted.temperature,
+      heat: persisted.heatSource,
+      grill: persisted.powerLevel,
+      convection: persisted.convectionMode,
+    }
+  }
+
+  if (kind === 'fridge') {
+    return {
+      mode: persisted.mode,
+      freezerTemperature: persisted.freezerTemp,
+      fridgeTemp: persisted.fridgeTemp,
+    }
+  }
+
+  return {}
+}
+
+function readPersistedControlStates(deviceId: string, preferredKind?: DeviceKind): PersistedControlEntry[] {
+  const orderedKinds: PersistedControlKind[] = preferredKind && PERSISTED_CONTROL_KINDS.includes(preferredKind as PersistedControlKind)
+    ? [preferredKind as PersistedControlKind, ...PERSISTED_CONTROL_KINDS.filter(kind => kind !== preferredKind)]
+    : [...PERSISTED_CONTROL_KINDS]
+
+  const entries: PersistedControlEntry[] = []
+  for (const kind of orderedKinds) {
+    const rawState = readPersistedControlState(kind, deviceId)
+    if (Object.keys(rawState).length === 0) {
+      continue
+    }
+    entries.push({
+      kind,
+      rawState,
+      normalizedState: normalizePersistedControlState(kind, rawState),
+    })
+  }
+
+  return entries
+}
+
+function mergePersistedNormalizedState(entries: PersistedControlEntry[]): Record<string, unknown> {
+  const merged: Record<string, unknown> = {}
+  for (const entry of entries) {
+    for (const [key, value] of Object.entries(entry.normalizedState)) {
+      if (!(key in merged)) {
+        merged[key] = value
+      }
+    }
+  }
+  return merged
+}
+
+function writePersistedControlStates(deviceId: string, entries: PersistedControlEntry[]): void {
+  for (const entry of entries) {
+    writePersistedControlState(entry.kind, deviceId, entry.rawState)
+  }
+}
+
+function removePersistedControlStates(deviceId: string): void {
+  for (const kind of PERSISTED_CONTROL_KINDS) {
+    removePersistedControlState(kind, deviceId)
+  }
 }
 
 /* Store de dashboard */
@@ -380,6 +552,409 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
 
     targetRoom.name = trimmedName
+  }
+
+  async function loadDeviceStateSnapshot(
+    deviceId: string,
+    device?: Device,
+    persistedEntries?: PersistedControlEntry[],
+  ): Promise<Record<string, unknown>> {
+    let remoteState: Record<string, unknown> = {}
+    try {
+      const raw = await api.get<Record<string, unknown>>(`/devices/${deviceId}/state`)
+      remoteState = isRecord(raw) ? raw : {}
+    } catch (err) {
+      if (!(err instanceof ApiError) || err.status !== 404) {
+        throw err
+      }
+    }
+
+    const entries = persistedEntries ?? readPersistedControlStates(deviceId, device?.kind)
+    const persistedState = mergePersistedNormalizedState(entries)
+    const snapshot = { ...remoteState, ...persistedState }
+
+    if (device && typeof snapshot.on !== 'boolean') {
+      snapshot.on = device.isOn
+    }
+
+    return snapshot
+  }
+
+  async function applyDeviceAction(
+    deviceId: string,
+    action: string,
+    payload: Record<string, unknown> = {},
+  ): Promise<boolean> {
+    const endpoint = `/devices/${deviceId}/${action}`
+    const hasPayload = Object.keys(payload).length > 0
+    const attempts: Record<string, unknown>[] = hasPayload
+      ? [payload, { params: Object.values(payload) }]
+      : [{}]
+
+    for (const body of attempts) {
+      try {
+        await api.patch(endpoint, body)
+        return true
+      } catch (err) {
+        if (err instanceof ApiError && [400, 404, 405, 422].includes(err.status)) {
+          continue
+        }
+        throw err
+      }
+    }
+
+    return false
+  }
+
+  async function restoreDeviceState(
+    deviceId: string,
+    kind: DeviceKind | undefined,
+    snapshot: Record<string, unknown>,
+  ): Promise<void> {
+    const getString = (...values: unknown[]): string | null => {
+      for (const value of values) {
+        if (typeof value === 'string' && value.trim()) {
+          return value
+        }
+      }
+      return null
+    }
+
+    const getNumber = (...values: unknown[]): number | null => {
+      for (const value of values) {
+        if (typeof value === 'number' && Number.isFinite(value)) {
+          return value
+        }
+      }
+      return null
+    }
+
+    const isOn = typeof snapshot.on === 'boolean' ? snapshot.on : null
+
+    if (kind === 'ac') {
+      const mode = getString(snapshot.mode)
+      const temperature = getNumber(snapshot.temperature)
+      const verticalSwing = getString(snapshot.verticalSwing)
+      const horizontalSwing = getString(snapshot.horizontalSwing)
+      const fanSpeed = getString(snapshot.fanSpeed)
+
+      if (mode) await applyDeviceAction(deviceId, 'setMode', { mode })
+      if (temperature !== null) await applyDeviceAction(deviceId, 'setTemperature', { temperature })
+      if (verticalSwing) await applyDeviceAction(deviceId, 'setVerticalSwing', { verticalSwing })
+      if (horizontalSwing) await applyDeviceAction(deviceId, 'setHorizontalSwing', { horizontalSwing })
+      if (fanSpeed) await applyDeviceAction(deviceId, 'setFanSpeed', { fanSpeed })
+      if (isOn !== null) await applyDeviceAction(deviceId, isOn ? 'turnOn' : 'turnOff')
+      return
+    }
+
+    if (kind === 'lamp') {
+      const brightness = getNumber(snapshot.brightness)
+      const color = getString(snapshot.color)
+      if (brightness !== null) await applyDeviceAction(deviceId, 'setBrightness', { brightness })
+      if (color) await applyDeviceAction(deviceId, 'setColor', { color })
+      if (isOn !== null) await applyDeviceAction(deviceId, isOn ? 'turnOn' : 'turnOff')
+      return
+    }
+
+    if (kind === 'oven') {
+      const temperature = getNumber(snapshot.temperature)
+      const heat = getString(snapshot.heat, snapshot.heatSource)
+      const grill = getString(snapshot.grill, snapshot.powerLevel)
+      const convection = getString(snapshot.convection, snapshot.convectionMode)
+
+      if (temperature !== null) await applyDeviceAction(deviceId, 'setTemperature', { temperature })
+      if (heat) await applyDeviceAction(deviceId, 'setHeat', { heat })
+      if (grill) await applyDeviceAction(deviceId, 'setGrill', { grill })
+      if (convection) await applyDeviceAction(deviceId, 'setConvection', { convection })
+      if (isOn !== null) await applyDeviceAction(deviceId, isOn ? 'turnOn' : 'turnOff')
+      return
+    }
+
+    if (kind === 'fridge') {
+      const mode = getString(snapshot.mode)
+      const freezerTemperature = getNumber(snapshot.freezerTemperature, snapshot.freezerTemp)
+      if (mode) await applyDeviceAction(deviceId, 'setMode', { mode })
+      if (freezerTemperature !== null) {
+        await applyDeviceAction(deviceId, 'setFreezerTemperature', { freezerTemperature })
+      }
+      return
+    }
+
+    if (kind === 'blind') {
+      const level = getNumber(snapshot.level, snapshot.currentLevel, snapshot.position)
+      if (level !== null) await applyDeviceAction(deviceId, 'setLevel', { level })
+      return
+    }
+
+    if (kind === 'tap') {
+      const status = getString(snapshot.status)?.toLowerCase()
+      if (status === 'open' || status === 'opened') {
+        await applyDeviceAction(deviceId, 'open')
+      } else if (status === 'close' || status === 'closed') {
+        await applyDeviceAction(deviceId, 'close')
+      }
+      return
+    }
+
+    if (kind === 'door') {
+      const status = getString(snapshot.status)?.toLowerCase()
+      const lock = getString(snapshot.lock)?.toLowerCase()
+
+      if (status === 'open' || status === 'opened') {
+        await applyDeviceAction(deviceId, 'open')
+      } else if (status === 'closed' || status === 'close') {
+        await applyDeviceAction(deviceId, 'close')
+      }
+
+      if (status !== 'open' && status !== 'opened') {
+        if (lock === 'locked') {
+          await applyDeviceAction(deviceId, 'lock')
+        } else if (lock === 'unlocked') {
+          await applyDeviceAction(deviceId, 'unlock')
+        }
+      }
+      return
+    }
+
+    if (kind === 'alarm') {
+      const status = getString(snapshot.status)?.toLowerCase()
+      if (status === 'armedaway') {
+        await applyDeviceAction(deviceId, 'armAway')
+      } else if (status === 'armedhome' || status === 'armedstay') {
+        await applyDeviceAction(deviceId, 'armStay')
+      } else if (status === 'disarmed') {
+        await applyDeviceAction(deviceId, 'disarm')
+      }
+      return
+    }
+
+    const genericMode = getString(snapshot.mode)
+    const genericTemperature = getNumber(snapshot.temperature)
+    const genericBrightness = getNumber(snapshot.brightness)
+    const genericColor = getString(snapshot.color)
+    const genericVerticalSwing = getString(snapshot.verticalSwing)
+    const genericHorizontalSwing = getString(snapshot.horizontalSwing)
+    const genericFanSpeed = getString(snapshot.fanSpeed)
+    const genericHeat = getString(snapshot.heat, snapshot.heatSource)
+    const genericGrill = getString(snapshot.grill, snapshot.powerLevel)
+    const genericConvection = getString(snapshot.convection, snapshot.convectionMode)
+    const genericFreezerTemperature = getNumber(snapshot.freezerTemperature, snapshot.freezerTemp)
+    const genericLevel = getNumber(snapshot.level, snapshot.currentLevel, snapshot.position)
+
+    if (genericMode) await applyDeviceAction(deviceId, 'setMode', { mode: genericMode })
+    if (genericTemperature !== null) await applyDeviceAction(deviceId, 'setTemperature', { temperature: genericTemperature })
+    if (genericBrightness !== null) await applyDeviceAction(deviceId, 'setBrightness', { brightness: genericBrightness })
+    if (genericColor) await applyDeviceAction(deviceId, 'setColor', { color: genericColor })
+    if (genericVerticalSwing) await applyDeviceAction(deviceId, 'setVerticalSwing', { verticalSwing: genericVerticalSwing })
+    if (genericHorizontalSwing) await applyDeviceAction(deviceId, 'setHorizontalSwing', { horizontalSwing: genericHorizontalSwing })
+    if (genericFanSpeed) await applyDeviceAction(deviceId, 'setFanSpeed', { fanSpeed: genericFanSpeed })
+    if (genericHeat) await applyDeviceAction(deviceId, 'setHeat', { heat: genericHeat })
+    if (genericGrill) await applyDeviceAction(deviceId, 'setGrill', { grill: genericGrill })
+    if (genericConvection) await applyDeviceAction(deviceId, 'setConvection', { convection: genericConvection })
+    if (genericFreezerTemperature !== null) {
+      await applyDeviceAction(deviceId, 'setFreezerTemperature', { freezerTemperature: genericFreezerTemperature })
+    }
+    if (genericLevel !== null) await applyDeviceAction(deviceId, 'setLevel', { level: genericLevel })
+
+    if (isOn !== null) await applyDeviceAction(deviceId, isOn ? 'turnOn' : 'turnOff')
+  }
+
+  async function verifyDeviceRoom(deviceId: string, expectedRoomId: string): Promise<boolean> {
+    const attempts = 3
+    for (let i = 0; i < attempts; i += 1) {
+      try {
+        const roomDevices = await api.get<ApiDevice[]>(`/rooms/${expectedRoomId}/devices`)
+        if (roomDevices.some(device => device.id === deviceId)) {
+          return true
+        }
+      } catch (err) {
+        if (err instanceof ApiError && err.status === 404) {
+          return false
+        }
+        throw err
+      }
+
+      if (i < attempts - 1) {
+        await wait(150)
+      }
+    }
+    return false
+  }
+
+  async function updateDevice(deviceId: string, payload: { name: string; roomId: string }, homeId = activeHomeId.value): Promise<void> {
+    const trimmedName = payload.name.trim()
+    if (!trimmedName) {
+      throw new Error('Ingresá un nombre para el dispositivo.')
+    }
+
+    const roomExists = rooms.value.some(room => room.id === payload.roomId)
+    if (!roomExists) {
+      throw new Error('Seleccioná una habitación válida.')
+    }
+
+    const currentDevice = devices.value.find(device => device.id === deviceId)
+    const roomChanged = currentDevice ? currentDevice.roomId !== payload.roomId : true
+    const isRecoverableStatus = (status: number): boolean => [400, 404, 405, 422].includes(status)
+    const persistedEntries = roomChanged ? readPersistedControlStates(deviceId, currentDevice?.kind) : []
+    const stateSnapshot = roomChanged
+      ? await loadDeviceStateSnapshot(deviceId, currentDevice, persistedEntries)
+      : null
+
+    function applyLocalUpdate(): void {
+      const targetDevice = devices.value.find(device => device.id === deviceId)
+      if (targetDevice) {
+        targetDevice.name = trimmedName
+        targetDevice.roomId = payload.roomId
+      }
+    }
+
+    async function restoreMovedDeviceState(targetDeviceId: string): Promise<void> {
+      if (!roomChanged || !stateSnapshot) {
+        return
+      }
+      await restoreDeviceState(targetDeviceId, currentDevice?.kind, stateSnapshot)
+    }
+
+    try {
+      await api.put(`/devices/${deviceId}`, {
+        name: trimmedName,
+        room: { id: payload.roomId },
+      })
+    } catch (err) {
+      if (!(err instanceof ApiError)) {
+        throw err
+      }
+
+      if (err.status === 400) {
+        const detail = await api.get<ApiDeviceDetail>(`/devices/${deviceId}`)
+        const typeId = detail.type?.id ?? detail.typeId ?? currentDevice?.typeId
+        if (!typeId) {
+          throw err
+        }
+
+        try {
+          await api.put(`/devices/${deviceId}`, {
+            name: trimmedName,
+            type: { id: typeId },
+            room: { id: payload.roomId },
+            state: detail.state ?? {},
+            metadata: detail.metadata ?? {},
+          })
+        } catch (fullPutErr) {
+          if (!(fullPutErr instanceof ApiError) || !isRecoverableStatus(fullPutErr.status)) {
+            throw fullPutErr
+          }
+        }
+      } else if (!isRecoverableStatus(err.status)) {
+        throw err
+      }
+    }
+
+    if (await verifyDeviceRoom(deviceId, payload.roomId)) {
+      await restoreMovedDeviceState(deviceId)
+      applyLocalUpdate()
+      return
+    }
+
+    try {
+      await api.put(`/devices/${deviceId}`, {
+        name: trimmedName,
+        roomId: payload.roomId,
+      })
+      if (await verifyDeviceRoom(deviceId, payload.roomId)) {
+        await restoreMovedDeviceState(deviceId)
+        applyLocalUpdate()
+        return
+      }
+    } catch (err) {
+      if (!(err instanceof ApiError) || !isRecoverableStatus(err.status)) {
+        throw err
+      }
+    }
+
+    if (homeId) {
+      try {
+        await api.put(`/homes/${homeId}/rooms/${payload.roomId}/devices/${deviceId}`, {
+          name: trimmedName,
+        })
+        if (await verifyDeviceRoom(deviceId, payload.roomId)) {
+          await restoreMovedDeviceState(deviceId)
+          applyLocalUpdate()
+          return
+        }
+      } catch (err) {
+        if (!(err instanceof ApiError) || !isRecoverableStatus(err.status)) {
+          throw err
+        }
+      }
+    }
+
+    try {
+      await api.put(`/rooms/${payload.roomId}/devices/${deviceId}`, {
+        name: trimmedName,
+      })
+      if (await verifyDeviceRoom(deviceId, payload.roomId)) {
+        await restoreMovedDeviceState(deviceId)
+        applyLocalUpdate()
+        return
+      }
+    } catch (err) {
+      if (!(err instanceof ApiError) || !isRecoverableStatus(err.status)) {
+        throw err
+      }
+    }
+
+    if (roomChanged) {
+      const detail = await api.get<ApiDeviceDetail>(`/devices/${deviceId}`)
+      const typeId = detail.type?.id ?? detail.typeId ?? currentDevice?.typeId
+      if (!typeId) {
+        throw new Error('No se pudo identificar el tipo del dispositivo para cambiarlo de habitación.')
+      }
+
+      const created = await api.post<ApiCreatedDevice>('/devices', {
+        name: trimmedName,
+        type: { id: typeId },
+        room: { id: payload.roomId },
+        state: detail.state ?? {},
+        metadata: detail.metadata ?? {},
+      })
+      if (!created.id) {
+        throw new Error('No se pudo crear el dispositivo en la nueva habitación.')
+      }
+
+      try {
+        await restoreMovedDeviceState(created.id)
+        writePersistedControlStates(created.id, persistedEntries)
+      } catch (restoreErr) {
+        try {
+          await api.delete(`/devices/${created.id}`)
+        } catch (cleanupErr) {
+          if (!(cleanupErr instanceof ApiError) || cleanupErr.status !== 404) {
+            throw cleanupErr
+          }
+        }
+        throw restoreErr
+      }
+
+      try {
+        await api.delete(`/devices/${deviceId}`)
+      } catch (deleteErr) {
+        try {
+          await api.delete(`/devices/${created.id}`)
+        } catch (cleanupErr) {
+          if (!(cleanupErr instanceof ApiError) || cleanupErr.status !== 404) {
+            throw cleanupErr
+          }
+        }
+        throw deleteErr
+      }
+
+      removePersistedControlStates(deviceId)
+
+      return
+    }
+
+    throw new Error('No se pudo actualizar el dispositivo. Intentá de nuevo.')
   }
 
   async function createRoom(name: string, homeId = activeHomeId.value): Promise<void> {
@@ -777,6 +1352,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     removeMember,
     updateHomeName,
     updateRoomName,
+    updateDevice,
     createHome,
     createRoom,
     deleteHome,
