@@ -9,6 +9,7 @@ import LampControls from './controls/LampControls.vue'
 import DoorControls from './controls/DoorControls.vue'
 import AlarmControls from './controls/AlarmControls.vue'
 import BlindControls from './controls/BlindControls.vue'
+import TapControls from './controls/TapControls.vue'
 
 const props = defineProps<{
   device: Device
@@ -110,8 +111,27 @@ const isDoor = computed(() => {
     || source.includes('puerta')
 })
 
-const isAlarm = computed(() => props.device.kind === 'alarm')
-const isBlind = computed(() => props.device.kind === 'blind')
+const isAlarm = computed(() => {
+  const source = [props.device.kind, props.device.typeId ?? '', props.device.name].join(' ').toLowerCase()
+  return props.device.kind === 'alarm' || source.includes('alarm') || source.includes('alarma')
+})
+
+const isBlind = computed(() => {
+  const source = [props.device.kind, props.device.typeId ?? '', props.device.name].join(' ').toLowerCase()
+  return props.device.kind === 'blind'
+    || source.includes('blind') || source.includes('persiana')
+    || source.includes('curtain') || source.includes('roller')
+    || props.device.typeId === 'lsq3up3bkgqk0k0f64jf'
+})
+
+const isTap = computed(() => {
+  const source = [props.device.kind, props.device.typeId ?? '', props.device.name].join(' ').toLowerCase()
+  return props.device.kind === 'tap'
+    || source.includes('tap') || source.includes('faucet')
+    || source.includes('canilla') || source.includes('sprinkler')
+    || source.includes('aspersor')
+    || props.device.typeId === 'dbrlpeuy8t19pbt0mlkr'
+})
 
 function onOverlayClick(e: MouseEvent) {
   if (e.target === e.currentTarget) emit('close')
@@ -132,6 +152,7 @@ function onOverlayClick(e: MouseEvent) {
           <DoorControls v-else-if="isDoor" :device-id="device.id" :device-name="device.name" />
           <AlarmControls v-else-if="isAlarm" :device-id="device.id" :device-name="device.name" />
           <BlindControls v-else-if="isBlind" :device-id="device.id" :device-name="device.name" />
+          <TapControls   v-else-if="isTap"   :device-id="device.id" :device-name="device.name" />
           <p v-else class="modal__no-controls">Sin controles disponibles para este dispositivo.</p>
         </div>
       </div>

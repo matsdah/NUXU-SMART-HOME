@@ -85,47 +85,34 @@ export type Routine = {
 
 /* Helpers de mapeo y formateo */
 
+const TYPE_ID_MAP: Record<string, DeviceKind> = {
+  'go46xmbqei8eoaomjk3p': 'ac',
+  'ofglvd9gzubmmk9hzfal': 'vacuum',
+  'eu0v2xgprrhhg41o':     'lamp',
+  'im77xyzlyfm3oijpo3eh': 'speaker',
+  'dbrlpeuy8t19pbt0mlkr': 'tap',
+  'lsq3up3bkgqk0k0f64jf': 'blind',
+  'otmbrewtofbpfqm6dxne': 'oven',
+  's1b0bk0tj4lpyzm6oc2l': 'door',
+  'rnizejujvmx3dxl1o6km': 'fridge',
+}
+
 function normalizeDeviceKind(device: ApiDevice): DeviceKind {
+  const resolvedTypeId = device.type?.id ?? device.typeId
+if (resolvedTypeId && TYPE_ID_MAP[resolvedTypeId]) return TYPE_ID_MAP[resolvedTypeId]
+
   const source = `${device.type?.name ?? ''} ${device.typeId ?? ''} ${device.name ?? ''}`.toLowerCase()
-  if (source.includes('vacuum')){
-    return 'vacuum'
-  }
 
-  if (source.includes('speaker') || source.includes('audio')){
-    return 'speaker'
-  }
-
-  if (source.includes('tap') || source.includes('faucet')){
-    return 'tap'
-  }
-
-  if (source.includes('blind') || source.includes('curtain') || source.includes('persiana') || source.includes('roller')){
-    return 'blind'
-  }
-
-  if (source.includes('lamp') || source.includes('light') || source.includes('luz') || source.includes('lámpara')){
-    return 'lamp'
-  }
-
-  if (source.includes('oven')){
-    return 'oven'
-  }
-
-  if (source.includes('air') || source.includes('ac') || source.includes('conditioner')){
-    return 'ac'
-  }
-
-  if (source.includes('alarm') || source.includes('alarma')){
-    return 'alarm'
-  }
-
-  if (source.includes('door') || source.includes('lock') || source.includes('puerta')){
-    return 'door'
-  }
-
-  if (source.includes('fridge') || source.includes('refrigerator') || source.includes('heladera')){
-    return 'fridge'
-  }
+  if (source.includes('vacuum') || source.includes('aspiradora')) return 'vacuum'
+  if (source.includes('speaker') || source.includes('audio') || source.includes('parlante')) return 'speaker'
+  if (source.includes('tap') || source.includes('faucet') || source.includes('canilla') || source.includes('sprinkler')) return 'tap'
+  if (source.includes('blind') || source.includes('curtain') || source.includes('persiana') || source.includes('roller')) return 'blind'
+  if (source.includes('lamp') || source.includes('light') || source.includes('luz') || source.includes('lámpara')) return 'lamp'
+  if (source.includes('oven') || source.includes('horno')) return 'oven'
+  if (source.includes('air') || source.includes('conditioner') || source.includes('aire')) return 'ac'
+  if (source.includes('alarm') || source.includes('alarma')) return 'alarm'
+  if (source.includes('door') || source.includes('lock') || source.includes('puerta')) return 'door'
+  if (source.includes('fridge') || source.includes('refrigerator') || source.includes('heladera')) return 'fridge'
 
   return 'other'
 }
