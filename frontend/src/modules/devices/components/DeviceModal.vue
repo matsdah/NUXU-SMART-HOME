@@ -11,6 +11,7 @@ import AlarmControls from './controls/AlarmControls.vue'
 import BlindControls from './controls/BlindControls.vue'
 import TapControls from './controls/TapControls.vue'
 import SpeakerControls from './controls/SpeakerControls.vue'
+import VacuumControls from './controls/VacuumControls.vue'
 
 const props = defineProps<{
   device: Device
@@ -42,7 +43,6 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeyDown)
 })
 
-const _isPending = computed(() => store.pendingActions.has(props.device.id))
 const isAirConditioner = computed(() => {
   const source = [
     props.device.kind,
@@ -52,10 +52,11 @@ const isAirConditioner = computed(() => {
   ].join(' ').toLowerCase()
 
   return source.includes('air')
-    || source.includes('ac')
+    || source.includes(' ac ') || source.includes('ac ') || props.device.kind === 'ac'
     || source.includes('conditioner')
     || source.includes('aire')
     || source.includes('acondicion')
+    || props.device.typeId === 'go46xmbqei8eoaomjk3p'
 })
 
 const isOven = computed(() => {
@@ -125,6 +126,13 @@ const isBlind = computed(() => {
     || props.device.typeId === 'lsq3up3bkgqk0k0f64jf'
 })
 
+const isVacuum = computed(() => {
+  const source = [props.device.kind, props.device.typeId ?? '', props.device.name].join(' ').toLowerCase()
+  return props.device.kind === 'vacuum'
+    || source.includes('vacuum') || source.includes('aspiradora')
+    || props.device.typeId === 'ofglvd9gzubmmk9hzfal'
+})
+
 const isSpeaker = computed(() => {
   const source = [props.device.kind, props.device.typeId ?? '', props.device.name].join(' ').toLowerCase()
   return props.device.kind === 'speaker'
@@ -153,15 +161,16 @@ function onOverlayClick(e: MouseEvent) {
         <div class="modal__right">
           <button type="button" class="modal__close" @click="emit('close')" aria-label="Cerrar">✕</button>
 
-          <AcControls v-if="isAirConditioner" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
-          <OvenControls v-else-if="isOven" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
-          <FridgeControls v-else-if="isFridge" :device-id="device.id" :device-name="device.name" />
-          <LampControls v-else-if="isLamp" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
-          <DoorControls v-else-if="isDoor" :device-id="device.id" :device-name="device.name" />
-          <AlarmControls v-else-if="isAlarm" :device-id="device.id" :device-name="device.name" />
-          <BlindControls v-else-if="isBlind" :device-id="device.id" :device-name="device.name" />
-          <SpeakerControls v-else-if="isSpeaker" :device-id="device.id" :device-name="device.name" />
-          <TapControls     v-else-if="isTap"     :device-id="device.id" :device-name="device.name" />
+          <VacuumControls  v-if="isVacuum"           :device-id="device.id" :device-name="device.name" />
+          <AcControls      v-else-if="isAirConditioner" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
+          <OvenControls    v-else-if="isOven"       :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
+          <FridgeControls  v-else-if="isFridge"     :device-id="device.id" :device-name="device.name" />
+          <LampControls    v-else-if="isLamp"       :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
+          <DoorControls    v-else-if="isDoor"       :device-id="device.id" :device-name="device.name" />
+          <AlarmControls   v-else-if="isAlarm"      :device-id="device.id" :device-name="device.name" />
+          <BlindControls   v-else-if="isBlind"      :device-id="device.id" :device-name="device.name" />
+          <SpeakerControls v-else-if="isSpeaker"    :device-id="device.id" :device-name="device.name" />
+          <TapControls     v-else-if="isTap"        :device-id="device.id" :device-name="device.name" />
           <p v-else class="modal__no-controls">Sin controles disponibles para este dispositivo.</p>
         </div>
       </div>
