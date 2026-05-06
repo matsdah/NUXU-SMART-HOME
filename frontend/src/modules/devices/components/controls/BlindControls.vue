@@ -4,6 +4,7 @@ import { api, ApiError } from '@/services/api/client'
 import ControlSidebar from '../shared/ControlSidebar.vue'
 import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
+import TemperatureControl from '../shared/TemperatureControl.vue'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 
@@ -110,12 +111,8 @@ function onActionChange(value: string) {
   performAction(value as 'open' | 'close')
 }
 
-function onSliderInput(e: Event) {
-  displayLevel.value = Number((e.target as HTMLInputElement).value)
-}
-
-function onSliderChange(e: Event) {
-  const val = Number((e.target as HTMLInputElement).value)
+function onLevelChange(val: number) {
+  displayLevel.value = val
   setLevel(val)
 }
 </script>
@@ -150,21 +147,17 @@ function onSliderChange(e: Event) {
 
         <section class="blind-section">
           <p class="blind-label">Posición</p>
-          <div class="blind-slider-row">
-            <span class="blind-slider-edge">0%</span>
-            <input
-              type="range"
-              min="0"
-              max="100"
-              :value="displayLevel"
-              :disabled="actionPending"
-              class="blind-slider"
-              @input="onSliderInput"
-              @change="onSliderChange"
+          <div :class="{ 'blind-pills--disabled': actionPending }">
+            <TemperatureControl
+              :model-value="displayLevel"
+              :min="0"
+              :max="100"
+              unit="%"
+              :step="5"
+              label="posición"
+              @update:model-value="onLevelChange"
             />
-            <span class="blind-slider-edge">100%</span>
           </div>
-          <p class="blind-hint">{{ displayLevel }}% abierta</p>
         </section>
 
         <section class="blind-section">
@@ -298,64 +291,6 @@ function onSliderChange(e: Event) {
   color: #7a5c10;
 }
 
-.blind-slider-row {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-}
-
-.blind-slider-edge {
-  font-size: 0.75rem;
-  color: rgba(52, 47, 41, 0.4);
-  min-width: 2.5rem;
-  text-align: center;
-}
-
-.blind-slider {
-  flex: 1;
-  -webkit-appearance: none;
-  appearance: none;
-  height: 6px;
-  border-radius: 999px;
-  background: rgba(52, 47, 41, 0.15);
-  outline: none;
-  cursor: pointer;
-}
-
-.blind-slider::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  background: rgba(52, 47, 41, 0.88);
-  box-shadow: 0 2px 8px rgba(52, 47, 41, 0.25);
-  cursor: pointer;
-  transition: transform 0.15s;
-}
-
-.blind-slider::-webkit-slider-thumb:hover {
-  transform: scale(1.15);
-}
-
-.blind-slider::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(52, 47, 41, 0.88);
-  box-shadow: 0 2px 8px rgba(52, 47, 41, 0.25);
-  cursor: pointer;
-}
-
-.blind-slider:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.blind-slider:disabled::-webkit-slider-thumb {
-  cursor: not-allowed;
-}
 
 .blind-pills--disabled {
   opacity: 0.4;
