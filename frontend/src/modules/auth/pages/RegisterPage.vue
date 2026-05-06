@@ -16,12 +16,18 @@ const router = useRouter()
 
 async function handleSubmit() {
   error.value = ''
-  loading.value = true
-  try {
-    const normalizedEmail = email.value.trim()
+  const normalizedEmail = email.value.trim()
+  if (!normalizedEmail) {
+    error.value = 'Ingresá un email válido.'
+    return
+  }
 
+  loading.value = true
+  let accountCreated = false
+  try {
     // 1. Crear la cuenta en el backend
     await api.post('/users/register', { name: name.value.trim(), email: normalizedEmail, password: password.value })
+    accountCreated = true
 
     // 2. Pedir al backend el código de verificación
     const { code } = await api.post<{ code: string }>('/users/send-verification', { email: normalizedEmail })
@@ -29,8 +35,16 @@ async function handleSubmit() {
     // 3. Enviar ese código al mail del usuario via EmailJS
     await sendVerificationEmail(normalizedEmail, code)
 
-    router.push({ name: 'verify', query: { email: normalizedEmail } })
+    await router.push({ name: 'verify', query: { email: normalizedEmail } })
   } catch (e) {
+    if (accountCreated) {
+      await router.push({
+        name: 'verify',
+        query: { email: normalizedEmail, notice: 'needs-resend' },
+      })
+      return
+    }
+
     if (e instanceof ApiError && e.status === 409) {
       error.value = 'Este mail ya tiene una cuenta. Podés iniciar sesión directamente.'
     } else if (e instanceof ApiError) {

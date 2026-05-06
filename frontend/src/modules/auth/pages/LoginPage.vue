@@ -10,23 +10,40 @@ import AuthLayout from '../components/AuthLayout.vue'
 const email = ref('')
 const password = ref('')
 const error = ref('')
+const showVerifyAction = ref(false)
 const loading = ref(false)
 const showPass = ref(false)
 
 const auth = useAuthStore()
 const router = useRouter()
 
+function isUnverifiedAccountError(status: number, description: string): boolean {
+  const normalizedDescription = description.toLowerCase()
+  return status === 403
+    || normalizedDescription.includes('verif')
+    || normalizedDescription.includes('not verified')
+}
+
 async function handleSubmit() {
   error.value = ''
+  showVerifyAction.value = false
   loading.value = true
   try {
     await auth.login(email.value, password.value)
     router.push({ name: 'homes' })
   } catch (e) {
     if (e instanceof ApiError) {
-      error.value = e.status === 401 || e.status === 400
-        ? 'Usuario o contraseña incorrectos.'
-        : `Error ${e.status}. Intentá de nuevo.`
+      const message = (e.body as { error?: { description?: string } })?.error?.description ?? ''
+      const shouldOfferVerification = Boolean(email.value.trim()) && [400, 401, 403].includes(e.status)
+      if (isUnverifiedAccountError(e.status, message)) {
+        error.value = 'Tu cuenta existe, pero todavía no está verificada.'
+        showVerifyAction.value = shouldOfferVerification
+      } else {
+        error.value = e.status === 401 || e.status === 400
+          ? 'Usuario o contraseña incorrectos.'
+          : `Error ${e.status}. Intentá de nuevo.`
+        showVerifyAction.value = shouldOfferVerification
+      }
     } else {
       error.value = 'Error inesperado. Intentá de nuevo.'
     }
@@ -45,6 +62,9 @@ async function handleSubmit() {
     </div>
 
     <div v-if="error" class="login__error" role="alert">{{ error }}</div>
+    <div v-if="showVerifyAction" class="login__verify-help">
+      <RouterLink :to="{ name: 'verify', query: { email: email.trim() } }">Reenviar código de verificación</RouterLink>
+    </div>
 
     <form class="login__form" @submit.prevent="handleSubmit" novalidate>
 
@@ -103,24 +123,7 @@ async function handleSubmit() {
 
     </form>
 
-    <div class="auth-separator"><span>o continuar con</span></div>
-
-    <div class="auth-social">
-      <button class="social-btn" type="button" aria-label="Continuar con Google">
-        <svg viewBox="0 0 48 48" width="22" height="22">
-          <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-2.641-.21-5.236-.611-7.743z"/>
-          <path fill="#FF3D00" d="M6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
-          <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
-          <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.022 35.026 44 30.038 44 24c0-2.641-.21-5.236-.611-7.743z"/>
-        </svg>
-      </button>
-      <button class="social-btn" type="button" aria-label="Continuar con Facebook">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="#1877F2">
-          <path d="M24 12.073C24 5.405 18.627 0 12 0S0 5.405 0 12.073C0 18.1 4.388 23.094 10.125 24v-8.437H7.078v-3.49h3.047V9.413c0-3.025 1.792-4.697 4.533-4.697 1.312 0 2.686.235 2.686.235v2.97h-1.514c-1.491 0-1.956.93-1.956 1.887v2.267h3.328l-.532 3.49h-2.796V24C19.612 23.094 24 18.1 24 12.073z"/>
-        </svg>
-      </button>
-    </div>
-
+    <div class="auth-separator"></div>
     <p class="auth-footer">¿No tenés cuenta? <RouterLink to="/register">Crear cuenta</RouterLink></p>
 
   </AuthLayout>
@@ -156,6 +159,20 @@ async function handleSubmit() {
   font-size: 0.85rem;
   text-align: center;
 }
+
+.login__verify-help {
+  width: 100%;
+  text-align: center;
+  margin-top: -0.35rem;
+}
+
+.login__verify-help a {
+  font-size: 0.84rem;
+  color: var(--color-brown);
+  text-decoration: none;
+  font-weight: 400;
+}
+.login__verify-help a:hover { text-decoration: underline; }
 
 .login__form {
   width: 100%;
@@ -281,7 +298,6 @@ async function handleSubmit() {
   width: 100%;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
   font-size: 0.78rem;
   color: var(--color-text-muted);
   font-weight: 300;

@@ -355,7 +355,7 @@ onMounted(async () => {
       </header>
 
       <p v-if="isDeviceEditMode" class="panel__edit-hint">
-        Modo edición activo: tocá un dispositivo para eliminarlo.
+        Modo edición activo: tocá un dispositivo para editarlo o eliminarlo.
       </p>
 
       <div class="device-grid">

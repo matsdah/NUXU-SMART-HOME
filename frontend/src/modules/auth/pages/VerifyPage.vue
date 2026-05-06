@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError } from '@/services/api/client'
+import { sendVerificationEmail } from '@/services/email'
 import AuthLayout from '../components/AuthLayout.vue'
 
 const route = useRoute()
@@ -9,11 +10,21 @@ const router = useRouter()
 
 const code = ref('')
 const error = ref('')
+const info = ref(
+  route.query.notice === 'needs-resend'
+    ? 'La cuenta ya fue creada, pero no pudimos enviar el primer mail. Pedí un nuevo código.'
+    : '',
+)
 const loading = ref(false)
+const resendLoading = ref(false)
+
+const verificationEmail = computed(() => {
+  const email = typeof route.query.email === 'string' ? route.query.email.trim() : ''
+  return email
+})
 
 const targetEmail = computed(() => {
-  const email = typeof route.query.email === 'string' ? route.query.email.trim() : ''
-  return email || 'tu email'
+  return verificationEmail.value || 'tu email'
 })
 
 function handleCodeInput(event: Event) {
@@ -23,6 +34,12 @@ function handleCodeInput(event: Event) {
 
 async function handleSubmit() {
   error.value = ''
+  info.value = ''
+
+  if (!verificationEmail.value) {
+    error.value = 'No encontramos el email a verificar. Volvé a crear la cuenta.'
+    return
+  }
 
   if (!code.value) {
     error.value = 'Ingresá el código de verificación.'
@@ -31,7 +48,7 @@ async function handleSubmit() {
 
   loading.value = true
   try {
-    await api.post('/users/verify-account', { email: targetEmail.value, code: code.value })
+    await api.post('/users/verify-account', { email: verificationEmail.value, code: code.value })
     router.push({ name: 'login' })
   } catch (e) {
     if (e instanceof ApiError) {
@@ -42,6 +59,34 @@ async function handleSubmit() {
     }
   } finally {
     loading.value = false
+  }
+}
+
+async function handleResendCode() {
+  error.value = ''
+  info.value = ''
+
+  if (!verificationEmail.value) {
+    error.value = 'No encontramos el email a verificar. Volvé a crear la cuenta.'
+    return
+  }
+
+  resendLoading.value = true
+  try {
+    const { code: verificationCode } = await api.post<{ code: string }>('/users/send-verification', {
+      email: verificationEmail.value,
+    })
+    await sendVerificationEmail(verificationEmail.value, verificationCode)
+    info.value = `Reenviamos un nuevo código a ${verificationEmail.value}.`
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const msg = (e.body as { error?: { description?: string } })?.error?.description
+      error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+    } else {
+      error.value = 'No se pudo reenviar el código. Intentá de nuevo.'
+    }
+  } finally {
+    resendLoading.value = false
   }
 }
 </script>
@@ -55,6 +100,7 @@ async function handleSubmit() {
     </div>
 
     <div v-if="error" class="verify__error" role="alert">{{ error }}</div>
+    <div v-if="info" class="verify__info" role="status">{{ info }}</div>
 
     <form class="verify__form" @submit.prevent="handleSubmit" novalidate>
 
@@ -72,7 +118,7 @@ async function handleSubmit() {
         <label for="verify-code" class="field__label">Código de verificación</label>
       </div>
 
-      <button type="submit" class="auth-submit" :disabled="loading">
+      <button type="submit" class="auth-submit" :disabled="loading || resendLoading">
         <svg v-if="loading" width="20" height="20" viewBox="0 0 24 24" fill="none"
           aria-hidden="true" class="spinner">
           <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"
@@ -82,6 +128,16 @@ async function handleSubmit() {
       </button>
 
     </form>
+
+    <button
+      type="button"
+      class="verify__resend"
+      :disabled="loading || resendLoading"
+      @click="handleResendCode"
+    >
+      <span v-if="resendLoading">Reenviando código...</span>
+      <span v-else>No recibí el mail, reenviar código</span>
+    </button>
 
     <p class="auth-footer">
       <RouterLink to="/login">Volver al inicio de sesión</RouterLink>
@@ -117,6 +173,17 @@ async function handleSubmit() {
   border: 1px solid rgba(180, 60, 60, 0.3);
   border-radius: 12px;
   color: #a03030;
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.verify__info {
+  width: 100%;
+  padding: 0.6rem 0.9rem;
+  background: rgba(92, 122, 92, 0.14);
+  border: 1px solid rgba(92, 122, 92, 0.35);
+  border-radius: 12px;
+  color: #415d41;
   font-size: 0.85rem;
   text-align: center;
 }
@@ -192,6 +259,22 @@ async function handleSubmit() {
 }
 .auth-submit:hover:not(:disabled) { background-color: #7a5240; }
 .auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.verify__resend {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-brown);
+  font-size: 0.84rem;
+  font-weight: 300;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.verify__resend:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  text-decoration: none;
+}
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner { animation: spin 0.9s linear infinite; }
