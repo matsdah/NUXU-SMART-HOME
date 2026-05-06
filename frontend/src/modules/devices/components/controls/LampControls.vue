@@ -190,13 +190,14 @@ async function saveChanges() {
         <section class="lamp-section">
           <p class="lamp-label">Color</p>
           <div class="color-picker">
+            <!-- [html-validate-disable-next no-inline-style: color is a runtime hex value that cannot be expressed as a CSS class] -->
             <button
               v-for="preset in PRESET_COLORS"
               :key="preset.value"
               class="color-swatch"
               :class="{ 'color-swatch--active': state.color === preset.value }"
               :style="{ background: preset.value }"
-              :title="preset.label"
+              :aria-label="preset.label"
               type="button"
               @click="selectColor(preset.value)"
             />
@@ -221,6 +222,7 @@ async function saveChanges() {
             />
           </div>
 
+          <!-- [html-validate-disable-next no-inline-style: color is a runtime hex value that cannot be expressed as a CSS class] -->
           <div class="color-preview" :style="{ background: state.color }">
             <span class="color-preview__hex">{{ state.color }}</span>
           </div>

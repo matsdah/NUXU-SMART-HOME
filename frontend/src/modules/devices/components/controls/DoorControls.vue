@@ -175,6 +175,7 @@ function onLockChange(value: string) {
 
           <div v-if="autoCloseSecondsLeft > 0" class="door-autoclose">
             <div class="door-autoclose__bar">
+              <!-- [html-validate-disable-next no-inline-style: progress bar width is a runtime-computed percentage] -->
               <div
                 class="door-autoclose__progress"
                 :style="{ width: `${(autoCloseSecondsLeft / AUTO_CLOSE_SECONDS) * 100}%` }"
