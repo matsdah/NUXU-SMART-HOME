@@ -32,9 +32,10 @@ const loading       = ref(true)
 const actionPending = ref(false)
 const error         = ref('')
 
-const securityCode  = ref('')   // código para arm/disarm
-const currentCode   = ref('')   // código actual para cambio
-const newCode       = ref('')   // código nuevo para cambio
+const pendingMode   = ref<AlarmMode | null>(null)
+const securityCode  = ref('')
+const currentCode   = ref('')
+const newCode       = ref('')
 const changingCode  = ref(false)
 const codeChangeError = ref('')
 
@@ -74,18 +75,35 @@ function showSuccessToast(msg: string) {
   toastTimer = setTimeout(() => { showToast.value = false; toastTimer = null }, 2500)
 }
 
-async function onModeSelect(value: string) {
+function onModeSelect(value: string) {
   if (value === currentMode.value || actionPending.value) return
-  const newMode = value as AlarmMode
+  const mode = value as AlarmMode
+  if (mode === 'disarmed') {
+    void applyMode(mode, '')
+  } else {
+    pendingMode.value = mode
+    securityCode.value = ''
+    error.value = ''
+  }
+}
+
+async function confirmCode() {
+  if (!pendingMode.value || actionPending.value) return
+  await applyMode(pendingMode.value, securityCode.value)
+}
+
+async function applyMode(newMode: AlarmMode, code: string) {
   actionPending.value = true
   error.value = ''
   const previous = currentMode.value
   currentMode.value = newMode
   try {
-    await api.patch(`/devices/${props.deviceId}/${MODE_ACTIONS[newMode]}`, { code: securityCode.value })
+    await api.patch(`/devices/${props.deviceId}/${MODE_ACTIONS[newMode]}`, { code })
     const raw = await api.get<Record<string, unknown>>(`/devices/${props.deviceId}/state`)
-    const mode = parseMode(raw.status as string)
-    if (mode) currentMode.value = mode
+    const parsed = parseMode(raw.status as string)
+    if (parsed) currentMode.value = parsed
+    pendingMode.value = null
+    securityCode.value = ''
     showSuccessToast(`Alarma: ${MODE_LABELS[newMode]}`)
   } catch (e) {
     currentMode.value = previous
@@ -157,30 +175,45 @@ async function changeCode() {
       <div class="alarm-controls">
 
         <section class="alarm-section">
-          <p class="alarm-label">Código de seguridad</p>
-          <input
-            v-model="securityCode"
-            type="password"
-            inputmode="numeric"
-            maxlength="4"
-            pattern="[0-9]{4}"
-            placeholder="0000"
-            class="alarm-code-input"
-            autocomplete="off"
-          />
-          <p class="alarm-hint">Se usa para activar o desactivar la alarma</p>
-        </section>
-
-        <section class="alarm-section">
           <p class="alarm-label">Modo</p>
-          <div :class="{ 'alarm-pills--disabled': actionPending }">
+          <div :class="{ 'alarm-pills--disabled': actionPending || !!pendingMode }">
             <PillButtons
-              :model-value="currentMode"
+              :model-value="pendingMode ?? currentMode"
               :options="MODE_OPTIONS"
               appearance="container"
-              @update:model-value="onModeSelect"
+              @update:model-value="(v: string) => onModeSelect(v)"
             />
           </div>
+
+          <div v-if="pendingMode" class="alarm-code-prompt">
+            <p class="alarm-hint">Ingresá el código para activar <strong>{{ MODE_LABELS[pendingMode] }}</strong></p>
+            <input
+              v-model="securityCode"
+              type="password"
+              inputmode="numeric"
+              maxlength="4"
+              pattern="[0-9]{4}"
+              placeholder="0000"
+              class="alarm-code-input"
+              autocomplete="off"
+              @keyup.enter="confirmCode"
+            />
+            <div class="alarm-prompt-actions">
+              <button
+                type="button"
+                class="alarm-code-btn alarm-code-btn--secondary"
+                :disabled="actionPending"
+                @click="pendingMode = null; securityCode = ''; error = ''"
+              >Cancelar</button>
+              <button
+                type="button"
+                class="alarm-code-btn"
+                :disabled="actionPending || securityCode.length === 0"
+                @click="confirmCode"
+              >{{ actionPending ? 'Activando...' : 'Confirmar' }}</button>
+            </div>
+          </div>
+
           <div v-if="error" class="alarm-error" role="alert">{{ error }}</div>
         </section>
 
@@ -388,6 +421,31 @@ async function changeCode() {
 .alarm-code-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.alarm-code-btn--secondary {
+  background: rgba(52, 47, 41, 0.12);
+  color: rgba(52, 47, 41, 0.88);
+}
+
+.alarm-code-btn--secondary:hover:not(:disabled) {
+  background: rgba(52, 47, 41, 0.2);
+}
+
+.alarm-code-prompt {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 14px;
+  border: 1.5px solid rgba(52, 47, 41, 0.12);
+}
+
+.alarm-prompt-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
 }
 
 .alarm-error {
