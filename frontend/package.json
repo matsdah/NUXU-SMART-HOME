@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "build-only": "vite build",
     "type-check": "vue-tsc --build",
-    "validate:html": "html-validate \"src/**/*.vue\" \"index.html\""
+    "validate:html": "html-validate \"src/**/*.vue\" \"index.html\"",
+    "validate:css": "stylelint \"src/**/*.vue\" \"src/**/*.css\""
   },
   "dependencies": {
     "@emailjs/browser": "^4.4.1",
@@ -26,6 +27,9 @@
     "html-validate": "^10.15.0",
     "html-validate-vue": "^8.2.0",
     "npm-run-all2": "^8.0.4",
+    "postcss-html": "^1.8.1",
+    "stylelint": "^17.11.0",
+    "stylelint-config-standard": "^40.0.0",
     "typescript": "~6.0.0",
     "vite": "^8.0.8",
     "vite-plugin-vue-devtools": "^8.1.1",

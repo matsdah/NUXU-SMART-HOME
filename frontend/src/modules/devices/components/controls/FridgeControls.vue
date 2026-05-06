@@ -164,12 +164,12 @@ async function saveChanges() {
 
         <section class="fridge-section">
           <p class="fridge-label">Ajuste de temperatura heladera</p>
-          <TemperatureControl v-model="state.fridgeTemp" :min="FRIDGE_TEMP_MIN" :max="FRIDGE_TEMP_MAX" />
+          <TemperatureControl v-model="state.fridgeTemp" :min="FRIDGE_TEMP_MIN" :max="FRIDGE_TEMP_MAX" label="temperatura heladera" />
         </section>
 
         <section class="fridge-section">
           <p class="fridge-label">Ajuste de temperatura freezer</p>
-          <TemperatureControl v-model="state.freezerTemp" :min="FREEZER_TEMP_MIN" :max="FREEZER_TEMP_MAX" />
+          <TemperatureControl v-model="state.freezerTemp" :min="FREEZER_TEMP_MIN" :max="FREEZER_TEMP_MAX" label="temperatura freezer" />
         </section>
 
         <div class="fridge-actions">

@@ -1,0 +1,46 @@
+{
+  "extends": ["stylelint-config-standard"],
+  "overrides": [
+    {
+      "files": ["**/*.vue"],
+      "customSyntax": "postcss-html"
+    }
+  ],
+  "rules": {
+    "property-no-unknown": [true, {
+      "ignoreProperties": [
+        "backdrop-filter", "-webkit-backdrop-filter",
+        "-webkit-font-smoothing", "-moz-osx-font-smoothing",
+        "overscroll-behavior", "will-change", "scrollbar-width",
+        "appearance", "-webkit-appearance"
+      ]
+    }],
+    "selector-pseudo-element-no-unknown": [true, {
+      "ignorePseudoElements": ["/^-webkit-/", "/^-moz-/"]
+    }],
+    "selector-pseudo-class-no-unknown": [true, {
+      "ignorePseudoClasses": ["deep", "global", "slotted"]
+    }],
+    "property-no-vendor-prefix": null,
+    "value-no-vendor-prefix": null,
+    "selector-no-vendor-prefix": null,
+    "color-function-notation": null,
+    "color-function-alias-notation": null,
+    "alpha-value-notation": null,
+    "import-notation": null,
+    "selector-class-pattern": null,
+    "media-feature-range-notation": null,
+    "declaration-block-single-line-max-declarations": null,
+    "rule-empty-line-before": null,
+    "custom-property-empty-line-before": null,
+    "no-descending-specificity": null,
+    "shorthand-property-no-redundant-values": null,
+    "length-zero-no-unit": null,
+    "value-keyword-case": null,
+    "comment-empty-line-before": null,
+    "declaration-empty-line-before": null,
+    "number-max-precision": null,
+    "hue-degree-notation": null,
+    "declaration-block-no-redundant-longhand-properties": null
+  }
+}

@@ -5,9 +5,11 @@ withDefaults(defineProps<{
   max: number
   unit?: string
   step?: number
+  label?: string
 }>(), {
   unit: '°C',
   step: 1,
+  label: 'valor',
 })
 
 defineEmits<{
@@ -20,6 +22,7 @@ defineEmits<{
     <button
       class="temp-control__btn"
       type="button"
+      :aria-label="`Disminuir ${label}`"
       @click="$emit('update:modelValue', Math.max(min, modelValue - step))"
       :disabled="modelValue <= min"
     >
@@ -33,6 +36,7 @@ defineEmits<{
     <button
       class="temp-control__btn"
       type="button"
+      :aria-label="`Aumentar ${label}`"
       @click="$emit('update:modelValue', Math.min(max, modelValue + step))"
       :disabled="modelValue >= max"
     >
@@ -104,6 +108,6 @@ defineEmits<{
   text-align: center;
   font-size: 0.68rem;
   letter-spacing: 0.18em;
-  color: rgba(52, 47, 41, 0.42);
+  color: #6B6860;
 }
 </style>

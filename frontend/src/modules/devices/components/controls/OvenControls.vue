@@ -191,7 +191,7 @@ async function saveChanges() {
 
         <section class="oven-section">
           <p class="oven-label">Ajuste de temperatura</p>
-          <TemperatureControl v-model="state.temperature" :min="TEMP_MIN" :max="TEMP_MAX" />
+          <TemperatureControl v-model="state.temperature" :min="TEMP_MIN" :max="TEMP_MAX" label="temperatura" />
         </section>
 
         <section class="oven-section">
@@ -270,9 +270,6 @@ async function saveChanges() {
 .oven-save__error {
   margin: 0;
   font-size: 0.85rem;
-}
-
-.oven-save__error {
   color: #9d4d43;
 }
 

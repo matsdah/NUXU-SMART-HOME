@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onMounted, onBeforeUnmount } from 'vue'
+
 const props = withDefaults(defineProps<{
   deviceName: string
   loading?: boolean
@@ -19,6 +21,13 @@ function onOverlayClick(e: MouseEvent) {
     emit('close')
   }
 }
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && !props.loading) emit('close')
+}
+
+onMounted(() => { document.addEventListener('keydown', onKeyDown) })
+onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
 </script>
 
 <template>

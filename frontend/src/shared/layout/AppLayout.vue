@@ -62,6 +62,7 @@ async function handleLogout() {
 
 <template>
   <div class="app-shell">
+    <a href="#app-main" class="skip-link">Saltar al contenido principal</a>
     <header class="topbar">
       <div class="brand">
         <img src="@/assets/lamp.webp" alt="NUXU" class="brand__logo" />
@@ -149,7 +150,7 @@ async function handleLogout() {
       </div>
     </header>
 
-    <main class="app-main">
+    <main class="app-main" id="app-main">
       <RouterView />
     </main>
   </div>
@@ -446,5 +447,23 @@ async function handleLogout() {
   .app-main {
     padding: 1.25rem;
   }
+}
+
+.skip-link {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  background: var(--color-charcoal);
+  color: var(--color-white);
+  padding: 12px 24px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  z-index: 9999;
+  text-decoration: none;
+  border-radius: 0 0 8px 0;
+}
+
+.skip-link:focus {
+  top: 0;
 }
 </style>

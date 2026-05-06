@@ -20,16 +20,22 @@ const store = useDashboardStore()
 let previousBodyOverflow = ''
 let previousHtmlOverflow = ''
 
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Escape') emit('close')
+}
+
 onMounted(() => {
   previousBodyOverflow = document.body.style.overflow
   previousHtmlOverflow = document.documentElement.style.overflow
   document.body.style.overflow = 'hidden'
   document.documentElement.style.overflow = 'hidden'
+  document.addEventListener('keydown', onKeyDown)
 })
 
 onBeforeUnmount(() => {
   document.body.style.overflow = previousBodyOverflow
   document.documentElement.style.overflow = previousHtmlOverflow
+  document.removeEventListener('keydown', onKeyDown)
 })
 
 const isPending = computed(() => store.pendingActions.has(props.device.id))

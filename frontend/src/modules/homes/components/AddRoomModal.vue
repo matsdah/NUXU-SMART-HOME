@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ApiError } from '@/services/api/client'
 import { useDashboardStore } from '@/app/stores/dashboard'
 
@@ -42,6 +42,13 @@ function onOverlayClick(e: MouseEvent) {
     emit('close')
   }
 }
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Escape') emit('close')
+}
+
+onMounted(() => { document.addEventListener('keydown', onKeyDown) })
+onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
 </script>
 
 <template>

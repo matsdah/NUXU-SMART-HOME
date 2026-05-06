@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { api, ApiError } from '@/services/api/client'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import type { DeviceType, DeviceKind } from '@/app/stores/dashboard'
@@ -107,6 +107,7 @@ onMounted(async () => {
     FALLBACK_TYPES.find(type => type.name.toLowerCase().includes('aire acondicionado'))?.id
     ?? FALLBACK_TYPES[0].id
   loadingTypes.value = false
+  document.addEventListener('keydown', onKeyDown)
 })
 
 async function handleSubmit() {
@@ -163,6 +164,12 @@ async function handleSubmit() {
 function onOverlayClick(e: MouseEvent) {
   if (e.target === e.currentTarget) emit('close')
 }
+
+function onKeyDown(e: KeyboardEvent) {
+  if (e.key === 'Escape') emit('close')
+}
+
+onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
 </script>
 
 <template>

@@ -210,7 +210,7 @@ async function saveChanges() {
 
         <section class="ac-section">
           <p class="ac-label">Ajuste de temperatura</p>
-          <TemperatureControl v-model="state.temperature" :min="TEMP_MIN" :max="TEMP_MAX" />
+          <TemperatureControl v-model="state.temperature" :min="TEMP_MIN" :max="TEMP_MAX" label="temperatura" />
         </section>
 
         <section class="ac-section ac-section--split">
@@ -319,9 +319,6 @@ async function saveChanges() {
 .ac-save__error {
   margin: 0;
   font-size: 0.85rem;
-}
-
-.ac-save__error {
   color: #9d4d43;
 }
 

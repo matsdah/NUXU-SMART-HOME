@@ -132,4 +132,24 @@ router.beforeEach((to) => {
   }
 })
 
+const ROUTE_TITLES: Record<string, string> = {
+  landing: 'NUXU — Gestión de Hogares Inteligentes',
+  login: 'Iniciar sesión — NUXU',
+  register: 'Crear cuenta — NUXU',
+  recover: 'Recuperar contraseña — NUXU',
+  verify: 'Verificar cuenta — NUXU',
+  'reset-password': 'Restablecer contraseña — NUXU',
+  homes: 'Mi Hogar — NUXU',
+  devices: 'Dispositivos — NUXU',
+  'device-ac-controls': 'Aire acondicionado — NUXU',
+  routines: 'Rutinas — NUXU',
+  logs: 'Historial — NUXU',
+  rooms: 'Habitaciones — NUXU',
+  settings: 'Configuración — NUXU',
+}
+
+router.afterEach((to) => {
+  document.title = ROUTE_TITLES[String(to.name)] ?? 'NUXU — Gestión de Hogares Inteligentes'
+})
+
 export default router

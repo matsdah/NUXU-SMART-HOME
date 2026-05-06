@@ -246,7 +246,7 @@ function onLockChange(value: string) {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  color: rgba(52, 47, 41, 0.42);
+  color: #6B6860;
 }
 
 .door-badges {

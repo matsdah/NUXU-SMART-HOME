@@ -184,6 +184,7 @@ async function saveChanges() {
             :max="BRIGHTNESS_MAX"
             :step="BRIGHTNESS_STEP"
             unit="%"
+            label="brillo"
           />
         </section>
 
@@ -281,7 +282,7 @@ async function saveChanges() {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.16em;
-  color: rgba(52, 47, 41, 0.42);
+  color: #6B6860;
 }
 
 .color-picker {
@@ -418,7 +419,7 @@ async function saveChanges() {
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.08em;
-  color: rgba(0, 0, 0, 0.45);
+  color: #6B6860;
   mix-blend-mode: multiply;
   text-transform: uppercase;
 }
