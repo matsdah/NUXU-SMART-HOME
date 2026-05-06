@@ -115,7 +115,7 @@ function normalizeDeviceKind(device: ApiDevice): DeviceKind {
     return 'ac'
   }
 
-  if (source.includes('door') || source.includes('lock')){
+  if (source.includes('door') || source.includes('lock') || source.includes('puerta')){
     return 'door'
   }
 
@@ -675,7 +675,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
     const target = devices.value.find(d => d.id === id)
 
-    if (target?.kind === 'fridge') {
+    if (target?.kind === 'fridge' || target?.kind === 'door') {
       return
     }
     pendingActions.value.add(id)

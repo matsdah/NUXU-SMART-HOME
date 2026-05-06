@@ -319,7 +319,7 @@ watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
                 </svg>
               </div>
 
-              <label v-if="device.kind !== 'fridge'" class="switch" :aria-label="`Cambiar ${device.name}`" @click.stop>
+              <label v-if="device.kind !== 'fridge' && device.kind !== 'door'" class="switch" :aria-label="`Cambiar ${device.name}`" @click.stop>
                 <input
                   type="checkbox" :checked="device.isOn"
                   :disabled="pendingActions.has(device.id)"

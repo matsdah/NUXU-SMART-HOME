@@ -7,9 +7,11 @@ withDefaults(defineProps<{
   badgeIcon?: string
   badgeLabel?: string
   showPowerButton?: boolean
+  showTemperature?: boolean
   unit?: string
 }>(), {
   showPowerButton: true,
+  showTemperature: true,
   unit: '°C',
 })
 
@@ -19,17 +21,19 @@ defineEmits<{
 </script>
 
 <template>
-  <aside class="control-sidebar" :class="{ 'control-sidebar--off': !isOn }">
+  <aside class="control-sidebar" :class="{ 'control-sidebar--off': !isOn, 'control-sidebar--no-temp': showTemperature === false }">
     <div class="control-sidebar__header">
       <p class="control-sidebar__room">{{ roomLabel }}</p>
       <h2 class="control-sidebar__title">{{ title }}</h2>
     </div>
 
     <div class="control-sidebar__center">
-      <div class="control-sidebar__temp">
-        <span class="control-sidebar__temp-value">{{ temperature }}</span>
-        <span class="control-sidebar__temp-unit">{{ unit }}</span>
-      </div>
+      <slot name="center">
+        <div v-if="showTemperature !== false" class="control-sidebar__temp">
+          <span class="control-sidebar__temp-value">{{ temperature }}</span>
+          <span class="control-sidebar__temp-unit">{{ unit }}</span>
+        </div>
+      </slot>
 
       <div v-if="badgeIcon && badgeLabel" class="control-sidebar__badge">
         <span class="control-sidebar__badge-icon">{{ badgeIcon }}</span>
@@ -58,6 +62,10 @@ defineEmits<{
 
 .control-sidebar--off {
   opacity: 0.7;
+}
+
+.control-sidebar--no-temp {
+  gap: 4rem;
 }
 
 .control-sidebar__room {

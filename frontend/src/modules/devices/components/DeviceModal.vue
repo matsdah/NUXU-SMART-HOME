@@ -6,6 +6,7 @@ import AcControls from './controls/AcControls.vue'
 import OvenControls from './controls/OvenControls.vue'
 import FridgeControls from './controls/FridgeControls.vue'
 import LampControls from './controls/LampControls.vue'
+import DoorControls from './controls/DoorControls.vue'
 
 const props = defineProps<{
   device: Device
@@ -89,6 +90,18 @@ const isLamp = computed(() => {
     || source.includes('lámpara')
 })
 
+const isDoor = computed(() => {
+  const source = [
+    props.device.kind,
+    props.device.typeId ?? '',
+    props.device.name,
+    props.device.status,
+  ].join(' ').toLowerCase()
+
+  return source.includes('door')
+    || source.includes('puerta')
+})
+
 function toggle() {
   store.toggleDevice(props.device.id)
 }
@@ -109,6 +122,7 @@ function onOverlayClick(e: MouseEvent) {
           <OvenControls v-else-if="isOven" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
           <FridgeControls v-else-if="isFridge" :device-id="device.id" :device-name="device.name" />
           <LampControls v-else-if="isLamp" :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
+          <DoorControls v-else-if="isDoor" :device-id="device.id" :device-name="device.name" />
           <p v-else class="modal__no-controls">Sin controles disponibles para este dispositivo.</p>
         </div>
       </div>
