@@ -62,7 +62,7 @@ export type Member = {
 export type DeviceKind =          /* Mapeo de dispositivos. */
   | 'vacuum' | 'speaker' | 'tap' | 'blind'
   | 'lamp'   | 'oven'    | 'ac'  | 'door'
-  | 'fridge' | 'other'
+  | 'fridge' | 'alarm'   | 'other'
 
 export type Device = {
   id: string
@@ -113,6 +113,10 @@ function normalizeDeviceKind(device: ApiDevice): DeviceKind {
 
   if (source.includes('air') || source.includes('ac') || source.includes('conditioner')){
     return 'ac'
+  }
+
+  if (source.includes('alarm') || source.includes('alarma')){
+    return 'alarm'
   }
 
   if (source.includes('door') || source.includes('lock') || source.includes('puerta')){
@@ -675,7 +679,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
     const target = devices.value.find(d => d.id === id)
 
-    if (target?.kind === 'fridge' || target?.kind === 'door') {
+    if (target?.kind === 'fridge' || target?.kind === 'door' || target?.kind === 'alarm') {
       return
     }
     pendingActions.value.add(id)

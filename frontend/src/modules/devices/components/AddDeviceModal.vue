@@ -4,10 +4,10 @@ import { api, ApiError } from '@/services/api/client'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import type { DeviceType, DeviceKind } from '@/app/stores/dashboard'
 
-const KIND_LABELS: Record<DeviceKind, string> = {
+const KIND_LABELS: Partial<Record<DeviceKind, string>> = {
   ac: 'Aire acondicionado', vacuum: 'Aspiradora', lamp: 'Lámpara',
   speaker: 'Parlante', tap: 'Canilla', blind: 'Persiana',
-  oven: 'Horno', door: 'Puerta', fridge: 'Heladera', other: 'Otro',
+  oven: 'Horno', door: 'Puerta', fridge: 'Heladera', alarm: 'Alarma', other: 'Otro',
 }
 function kindLabel(kind: DeviceKind): string { return KIND_LABELS[kind] ?? kind }
 
