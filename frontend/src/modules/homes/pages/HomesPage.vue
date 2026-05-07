@@ -348,6 +348,11 @@ onBeforeUnmount(() => {
         </header>
 
         <div class="device-grid">
+          <button class="device-card device-card--new" type="button" aria-label="Agregar dispositivo"
+            @click="showAddDevice = true">
+            <span class="device-card__plus">+</span>
+            <span>Nuevo</span>
+          </button>
           <article
             v-for="device in displayedDevices" :key="device.id"
             class="device-card" :class="{ 'device-card--accent': device.tone === 'sage' }"
@@ -415,11 +420,7 @@ onBeforeUnmount(() => {
             </div>
           </article>
 
-          <button class="device-card device-card--new" type="button" aria-label="Agregar dispositivo"
-            @click="showAddDevice = true">
-            <span class="device-card__plus">+</span>
-            <span>Nuevo</span>
-          </button>
+          
         </div>
       </section>
 

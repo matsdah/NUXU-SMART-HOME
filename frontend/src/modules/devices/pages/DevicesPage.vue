@@ -504,6 +504,16 @@ onBeforeUnmount(() => {
       </p>
 
       <div class="device-grid">
+        <button
+          class="device-card device-card--new"
+          type="button"
+          aria-label="Agregar dispositivo"
+          :disabled="rooms.length === 0"
+          @click="showAddDevice = true"
+        >
+          <span class="device-card__plus">+</span>
+          <span>Nuevo</span>
+        </button>
         <article
           v-for="device in filteredDevices" :key="device.id"
           class="device-card"
@@ -575,21 +585,7 @@ onBeforeUnmount(() => {
             <p v-if="activeFilter === 'all'" class="device-card__room">{{ roomName(device.roomId) }}</p>
           </div>
         </article>
-
-        <button
-          class="device-card device-card--new"
-          type="button"
-          aria-label="Agregar dispositivo"
-          :disabled="rooms.length === 0"
-          @click="showAddDevice = true"
-        >
-          <span class="device-card__plus">+</span>
-          <span>Nuevo</span>
-        </button>
-
-        <div v-if="filteredDevices.length === 0" class="devices-empty">
-          No tiene dispositivos
-        </div>
+        
       </div>
     </section>
 
