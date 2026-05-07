@@ -6,7 +6,7 @@ import TemperatureControl from '../shared/TemperatureControl.vue'
 import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
 
-const props = defineProps<{ deviceId: string; deviceName?: string }>()
+const props = defineProps<{ deviceId: string; deviceName?: string; initialIsOn?: boolean }>()
 
 const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
 
@@ -41,7 +41,7 @@ const CONVECTION_MODES: PillOption[] = [
 ]
 
 const state = ref<OvenState>({
-  isOn: true,
+  isOn: props.initialIsOn ?? true,
   heatSource: 'convencional',
   temperature: 150,
   powerLevel: 'full',

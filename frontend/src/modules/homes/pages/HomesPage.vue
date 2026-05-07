@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useHomesDashboard } from '@/modules/homes/composables/useHomesDashboard'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import type { Device } from '@/app/stores/dashboard'
@@ -23,12 +23,15 @@ const selectedRoomName = ref('')
 const activeRoomFilter = ref<'all' | string>('all')
 const allDevices = ref<Device[]>([])
 const loadingDevices = ref(false)
+const refreshingDevices = ref(false)
 const roomActionError = ref('')
 const pendingRoomDeletion = ref<{ id: string; name: string } | null>(null)
 const deletingRoom = ref(false)
 const pendingRoomEdition = ref<{ id: string; name: string } | null>(null)
 const renamingRoom = ref(false)
 const editRoomError = ref('')
+const LIVE_SYNC_INTERVAL_MS = 4000
+let liveSyncTimer: ReturnType<typeof setInterval> | null = null
 
 function openDeviceModal(device: Device) {
   selectedDevice.value = device
@@ -37,6 +40,15 @@ function openDeviceModal(device: Device) {
 
 function closeDeviceModal() {
   selectedDevice.value = null
+}
+
+function onDeviceUpdated(id: string, isOn: boolean) {
+  const d = allDevices.value.find(x => x.id === id)
+  if (d) {
+    d.isOn = isOn
+    d.tone = isOn ? 'sage' : 'neutral'
+  }
+  void refreshHomeDevices()
 }
 
 async function onDeviceCreated() {
@@ -51,18 +63,80 @@ const displayedDevices = computed(() => {
   return allDevices.value.filter(device => device.roomId === activeRoomFilter.value)
 })
 
-async function refreshHomeDevices() {
+function hasDeviceListChanged(nextDevices: Device[]): boolean {
+  if (allDevices.value.length !== nextDevices.length) {
+    return true
+  }
+
+  const currentById = new Map(allDevices.value.map(device => [device.id, device]))
+  for (const next of nextDevices) {
+    const current = currentById.get(next.id)
+    if (!current) {
+      return true
+    }
+
+    if (
+      current.name !== next.name
+      || current.roomId !== next.roomId
+      || current.kind !== next.kind
+      || current.status !== next.status
+      || current.isOn !== next.isOn
+      || current.tone !== next.tone
+    ) {
+      return true
+    }
+  }
+
+  return false
+}
+
+async function refreshHomeDevices(options: { silent?: boolean } = {}) {
   if (!activeHomeId.value) {
     allDevices.value = []
     return
   }
-
-  loadingDevices.value = true
-  try {
-    allDevices.value = await store.fetchHomeDevices(activeHomeId.value)
-  } finally {
-    loadingDevices.value = false
+  if (refreshingDevices.value) {
+    return
   }
+
+  const silent = options.silent === true
+  refreshingDevices.value = true
+  if (!silent) {
+    loadingDevices.value = true
+  }
+  try {
+    const nextDevices = await store.fetchHomeDevices(activeHomeId.value)
+    if (hasDeviceListChanged(nextDevices)) {
+      allDevices.value = nextDevices
+    }
+  } finally {
+    refreshingDevices.value = false
+    if (!silent) {
+      loadingDevices.value = false
+    }
+  }
+}
+
+function stopLiveSync() {
+  if (liveSyncTimer === null) {
+    return
+  }
+  clearInterval(liveSyncTimer)
+  liveSyncTimer = null
+}
+
+function startLiveSync() {
+  stopLiveSync()
+  if (!activeHomeId.value) {
+    return
+  }
+
+  liveSyncTimer = setInterval(() => {
+    if (loading.value || refreshingDevices.value || pendingActions.value.size > 0) {
+      return
+    }
+    void refreshHomeDevices({ silent: true })
+  }, LIVE_SYNC_INTERVAL_MS)
 }
 
 function selectAllRooms() {
@@ -192,17 +266,23 @@ watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
   if (!homeId) {
     allDevices.value = []
     activeRoomFilter.value = 'all'
+    stopLiveSync()
     return
   }
 
   if (homeId !== previousHomeId) {
     activeRoomFilter.value = 'all'
+    startLiveSync()
   }
 
   if (!isLoading) {
     await refreshHomeDevices()
   }
 }, { immediate: true })
+
+onBeforeUnmount(() => {
+  stopLiveSync()
+})
 </script>
 
 <template>
@@ -385,10 +465,7 @@ watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
       :device="selectedDevice"
       :room-name="selectedRoomName"
       @close="closeDeviceModal"
-      @device-updated="(id, isOn) => {
-        const d = allDevices.find(x => x.id === id)
-        if (d) { d.isOn = isOn; d.tone = isOn ? 'sage' : 'neutral' }
-      }"
+      @device-updated="onDeviceUpdated"
     />
 
     <AddDeviceModal

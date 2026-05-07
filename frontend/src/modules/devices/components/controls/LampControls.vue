@@ -4,7 +4,7 @@ import { api } from '@/services/api/client'
 import ControlSidebar from '../shared/ControlSidebar.vue'
 import TemperatureControl from '../shared/TemperatureControl.vue'
 
-const props = defineProps<{ deviceId: string; deviceName?: string }>()
+const props = defineProps<{ deviceId: string; deviceName?: string; initialIsOn?: boolean }>()
 
 const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
 
@@ -29,7 +29,7 @@ const PRESET_COLORS = [
 ]
 
 const state = ref<LampState>({
-  isOn: true,
+  isOn: props.initialIsOn ?? true,
   brightness: 80,
   color: '#FFD580',
 })

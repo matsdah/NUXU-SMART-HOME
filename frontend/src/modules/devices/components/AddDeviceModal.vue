@@ -134,7 +134,7 @@ async function handleSubmit() {
     const created = await api.post<ApiCreatedDevice>(`/devices`, {
       name: name.value.trim(),
       type: { id: selectedTypeId.value },
-      state: {},
+      state: store.initialStateForNewDevice(selectedTypeId.value),
       room: { id: roomId },
       metadata: {},
     })
@@ -144,6 +144,7 @@ async function handleSubmit() {
       error.value = 'No se pudo obtener el dispositivo creado.'
       return
     }
+    store.seedDeviceInitialPowerState(deviceId, selectedTypeId.value)
 
     emit('created', {
       deviceId,

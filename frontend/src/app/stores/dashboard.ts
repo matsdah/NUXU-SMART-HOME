@@ -118,7 +118,7 @@ if (resolvedTypeId && TYPE_ID_MAP[resolvedTypeId]) return TYPE_ID_MAP[resolvedTy
 
   if (source.includes('vacuum') || source.includes('aspiradora')) return 'vacuum'
   if (source.includes('speaker') || source.includes('audio') || source.includes('parlante')) return 'speaker'
-  if (source.includes('tap') || source.includes('faucet') || source.includes('canilla') || source.includes('sprinkler')) return 'tap'
+  if (source.includes('tap') || source.includes('faucet') || source.includes('canilla') || source.includes('sprinkler') || source.includes('aspersor')) return 'tap'
   if (source.includes('blind') || source.includes('curtain') || source.includes('persiana') || source.includes('roller')) return 'blind'
   if (source.includes('lamp') || source.includes('light') || source.includes('luz') || source.includes('lámpara')) return 'lamp'
   if (source.includes('oven') || source.includes('horno')) return 'oven'
@@ -166,7 +166,7 @@ function resolveIsOn(state?: ApiDeviceState): boolean {
   if(typeof state.status === 'string'){
     const s = state.status.toLowerCase()
     return ['on', 'encendido', 'abierto', 'open', 'active',
-            'running', 'playing', 'cool', 'cooling',
+            'running', 'playing', 'paused', 'opened', 'opening', 'cool', 'cooling',
             'heat', 'heating', 'locked'].includes(s)
   }
 
@@ -206,7 +206,13 @@ type PersistedControlEntry = {
   normalizedState: Record<string, unknown>
 }
 
+type DeviceToggleCommand = {
+  action: string
+  payload?: Record<string, unknown>
+}
+
 const PERSISTED_CONTROL_KINDS: PersistedControlKind[] = ['ac', 'oven', 'lamp', 'fridge']
+const DEFAULT_ON_DEVICE_KINDS = new Set<DeviceKind>(['ac', 'oven', 'lamp'])
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
@@ -338,6 +344,166 @@ function mergePersistedNormalizedState(entries: PersistedControlEntry[]): Record
   return merged
 }
 
+function hasRemotePowerSignal(state?: ApiDeviceState): boolean {
+  return typeof state?.on === 'boolean' || typeof state?.status === 'string'
+}
+
+function mapRecordToDeviceState(state?: Record<string, unknown>): ApiDeviceState | undefined {
+  if (!state) {
+    return undefined
+  }
+
+  const mapped: ApiDeviceState = {}
+  if (typeof state.status === 'string') {
+    mapped.status = state.status
+  }
+  if (typeof state.on === 'boolean') {
+    mapped.on = state.on
+  }
+  if (typeof state.temperature === 'number') {
+    mapped.temperature = state.temperature
+  }
+  if (typeof state.brightness === 'number') {
+    mapped.brightness = state.brightness
+  }
+
+  return Object.keys(mapped).length > 0 ? mapped : undefined
+}
+
+function mergeDeviceStates(
+  primary?: ApiDeviceState,
+  fallback?: ApiDeviceState,
+): ApiDeviceState | undefined {
+  if (!primary && !fallback) {
+    return undefined
+  }
+
+  return {
+    status: primary?.status ?? fallback?.status,
+    on: primary?.on ?? fallback?.on,
+    temperature: primary?.temperature ?? fallback?.temperature,
+    brightness: primary?.brightness ?? fallback?.brightness,
+  }
+}
+
+async function fetchDeviceStateWithFallback(deviceId: string): Promise<ApiDeviceState | undefined> {
+  const stateFromStateEndpoint = await api.get<ApiDeviceState>(`/devices/${deviceId}/state`).catch(() => undefined)
+  if (hasRemotePowerSignal(stateFromStateEndpoint)) {
+    return stateFromStateEndpoint
+  }
+
+  const detail = await api.get<ApiDeviceDetail>(`/devices/${deviceId}`).catch((err: unknown) => {
+    if (err instanceof ApiError && err.status === 404) {
+      return undefined
+    }
+    throw err
+  })
+
+  const detailState = mapRecordToDeviceState(isRecord(detail?.state) ? detail.state : undefined)
+  return mergeDeviceStates(stateFromStateEndpoint, detailState)
+}
+
+function resolveDevicePowerState(
+  state: ApiDeviceState | undefined,
+  persistedState: Record<string, unknown>,
+): boolean {
+  if (hasRemotePowerSignal(state)) {
+    return resolveIsOn(state)
+  }
+
+  if (typeof persistedState.on === 'boolean') {
+    return persistedState.on
+  }
+
+  return resolveIsOn(state)
+}
+
+function syncPersistedPowerState(
+  deviceId: string,
+  isOn: boolean,
+  preferredKind?: DeviceKind,
+): void {
+  const entries = readPersistedControlStates(deviceId, preferredKind)
+  if (entries.length > 0) {
+    for (const entry of entries) {
+      writePersistedControlState(entry.kind, deviceId, { ...entry.rawState, isOn })
+    }
+    return
+  }
+
+  const prefix = preferredKind ? LOCAL_STATE_STORAGE_PREFIX[preferredKind] : undefined
+  if (!prefix || !preferredKind) {
+    return
+  }
+
+  const existing = readPersistedControlState(preferredKind, deviceId)
+  writePersistedControlState(preferredKind, deviceId, { ...existing, isOn })
+}
+
+function resolveDeviceKindByTypeId(typeId?: string): DeviceKind | undefined {
+  if (!typeId) {
+    return undefined
+  }
+  return TYPE_ID_MAP[typeId]
+}
+
+function initialStateForNewDevice(typeId?: string): Record<string, unknown> {
+  const kind = resolveDeviceKindByTypeId(typeId)
+  if (!kind || !DEFAULT_ON_DEVICE_KINDS.has(kind)) {
+    return {}
+  }
+  return { on: true }
+}
+
+function seedDeviceInitialPowerState(deviceId: string, typeId?: string): void {
+  const kind = resolveDeviceKindByTypeId(typeId)
+  if (!kind || !DEFAULT_ON_DEVICE_KINDS.has(kind)) {
+    return
+  }
+  syncPersistedPowerState(deviceId, true, kind)
+}
+
+function getToggleCommands(kind: DeviceKind | undefined, isCurrentlyOn: boolean): DeviceToggleCommand[] {
+  const powerAction = isCurrentlyOn ? 'turnOff' : 'turnOn'
+  const accessAction = isCurrentlyOn ? 'close' : 'open'
+  const mediaAction = isCurrentlyOn ? 'stop' : 'play'
+  const vacuumAction = isCurrentlyOn ? 'pause' : 'start'
+
+  if (kind === 'tap') {
+    return [{ action: accessAction }, { action: powerAction }]
+  }
+
+  if (kind === 'blind') {
+    return [
+      { action: 'setLevel', payload: { level: isCurrentlyOn ? 0 : 100 } },
+      { action: accessAction },
+      { action: powerAction },
+    ]
+  }
+
+  if (kind === 'speaker') {
+    return [{ action: mediaAction }, { action: powerAction }]
+  }
+
+  if (kind === 'vacuum') {
+    return [{ action: vacuumAction }, { action: powerAction }]
+  }
+
+  if (kind === 'fridge' || kind === 'door' || kind === 'alarm') {
+    return []
+  }
+
+  if (kind === 'other') {
+    return [{ action: powerAction }, { action: accessAction }]
+  }
+
+  return [{ action: powerAction }]
+}
+
+function isRecoverableActionError(err: unknown): err is ApiError {
+  return err instanceof ApiError && [400, 404, 405, 422].includes(err.status)
+}
+
 function writePersistedControlStates(deviceId: string, entries: PersistedControlEntry[]): void {
   for (const entry of entries) {
     writePersistedControlState(entry.kind, deviceId, entry.rawState)
@@ -421,7 +587,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     /* Fetcheamos todos los estados en paralelo */
     const states = await Promise.all(
       data.map(device =>
-        api.get<ApiDeviceState>(`/devices/${device.id}/state`)
+        fetchDeviceStateWithFallback(device.id)
           .then(state => ({ id: device.id, state }))
           .catch(()  => ({ id: device.id, state: undefined }))
       )
@@ -441,6 +607,9 @@ export const useDashboardStore = defineStore('dashboard', () => {
       const rawTypeId = device.type?.id ?? device.typeId
       const kind = normalizeDeviceKind(device)
       const isFridge = kind === 'fridge'
+      const persistedEntries = readPersistedControlStates(device.id, kind)
+      const persistedState = mergePersistedNormalizedState(persistedEntries)
+      const resolvedIsOn = resolveDevicePowerState(state, persistedState)
 
       return {
         id: device.id,
@@ -448,8 +617,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
         roomId,
         kind,
         status: formatStatus(state),
-        isOn: isFridge ? true : resolveIsOn(state),
-        tone: isFridge ? 'sage' : (resolveIsOn(state) ? 'sage' : 'neutral'),
+        isOn: isFridge ? true : resolvedIsOn,
+        tone: isFridge ? 'sage' : (resolvedIsOn ? 'sage' : 'neutral'),
         typeId: rawTypeId,
       }
     })
@@ -596,7 +765,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
         await api.patch(endpoint, body)
         return true
       } catch (err) {
-        if (err instanceof ApiError && [400, 404, 405, 422].includes(err.status)) {
+        if (isRecoverableActionError(err)) {
           continue
         }
         throw err
@@ -604,6 +773,46 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
 
     return false
+  }
+
+  async function executeDeviceToggle(
+    deviceId: string,
+    kind: DeviceKind | undefined,
+    isCurrentlyOn: boolean,
+  ): Promise<void> {
+    const commands = getToggleCommands(kind, isCurrentlyOn)
+    if (commands.length === 0) {
+      throw new Error('No hay accion de toggle disponible para este dispositivo.')
+    }
+
+    let lastRecoverableError: ApiError | null = null
+
+    for (const command of commands) {
+      const endpoint = `/devices/${deviceId}/${command.action}`
+      const payload = command.payload ?? {}
+      const hasPayload = Object.keys(payload).length > 0
+      const attempts: Record<string, unknown>[] = hasPayload
+        ? [payload, { params: Object.values(payload) }]
+        : [{}]
+
+      for (const body of attempts) {
+        try {
+          await api.patch(endpoint, body)
+          return
+        } catch (err) {
+          if (isRecoverableActionError(err)) {
+            lastRecoverableError = err
+            continue
+          }
+          throw err
+        }
+      }
+    }
+
+    if (lastRecoverableError) {
+      throw lastRecoverableError
+    }
+    throw new Error('No se pudo ejecutar el toggle del dispositivo.')
   }
 
   async function restoreDeviceState(
@@ -1246,6 +1455,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
     pendingActions.value.add(id)
     const previous = target?.isOn
+    const persistedState = mergePersistedNormalizedState(readPersistedControlStates(id, target?.kind))
 
     if (target) {
       target.isOn = !target.isOn // optimistic update
@@ -1255,22 +1465,26 @@ export const useDashboardStore = defineStore('dashboard', () => {
     try {
       let isCurrentlyOn = previous
       if (typeof isCurrentlyOn !== 'boolean') {
-        const currentState = await api.get<ApiDeviceState>(`/devices/${id}/state`).catch(() => undefined)
-        isCurrentlyOn = resolveIsOn(currentState)
+        const currentState = await fetchDeviceStateWithFallback(id).catch(() => undefined)
+        isCurrentlyOn = resolveDevicePowerState(currentState, persistedState)
       }
 
-      const nextAction = isCurrentlyOn ? 'turnOff' : 'turnOn'
-      await api.patch(`/devices/${id}/${nextAction}`, {})
+      await executeDeviceToggle(id, target?.kind, isCurrentlyOn)
+      const state = await fetchDeviceStateWithFallback(id).catch(() => undefined)
+      const nextIsOn = hasRemotePowerSignal(state) ? resolveIsOn(state) : !isCurrentlyOn
       if (target) {
-        const state = await api.get<ApiDeviceState>(`/devices/${id}/state`).catch(() => undefined)
         target.status = formatStatus(state)
-        target.isOn = resolveIsOn(state)
-        target.tone = target.isOn ? 'sage' : 'neutral'
+        target.isOn = nextIsOn
+        target.tone = nextIsOn ? 'sage' : 'neutral'
       }
+      syncPersistedPowerState(id, nextIsOn, target?.kind)
     }catch (err){
       if (target && typeof previous === 'boolean') {
         target.isOn = previous // rollback
         target.tone = previous ? 'sage' : 'neutral'
+      }
+      if (typeof previous === 'boolean') {
+        syncPersistedPowerState(id, previous, target?.kind)
       }
       error.value = err instanceof ApiError
         ? `No se pudo actualizar ${target?.name ?? 'dispositivo'}. (${err.status})`
@@ -1358,6 +1572,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
     deleteHome,
     deleteRoom,
     toggleDevice,
+    initialStateForNewDevice,
+    seedDeviceInitialPowerState,
 
     reset,
   }
