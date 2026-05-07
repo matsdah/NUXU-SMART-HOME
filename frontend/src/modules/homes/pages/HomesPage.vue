@@ -289,7 +289,9 @@ onBeforeUnmount(() => {
   <section class="homes">
     <div class="homes__header">
       <div>
-        <p class="section-label">Habitaciones</p>
+        <header class="panel__header">
+          <h2 class="panel__title">Habitaciones</h2>
+        </header>
         <div class="room-tabs">
           <button
             type="button"

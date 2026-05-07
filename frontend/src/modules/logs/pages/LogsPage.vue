@@ -369,12 +369,7 @@ onMounted(() => {
     <section class="logs-page">
         <header class="logs-page__header">
             <div>
-                <p class="section-label">Historial</p>
-                <h1 class="section-title">Acciones sobre dispositivos</h1>
-                <p class="section-subtitle">
-                    Consultá qué dispositivo fue afectado, qué acción se ejecutó
-                    y cuándo ocurrió.
-                </p>
+                <h2 class="panel__title">Historial</h2>
             </div>
 
             <button
