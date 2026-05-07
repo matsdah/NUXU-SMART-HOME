@@ -41,6 +41,14 @@ export const DEFAULT_ACTION_LABELS: ActionMap = {
   setGenre: "Seleccionar género",
 };
 
+export const EXCLUSIVE_ACTION_GROUPS: string[][] = [
+    ["turnOn", "turnOff"],
+    ["open", "close"],
+    ["lock", "unlock"],
+    ["up", "down"],
+    ["armStay", "armAway", "disarm"],
+    ["play", "pause", "resume", "stop"],
+];
 const STORAGE_KEY = "nuxu.actionsAllowedByType.v1";
 
 let actionsAllowedByType: Record<string, string[]> = {};
