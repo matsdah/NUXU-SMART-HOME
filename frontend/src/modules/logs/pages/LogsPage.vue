@@ -1,582 +1,957 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
-import { storeToRefs } from 'pinia'
-import { useDashboardStore } from '@/app/stores/dashboard'
-import { ApiError } from '@/services/api/client'
-import type { Device } from '@/app/stores/dashboard'
-import { fetchDeviceLogs, fetchLogsForDevice } from '../services/logs'
-import type { DeviceLog } from '../types'
+import { computed, onMounted, ref } from "vue";
+import { ApiError } from "@/services/api/client";
+import {
+    fetchDeviceLogs,
+    fetchDeviceTypes,
+    fetchDevices,
+    fetchLogsForDevice,
+} from "../services/logs";
+import type {
+    ApiDevice,
+    ApiDeviceType,
+    DeviceLog,
+    DeviceLogRow,
+} from "../types";
+import {
+    getActionLabel,
+    getAllowedActionsForType,
+    initializeAllowedActionsOnce,
+} from "@/app/constants/actionLabels";
 
-const PAGE_SIZE = 20
+const PAGE_SIZE = 100;
 
-const store = useDashboardStore()
-const { homes } = storeToRefs(store)
+const logs = ref<DeviceLogRow[]>([]);
+const loading = ref(true);
+const loadingMore = ref(false);
+const loadingAll = ref(false);
+const loadedDuringAll = ref(0);
+const pageError = ref("");
+const canLoadMore = ref(true);
+const lastUpdatedAt = ref<Date | null>(null);
 
-const logs = ref<DeviceLog[]>([])
-const loading = ref(false)
-const loadingMore = ref(false)
-const error = ref('')
-const hasMore = ref(true)
-const offset = ref(0)
-const selectedDeviceId = ref('')
-const deviceMap = ref<Map<string, Device>>(new Map())
-const loadingDevices = ref(false)
+const deviceNameById = ref<Record<string, string>>({});
+const deviceTypeById = ref<Record<string, string>>({});
+const allDeviceTypeNames = ref<string[]>([]);
 
-const allDevices = computed<Device[]>(() => {
-  return Array.from(deviceMap.value.values()).sort((a, b) => a.name.localeCompare(b.name))
-})
+const selectedDeviceId = ref("all");
+const selectedDeviceType = ref("all");
+const selectedAction = ref("all");
+const dateFrom = ref("");
+const dateTo = ref("");
 
-const totalLoaded = computed(() => logs.value.length)
+const hasActiveFilters = computed(
+    () =>
+        selectedDeviceId.value !== "all" ||
+        selectedDeviceType.value !== "all" ||
+        selectedAction.value !== "all" ||
+        dateFrom.value !== "" ||
+        dateTo.value !== "",
+);
 
-function deviceName(deviceId: string): string {
-  return deviceMap.value.get(deviceId)?.name ?? 'Dispositivo eliminado'
-}
+const totalLoadedActions = computed(() => logs.value.length);
 
-function deviceRoom(deviceId: string): string {
-  const device = deviceMap.value.get(deviceId)
-  if (!device) return ''
-  const room = store.rooms.find(r => r.id === device.roomId)
-  return room?.name ?? ''
-}
-
-const ACTION_LABELS: Record<string, string> = {
-  turnOn: 'Encendido',
-  turnOff: 'Apagado',
-  setBrightness: 'Cambio de brillo',
-  setColor: 'Cambio de color',
-  setTemperature: 'Cambio de temperatura',
-  setMode: 'Cambio de modo',
-  setVolume: 'Cambio de volumen',
-  setVerticalSwing: 'Oscilación vertical',
-  setHorizontalSwing: 'Oscilación horizontal',
-  setFanSpeed: 'Velocidad del ventilador',
-  setLevel: 'Cambio de nivel',
-  open: 'Abrir',
-  close: 'Cerrar',
-  lock: 'Bloquear',
-  unlock: 'Desbloquear',
-  play: 'Reproducir',
-  pause: 'Pausar',
-  stop: 'Detener',
-  nextSong: 'Canción siguiente',
-  previousSong: 'Canción anterior',
-  start: 'Iniciar',
-  dock: 'Volver a base',
-}
-
-function actionLabel(actionName: string): string {
-  return ACTION_LABELS[actionName] ?? actionName
-}
+const dateFormatter = new Intl.DateTimeFormat("es-AR", {
+    dateStyle: "short",
+    timeStyle: "medium",
+});
 
 function formatTimestamp(iso: string): string {
-  const date = new Date(iso)
-  if (Number.isNaN(date.getTime())) return iso
-
-  const now = new Date()
-  const sameDay =
-    date.getFullYear() === now.getFullYear() &&
-    date.getMonth() === now.getMonth() &&
-    date.getDate() === now.getDate()
-  const yesterday = new Date(now)
-  yesterday.setDate(now.getDate() - 1)
-  const isYesterday =
-    date.getFullYear() === yesterday.getFullYear() &&
-    date.getMonth() === yesterday.getMonth() &&
-    date.getDate() === yesterday.getDate()
-
-  const time = date.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
-  if (sameDay) return `Hoy, ${time}`
-  if (isYesterday) return `Ayer, ${time}`
-  return date.toLocaleDateString('es-AR', { day: '2-digit', month: 'short', year: 'numeric' }) + `, ${time}`
-}
-
-function formatDetail(log: DeviceLog): string {
-  const parts: string[] = []
-  if (log.params && log.params.length > 0) {
-    parts.push(log.params.map(formatValue).join(', '))
-  }
-  if (log.result !== undefined && log.result !== null && log.result !== true) {
-    if (typeof log.result === 'object') {
-      parts.push(`Resultado: ${JSON.stringify(log.result)}`)
-    } else if (log.result !== false) {
-      parts.push(`Resultado: ${String(log.result)}`)
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) {
+        return iso;
     }
-  }
-  return parts.join(' • ')
+    return dateFormatter.format(date);
 }
 
-function formatValue(value: unknown): string {
-  if (value === null || value === undefined) return ''
-  if (typeof value === 'object') return JSON.stringify(value)
-  return String(value)
+function stringifyValue(value: unknown): string {
+    if (value === undefined) return "-";
+    if (value === null) return "null";
+    if (typeof value === "string") return value.length > 0 ? value : '""';
+    if (typeof value === "number" || typeof value === "boolean")
+        return String(value);
+
+    try {
+        return JSON.stringify(value);
+    } catch {
+        return String(value);
+    }
 }
 
-function actionIcon(actionName: string): string {
-  if (actionName === 'turnOn') return 'on'
-  if (actionName === 'turnOff') return 'off'
-  if (actionName.startsWith('set')) return 'set'
-  if (['play', 'start', 'open', 'unlock'].includes(actionName)) return 'on'
-  if (['pause', 'stop', 'close', 'lock', 'dock'].includes(actionName)) return 'off'
-  return 'set'
+function normalizeSuccess(value: unknown): boolean | null {
+    if (typeof value === "boolean") {
+        return value;
+    }
+    return null;
 }
 
-async function loadDeviceMap() {
-  loadingDevices.value = true
-  try {
-    await store.loadDashboard()
-    const map = new Map<string, Device>()
-    for (const home of homes.value) {
-      try {
-        const homeDevices = await store.fetchHomeDevices(home.id)
-        for (const device of homeDevices) {
-          map.set(device.id, device)
+function mapLog(log: DeviceLog): DeviceLogRow {
+    const deviceName =
+        deviceNameById.value[log.deviceId] ?? "Dispositivo desconocido";
+    const deviceType = deviceTypeById.value[log.deviceId] ?? "Sin tipo";
+
+    return {
+        id: log.id,
+        timestamp: log.timestamp,
+        deviceId: log.deviceId,
+        deviceName,
+        deviceType,
+        actionName: log.actionName,
+        paramsText: stringifyValue(log.params),
+        resultText: stringifyValue(log.result),
+        success: normalizeSuccess(log.result),
+    };
+}
+
+async function loadDeviceIndex(): Promise<void> {
+    const [devicesResult, typesResult] = await Promise.allSettled([
+        fetchDevices(),
+        fetchDeviceTypes(),
+    ]);
+
+    const devices: ApiDevice[] =
+        devicesResult.status === "fulfilled" &&
+        Array.isArray(devicesResult.value)
+            ? devicesResult.value
+            : [];
+
+    const deviceTypes: ApiDeviceType[] =
+        typesResult.status === "fulfilled" && Array.isArray(typesResult.value)
+            ? typesResult.value
+            : [];
+
+    const typeNameByTypeId = Object.fromEntries(
+        deviceTypes
+            .filter((type) => type.id && type.name)
+            .map((type) => [type.id, type.name.trim()]),
+    ) as Record<string, string>;
+
+    const nameEntries = devices.map((device) => {
+        const label =
+            device.name?.trim() || `Dispositivo ${device.id.slice(0, 6)}`;
+        return [device.id, label] as const;
+    });
+
+    const typeEntries = devices.map((device) => {
+        const typeId = device.type?.id;
+        const typeLabel =
+            (typeId ? typeNameByTypeId[typeId] : undefined) ||
+            device.type?.name?.trim() ||
+            "Sin tipo";
+        return [device.id, typeLabel] as const;
+    });
+
+    deviceNameById.value = Object.fromEntries(nameEntries);
+    deviceTypeById.value = Object.fromEntries(typeEntries);
+
+    const typeNames = deviceTypes
+        .map((type) => type.name?.trim())
+        .filter((name): name is string => Boolean(name));
+
+    initializeAllowedActionsOnce(deviceTypes);
+
+    allDeviceTypeNames.value = Array.from(new Set(typeNames)).sort((a, b) =>
+        a.localeCompare(b, "es"),
+    );
+}
+
+function fetchLogsPage(offset: number): Promise<DeviceLog[]> {
+    if (selectedDeviceId.value !== "all") {
+        return fetchLogsForDevice(selectedDeviceId.value, PAGE_SIZE, offset);
+    }
+
+    return fetchDeviceLogs(PAGE_SIZE, offset);
+}
+
+async function loadInitialLogs(): Promise<void> {
+    loading.value = true;
+    pageError.value = "";
+
+    try {
+        await loadDeviceIndex();
+        const page = await fetchLogsPage(0);
+
+        logs.value = page.map(mapLog);
+        canLoadMore.value = page.length === PAGE_SIZE;
+        lastUpdatedAt.value = new Date();
+    } catch (err) {
+        if (err instanceof ApiError) {
+            pageError.value = `Error ${err.status} al cargar el historial.`;
+        } else {
+            pageError.value = "No se pudo cargar el historial en este momento.";
         }
-      } catch {
-        /* skip homes the user can't read */
-      }
+
+        logs.value = [];
+        canLoadMore.value = false;
+    } finally {
+        loading.value = false;
     }
-    deviceMap.value = map
-  } finally {
-    loadingDevices.value = false
-  }
 }
 
-async function loadInitial() {
-  loading.value = true
-  error.value = ''
-  offset.value = 0
-  logs.value = []
-  hasMore.value = true
-  try {
-    const page = await fetchPage(0)
-    logs.value = page
-    offset.value = page.length
-    hasMore.value = page.length === PAGE_SIZE
-  } catch (e) {
-    error.value = describeError(e)
-    hasMore.value = false
-  } finally {
-    loading.value = false
-  }
+async function loadMoreLogs(): Promise<void> {
+    if (!canLoadMore.value || loadingMore.value) {
+        return;
+    }
+
+    loadingMore.value = true;
+    pageError.value = "";
+
+    try {
+        const page = await fetchLogsPage(logs.value.length);
+        logs.value = [...logs.value, ...page.map(mapLog)];
+        canLoadMore.value = page.length === PAGE_SIZE;
+        lastUpdatedAt.value = new Date();
+    } catch (err) {
+        if (err instanceof ApiError) {
+            pageError.value = `Error ${err.status} al cargar más acciones.`;
+        } else {
+            pageError.value = "No se pudo cargar más acciones.";
+        }
+    } finally {
+        loadingMore.value = false;
+    }
 }
 
-async function loadMore() {
-  if (loadingMore.value || !hasMore.value) return
-  loadingMore.value = true
-  error.value = ''
-  try {
-    const page = await fetchPage(offset.value)
-    logs.value = logs.value.concat(page)
-    offset.value += page.length
-    hasMore.value = page.length === PAGE_SIZE
-  } catch (e) {
-    error.value = describeError(e)
-  } finally {
-    loadingMore.value = false
-  }
+async function loadAllLogs(): Promise<void> {
+    if (!canLoadMore.value || loadingMore.value || loadingAll.value) {
+        return;
+    }
+
+    loadingAll.value = true;
+    loadedDuringAll.value = 0;
+    let safety = 0;
+
+    try {
+        while (canLoadMore.value && safety < 300) {
+            const prevLength = logs.value.length;
+            await loadMoreLogs();
+            const added = logs.value.length - prevLength;
+            if (added <= 0) break;
+
+            loadedDuringAll.value += added;
+            safety += 1;
+        }
+    } finally {
+        loadingAll.value = false;
+    }
 }
 
-function fetchPage(off: number): Promise<DeviceLog[]> {
-  if (selectedDeviceId.value) {
-    return fetchLogsForDevice(selectedDeviceId.value, PAGE_SIZE, off)
-  }
-  return fetchDeviceLogs(PAGE_SIZE, off)
+function statusLabel(item: DeviceLogRow): string {
+    if (item.success === true) return "OK";
+    if (item.success === false) return "Error";
+    return "Info";
 }
 
-function describeError(e: unknown): string {
-  if (e instanceof ApiError) {
-    const body = e.body as { error?: { description?: string } } | undefined
-    return body?.error?.description ?? `Error ${e.status}. Intentá de nuevo.`
-  }
-  return 'No se pudo cargar el historial. Intentá de nuevo.'
+function toRangeDate(dateIso: string, endOfDay: boolean): Date | null {
+    if (!dateIso) return null;
+
+    const suffix = endOfDay ? "T23:59:59.999" : "T00:00:00.000";
+    const date = new Date(`${dateIso}${suffix}`);
+    if (Number.isNaN(date.getTime())) return null;
+    return date;
 }
 
-function onDeviceFilterChange(event: Event) {
-  const target = event.target as HTMLSelectElement
-  selectedDeviceId.value = target.value
-  void loadInitial()
+const deviceOptions = computed(() => {
+    const entries = Object.entries(deviceNameById.value);
+    entries.sort(([, a], [, b]) => a.localeCompare(b, "es"));
+    return entries.map(([id, name]) => ({ id, name }));
+});
+
+const deviceTypeOptions = computed(() => {
+    const set = new Set<string>(allDeviceTypeNames.value);
+    for (const item of logs.value) {
+        set.add(item.deviceType);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "es"));
+});
+
+const canSelectAction = computed(() => selectedDeviceType.value !== "all");
+
+const actionOptions = computed(() => {
+    if (!canSelectAction.value) {
+        return [];
+    }
+
+    const baseActions = getAllowedActionsForType(selectedDeviceType.value);
+
+    return Array.from(new Set(baseActions))
+        .sort((a, b) => a.localeCompare(b, "es"))
+        .map((actionName) => ({
+            actionName,
+            label: getActionLabel(selectedDeviceType.value, actionName),
+        }));
+});
+
+const hasInvalidDateRange = computed(() => {
+    if (!dateFrom.value || !dateTo.value) {
+        return false;
+    }
+
+    return (
+        new Date(`${dateFrom.value}T00:00:00.000`) >
+        new Date(`${dateTo.value}T23:59:59.999`)
+    );
+});
+
+const filteredLogs = computed(() => {
+    if (hasInvalidDateRange.value) {
+        return [];
+    }
+
+    const fromDate = toRangeDate(dateFrom.value, false);
+    const toDate = toRangeDate(dateTo.value, true);
+
+    return logs.value.filter((item) => {
+        if (
+            selectedDeviceId.value !== "all" &&
+            item.deviceId !== selectedDeviceId.value
+        ) {
+            return false;
+        }
+
+        if (
+            selectedDeviceType.value !== "all" &&
+            item.deviceType !== selectedDeviceType.value
+        ) {
+            return false;
+        }
+
+        if (
+            selectedAction.value !== "all" &&
+            item.actionName !== selectedAction.value
+        ) {
+            return false;
+        }
+
+        const itemDate = new Date(item.timestamp);
+        if (fromDate && itemDate < fromDate) return false;
+        if (toDate && itemDate > toDate) return false;
+
+        return true;
+    });
+});
+
+const totalActions = computed(() => filteredLogs.value.length);
+
+const summaryText = computed(
+    () =>
+        `Mostrando ${totalActions.value} resultados (de ${totalLoadedActions.value} cargados)`,
+);
+
+function clearFilters(): void {
+    const hadServerDeviceFilter = selectedDeviceId.value !== "all";
+
+    selectedDeviceId.value = "all";
+    selectedDeviceType.value = "all";
+    selectedAction.value = "all";
+    dateFrom.value = "";
+    dateTo.value = "";
+
+    if (hadServerDeviceFilter) {
+        void loadInitialLogs();
+    }
 }
 
-function refresh() {
-  void loadInitial()
+function onDeviceChange(): void {
+    void loadInitialLogs();
 }
 
-onMounted(async () => {
-  await loadDeviceMap()
-  await loadInitial()
-})
+function onDeviceTypeChange(): void {
+    selectedAction.value = "all";
+}
+
+onMounted(() => {
+    void loadInitialLogs();
+});
 </script>
 
 <template>
-  <section class="logs-page">
-    <header class="logs-page__header">
-      <div>
-        <p class="section-label">Historial</p>
-        <h1 class="logs-page__title">Acciones realizadas</h1>
-      </div>
-      <div class="logs-page__controls">
-        <label class="logs-page__filter">
-          <span class="logs-page__filter-label">Dispositivo</span>
-          <select
-            class="logs-page__filter-select"
-            :value="selectedDeviceId"
-            :disabled="loadingDevices"
-            @change="onDeviceFilterChange"
-          >
-            <option value="">Todos los dispositivos</option>
-            <option v-for="device in allDevices" :key="device.id" :value="device.id">
-              {{ device.name }}
-            </option>
-          </select>
-        </label>
-        <button
-          type="button"
-          class="logs-page__refresh"
-          :disabled="loading || loadingMore"
-          @click="refresh"
+    <section class="logs-page">
+        <header class="logs-page__header">
+            <div>
+                <p class="section-label">Historial</p>
+                <h1 class="section-title">Acciones sobre dispositivos</h1>
+                <p class="section-subtitle">
+                    Consultá qué dispositivo fue afectado, qué acción se ejecutó
+                    y cuándo ocurrió.
+                </p>
+            </div>
+
+            <button
+                type="button"
+                class="refresh-btn"
+                :disabled="loading || loadingMore || loadingAll"
+                @click="loadInitialLogs"
+            >
+                Actualizar
+            </button>
+        </header>
+
+        <section class="logs-summary" aria-live="polite">
+            <p>{{ summaryText }}</p>
+            <p>
+                Última actualización:
+                <strong>{{
+                    lastUpdatedAt
+                        ? formatTimestamp(lastUpdatedAt.toISOString())
+                        : "-"
+                }}</strong>
+            </p>
+        </section>
+
+        <section class="filters" aria-label="Filtros de historial">
+            <div class="filters__field">
+                <label for="filter-device">Dispositivo</label>
+                <select
+                    id="filter-device"
+                    v-model="selectedDeviceId"
+                    @change="onDeviceChange"
+                >
+                    <option value="all">Todos</option>
+                    <option
+                        v-for="device in deviceOptions"
+                        :key="device.id"
+                        :value="device.id"
+                    >
+                        {{ device.name }}
+                    </option>
+                </select>
+            </div>
+
+            <div class="filters__field">
+                <label for="filter-type">Tipo</label>
+                <select
+                    id="filter-type"
+                    v-model="selectedDeviceType"
+                    @change="onDeviceTypeChange"
+                >
+                    <option value="all">Todos</option>
+                    <option
+                        v-for="type in deviceTypeOptions"
+                        :key="type"
+                        :value="type"
+                    >
+                        {{ type }}
+                    </option>
+                </select>
+            </div>
+
+            <div class="filters__field">
+                <label for="filter-action">Acción</label>
+                <select
+                    id="filter-action"
+                    v-model="selectedAction"
+                    :disabled="!canSelectAction"
+                >
+                    <option value="all">
+                        {{
+                            canSelectAction
+                                ? "Todas"
+                                : "Seleccioná un tipo primero"
+                        }}
+                    </option>
+                    <option
+                        v-for="action in actionOptions"
+                        :key="action.actionName"
+                        :value="action.actionName"
+                    >
+                        {{ action.label }}
+                    </option>
+                </select>
+            </div>
+
+            <div class="filters__field">
+                <label for="filter-from">Desde</label>
+                <input id="filter-from" v-model="dateFrom" type="date" />
+            </div>
+
+            <div class="filters__field">
+                <label for="filter-to">Hasta</label>
+                <input id="filter-to" v-model="dateTo" type="date" />
+            </div>
+
+            <div class="filters__actions">
+                <button
+                    type="button"
+                    class="clear-filters-btn"
+                    :disabled="!hasActiveFilters"
+                    @click="clearFilters"
+                >
+                    Limpiar filtros
+                </button>
+            </div>
+        </section>
+
+        <p v-if="hasInvalidDateRange" class="date-range-error" role="alert">
+            El rango de fechas es inválido: "Desde" no puede ser posterior a
+            "Hasta".
+        </p>
+
+        <div
+            v-if="pageError && !loading"
+            class="notice notice--error"
+            role="alert"
         >
-          Refrescar
-        </button>
-      </div>
-    </header>
-
-    <div v-if="error" class="notice notice--error" role="alert">{{ error }}</div>
-
-    <div v-if="loading" class="notice">Cargando historial...</div>
-
-    <div v-else-if="logs.length === 0" class="logs-empty">
-      <p class="logs-empty__title">Sin actividad registrada</p>
-      <p class="logs-empty__hint">
-        Cuando uses tus dispositivos, las acciones aparecerán acá.
-      </p>
-    </div>
-
-    <ul v-else class="log-list">
-      <li v-for="log in logs" :key="log.id" class="log-item">
-        <span
-          class="log-item__icon"
-          :class="`log-item__icon--${actionIcon(log.actionName)}`"
-          aria-hidden="true"
-        >
-          <svg viewBox="0 0 24 24">
-            <path
-              v-if="actionIcon(log.actionName) === 'on'"
-              d="M13 3h-2v10h2V3zm4.83 2.17l-1.42 1.42A6.92 6.92 0 0 1 19 12a7 7 0 1 1-12.59-4.41L5 6.17A9 9 0 1 0 21 12a8.94 8.94 0 0 0-3.17-6.83z"
-            />
-            <path
-              v-else-if="actionIcon(log.actionName) === 'off'"
-              d="M19 13H5v-2h14v2z"
-            />
-            <path
-              v-else
-              d="M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z"
-            />
-          </svg>
-        </span>
-
-        <div class="log-item__main">
-          <p class="log-item__action">{{ actionLabel(log.actionName) }}</p>
-          <p class="log-item__device">
-            <span class="log-item__device-name">{{ deviceName(log.deviceId) }}</span>
-            <span v-if="deviceRoom(log.deviceId)" class="log-item__device-room">
-              · {{ deviceRoom(log.deviceId) }}
-            </span>
-          </p>
-          <p v-if="formatDetail(log)" class="log-item__detail">{{ formatDetail(log) }}</p>
+            {{ pageError }}
+            <button
+                type="button"
+                class="notice__retry"
+                @click="loadInitialLogs"
+            >
+                Reintentar
+            </button>
         </div>
 
-        <time class="log-item__time" :datetime="log.timestamp">
-          {{ formatTimestamp(log.timestamp) }}
-        </time>
-      </li>
-    </ul>
+        <div
+            v-if="loading"
+            class="logs-list"
+            aria-busy="true"
+            aria-live="polite"
+        >
+            <article
+                v-for="i in 6"
+                :key="i"
+                class="log-card log-card--skeleton"
+            >
+                <div class="skeleton-line skeleton-line--title" />
+                <div class="skeleton-line" />
+                <div class="skeleton-line skeleton-line--short" />
+            </article>
+        </div>
 
-    <div v-if="!loading && hasMore && logs.length > 0" class="logs-page__more">
-      <button
-        type="button"
-        class="logs-page__more-button"
-        :disabled="loadingMore"
-        @click="loadMore"
-      >
-        {{ loadingMore ? 'Cargando...' : 'Cargar más' }}
-      </button>
-    </div>
+        <div v-else-if="logs.length === 0" class="empty-state">
+            <div class="empty-state__icon" aria-hidden="true">🕒</div>
+            <h2>No hay acciones registradas</h2>
+            <p>
+                Todavía no se encontraron eventos para mostrar en el historial.
+            </p>
+        </div>
 
-    <p v-if="!loading && !hasMore && logs.length > 0" class="logs-page__end">
-      Mostrando {{ totalLoaded }} acciones · No hay más entradas.
-    </p>
-  </section>
+        <div v-else-if="filteredLogs.length === 0" class="empty-state">
+            <div class="empty-state__icon" aria-hidden="true">🔎</div>
+            <h2>Sin resultados para los filtros seleccionados</h2>
+            <p>Probá limpiar filtros o ampliar el rango de fechas.</p>
+            <button
+                type="button"
+                class="clear-filters-btn"
+                :disabled="!hasActiveFilters"
+                @click="clearFilters"
+            >
+                Limpiar filtros
+            </button>
+        </div>
+
+        <div v-else class="logs-table-wrap">
+            <table class="logs-table">
+                <thead>
+                    <tr>
+                        <th>Dispositivo</th>
+                        <th>Tipo</th>
+                        <th>Acción</th>
+                        <th>Fecha y hora</th>
+                        <th>Parámetros</th>
+                        <th>Resultado</th>
+                        <th>Estado</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr v-for="item in filteredLogs" :key="item.id">
+                        <td class="cell-device" :title="item.deviceName">
+                            {{ item.deviceName }}
+                        </td>
+                        <td class="cell-type" :title="item.deviceType">
+                            {{ item.deviceType }}
+                        </td>
+                        <td :title="item.actionName">
+                            <strong>{{
+                                getActionLabel(item.deviceType, item.actionName)
+                            }}</strong>
+                            <span class="cell-muted"
+                                >({{ item.actionName }})</span
+                            >
+                        </td>
+                        <td>{{ formatTimestamp(item.timestamp) }}</td>
+                        <td class="cell-truncate" :title="item.paramsText">
+                            {{ item.paramsText }}
+                        </td>
+                        <td class="cell-truncate" :title="item.resultText">
+                            {{ item.resultText }}
+                        </td>
+                        <td>
+                            <span
+                                class="status-pill"
+                                :class="`status-pill--${statusLabel(item).toLowerCase()}`"
+                            >
+                                {{ statusLabel(item) }}
+                            </span>
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <div class="logs-list__footer">
+                <button
+                    type="button"
+                    class="load-more-btn"
+                    :disabled="!canLoadMore || loadingMore || loadingAll"
+                    @click="loadMoreLogs"
+                >
+                    {{ loadingMore ? "Cargando..." : "Cargar más" }}
+                </button>
+                <button
+                    type="button"
+                    class="load-more-btn"
+                    :disabled="!canLoadMore || loadingMore || loadingAll"
+                    @click="loadAllLogs"
+                >
+                    {{
+                        loadingAll
+                            ? `Cargando todo... (+${loadedDuringAll} nuevas)`
+                            : "Cargar todo"
+                    }}
+                </button>
+            </div>
+        </div>
+    </section>
 </template>
 
 <style scoped>
 .logs-page {
-  padding: 32px 48px 64px;
-  max-width: 1200px;
-  margin: 0 auto;
-  color: var(--color-text);
+    width: 100%;
+    padding: 0;
+    display: grid;
+    gap: 1rem;
 }
 
 .logs-page__header {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 24px;
-  margin-bottom: 32px;
-  flex-wrap: wrap;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
 }
 
 .section-label {
-  margin: 0 0 4px;
-  font-size: 12px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgba(42, 40, 37, 0.65);
+    margin: 0;
 }
 
-.logs-page__title {
-  margin: 0;
-  font-family: var(--font-serif);
-  font-size: 32px;
-  font-weight: 600;
-  color: var(--color-charcoal);
+.section-title {
+    margin: 0.15rem 0 0.3rem;
+    font-size: 1.35rem;
+    color: rgba(42, 40, 37, 0.95);
 }
 
-.logs-page__controls {
-  display: flex;
-  gap: 12px;
-  align-items: flex-end;
+.section-subtitle {
+    margin: 0;
+    color: rgba(42, 40, 37, 0.72);
 }
 
-.logs-page__filter {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.refresh-btn,
+.load-more-btn,
+.notice__retry,
+.clear-filters-btn {
+    border: 1px solid rgba(42, 40, 37, 0.2);
+    background: rgba(255, 255, 255, 0.8);
+    color: rgba(42, 40, 37, 0.9);
+    padding: 0.45rem 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
 }
 
-.logs-page__filter-label {
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--color-text-muted);
+.refresh-btn,
+.load-more-btn,
+.notice__retry {
+    border-radius: 999px;
 }
 
-.logs-page__filter-select {
-  appearance: none;
-  background: var(--color-white);
-  border: 1px solid var(--color-sage);
-  border-radius: var(--radius-btn);
-  padding: 10px 16px;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  color: var(--color-text);
-  min-width: 220px;
-  cursor: pointer;
-  transition: border-color 0.15s ease;
+.clear-filters-btn {
+    border-radius: 10px;
+    padding: 0.45rem 0.75rem;
 }
 
-.logs-page__filter-select:hover:not(:disabled),
-.logs-page__filter-select:focus-visible {
-  border-color: var(--color-brown);
-  outline: none;
+.refresh-btn:disabled,
+.load-more-btn:disabled,
+.clear-filters-btn:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
 }
 
-.logs-page__filter-select:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.logs-summary {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    padding: 0.8rem 1rem;
+    border-radius: 14px;
+    border: 1px solid rgba(42, 40, 37, 0.08);
+    background: rgba(255, 255, 255, 0.5);
 }
 
-.logs-page__refresh {
-  background: var(--color-brown);
-  color: var(--color-white);
-  border: none;
-  border-radius: var(--radius-btn);
-  padding: 10px 20px;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: opacity 0.15s ease, transform 0.1s ease;
+.logs-summary p {
+    margin: 0;
+    color: rgba(42, 40, 37, 0.84);
 }
 
-.logs-page__refresh:hover:not(:disabled) {
-  opacity: 0.9;
+.filters {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.7rem 0.9rem;
+    border: 1px solid rgba(42, 40, 37, 0.1);
+    border-radius: 14px;
+    padding: 0.8rem 0.95rem;
+    background: rgba(255, 255, 255, 0.45);
 }
 
-.logs-page__refresh:active:not(:disabled) {
-  transform: translateY(1px);
+.filters__field {
+    display: grid;
+    gap: 0.25rem;
 }
 
-.logs-page__refresh:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.filters__field label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: rgba(42, 40, 37, 0.72);
+}
+
+.filters__field select,
+.filters__field input {
+    width: 100%;
+    border-radius: 10px;
+    border: 1px solid rgba(42, 40, 37, 0.2);
+    background: rgba(255, 255, 255, 0.88);
+    color: rgba(42, 40, 37, 0.95);
+    padding: 0.45rem 0.6rem;
+    font: inherit;
+}
+
+.filters__field select:focus,
+.filters__field input:focus {
+    outline: 2px solid rgba(66, 105, 187, 0.35);
+    outline-offset: 1px;
+    border-color: rgba(66, 105, 187, 0.45);
+}
+
+.filters__actions {
+    display: flex;
+    align-items: end;
+}
+
+.date-range-error {
+    margin: -0.25rem 0 0;
+    color: #7a2323;
+    font-size: 0.85rem;
+    font-weight: 600;
 }
 
 .notice {
-  background: var(--color-cream);
-  border-radius: 12px;
-  padding: 16px 20px;
-  font-size: 14px;
-  color: var(--color-text-muted);
-  margin-bottom: 16px;
+    border-radius: 14px;
+    padding: 0.8rem 0.95rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.75rem;
 }
 
 .notice--error {
-  background: #f4d5cc;
-  color: #783424;
+    background: rgba(199, 71, 71, 0.14);
+    border: 1px solid rgba(199, 71, 71, 0.35);
+    color: #6e1f1f;
 }
 
-.logs-empty {
-  background: var(--color-cream);
-  border-radius: 16px;
-  padding: 64px 32px;
-  text-align: center;
+.logs-list {
+    display: grid;
+    gap: 0.8rem;
 }
 
-.logs-empty__title {
-  margin: 0 0 8px;
-  font-size: 18px;
-  font-weight: 600;
-  color: var(--color-charcoal);
+.log-card {
+    border: 1px solid rgba(42, 40, 37, 0.1);
+    background: rgba(255, 255, 255, 0.74);
+    border-radius: 16px;
+    padding: 0.75rem 0.85rem;
 }
 
-.logs-empty__hint {
-  margin: 0;
-  font-size: 14px;
-  color: var(--color-text-muted);
+.logs-table-wrap {
+    border: 1px solid rgba(42, 40, 37, 0.1);
+    border-radius: 14px;
+    background: rgba(255, 255, 255, 0.82);
+    overflow: hidden;
 }
 
-.log-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+.logs-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
 }
 
-.log-item {
-  background: var(--color-white);
-  border-radius: 16px;
-  padding: 16px 24px;
-  display: grid;
-  grid-template-columns: 48px 1fr auto;
-  gap: 16px;
-  align-items: center;
-  transition: transform 0.12s ease, box-shadow 0.12s ease;
+.logs-table thead th {
+    text-align: left;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: rgba(42, 40, 37, 0.68);
+    background: rgba(42, 40, 37, 0.06);
+    border-bottom: 1px solid rgba(42, 40, 37, 0.12);
+    padding: 0.5rem 0.65rem;
 }
 
-.log-item:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(42, 40, 37, 0.06);
+.logs-table tbody td {
+    padding: 0.5rem 0.65rem;
+    border-bottom: 1px solid rgba(42, 40, 37, 0.08);
+    color: rgba(42, 40, 37, 0.9);
+    vertical-align: middle;
 }
 
-.log-item__icon {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--color-cream);
-  color: var(--color-brown);
+.logs-table tbody tr:last-child td {
+    border-bottom: none;
 }
 
-.log-item__icon svg {
-  width: 20px;
-  height: 20px;
-  fill: currentColor;
+.cell-device {
+    max-width: 170px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
 }
 
-.log-item__icon--on {
-  background: var(--color-sage);
-  color: var(--color-charcoal);
+.cell-type {
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.log-item__icon--off {
-  background: var(--color-sage-dark);
-  color: var(--color-white);
+.cell-truncate {
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
-.log-item__main {
-  min-width: 0;
+.cell-muted {
+    margin-left: 0.25rem;
+    font-size: 0.82rem;
+    color: rgba(42, 40, 37, 0.62);
 }
 
-.log-item__action {
-  margin: 0 0 4px;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-charcoal);
+.status-pill {
+    display: inline-block;
+    white-space: nowrap;
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    border-radius: 999px;
+    padding: 0.22rem 0.5rem;
 }
 
-.log-item__device {
-  margin: 0 0 4px;
-  font-size: 13px;
-  color: var(--color-text-muted);
+.status-pill--ok {
+    background: rgba(62, 148, 99, 0.2);
+    color: rgba(34, 93, 58, 1);
 }
 
-.log-item__device-name {
-  color: var(--color-text);
-  font-weight: 500;
+.status-pill--error {
+    background: rgba(199, 71, 71, 0.2);
+    color: rgba(110, 31, 31, 1);
 }
 
-.log-item__device-room {
-  color: var(--color-text-muted);
+.status-pill--info {
+    background: rgba(66, 105, 187, 0.2);
+    color: rgba(33, 59, 116, 1);
 }
 
-.log-item__detail {
-  margin: 0;
-  font-size: 12px;
-  color: var(--color-text-muted);
-  font-family: var(--font-sans);
+.logs-list__footer {
+    display: flex;
+    justify-content: center;
+    gap: 0.5rem;
+    padding-top: 0.6rem;
 }
 
-.log-item__time {
-  font-size: 12px;
-  color: var(--color-text-muted);
-  white-space: nowrap;
-  align-self: flex-start;
-  padding-top: 2px;
+.logs-list__footer .load-more-btn {
+    border-radius: 10px;
 }
 
-.logs-page__more {
-  display: flex;
-  justify-content: center;
-  margin-top: 24px;
+.empty-state {
+    text-align: center;
+    border: 1px dashed rgba(42, 40, 37, 0.25);
+    background: rgba(255, 255, 255, 0.5);
+    border-radius: 16px;
+    padding: 1.4rem 1rem;
 }
 
-.logs-page__more-button {
-  background: transparent;
-  color: var(--color-brown);
-  border: 1px solid var(--color-brown);
-  border-radius: var(--radius-btn);
-  padding: 10px 32px;
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
+.empty-state h2 {
+    margin: 0.4rem 0 0.25rem;
+    font-size: 1.1rem;
 }
 
-.logs-page__more-button:hover:not(:disabled) {
-  background: var(--color-brown);
-  color: var(--color-white);
+.empty-state p {
+    margin: 0;
+    color: rgba(42, 40, 37, 0.72);
 }
 
-.logs-page__more-button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+.empty-state__icon {
+    font-size: 1.6rem;
 }
 
-.logs-page__end {
-  text-align: center;
-  margin-top: 24px;
-  font-size: 12px;
-  color: var(--color-text-muted);
+.log-card--skeleton {
+    animation: pulse 1.2s ease-in-out infinite alternate;
 }
 
-@media (max-width: 1400px) {
-  .logs-page {
-    padding: 24px 32px 48px;
-  }
+.skeleton-line {
+    height: 0.75rem;
+    border-radius: 999px;
+    background: rgba(42, 40, 37, 0.12);
+    margin-bottom: 0.5rem;
+}
+
+.skeleton-line--title {
+    width: 55%;
+    height: 0.9rem;
+}
+
+.skeleton-line--short {
+    width: 35%;
+    margin-bottom: 0;
+}
+
+@keyframes pulse {
+    from {
+        opacity: 0.55;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@media (max-width: 980px) {
+    .logs-table-wrap {
+        overflow-x: auto;
+    }
+
+    .logs-table {
+        min-width: 980px;
+    }
+}
+
+@media (max-width: 680px) {
+    .logs-page__header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .refresh-btn,
+    .clear-filters-btn {
+        width: fit-content;
+    }
+
+    .filters {
+        grid-template-columns: 1fr;
+    }
+
+    .filters__actions {
+        align-items: stretch;
+    }
 }
 </style>
