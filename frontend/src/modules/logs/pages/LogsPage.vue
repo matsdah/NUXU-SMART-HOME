@@ -15,7 +15,6 @@ import type {
 } from "../types";
 import {
     getActionLabel,
-    getAllowedActionsForType,
     initializeAllowedActionsOnce,
 } from "@/app/constants/actionLabels";
 
@@ -51,17 +50,19 @@ const hasActiveFilters = computed(
 
 const totalLoadedActions = computed(() => logs.value.length);
 
-const dateFormatter = new Intl.DateTimeFormat("es-AR", {
-    dateStyle: "short",
-    timeStyle: "medium",
-});
+const dateFormatter = new Intl.DateTimeFormat("es-AR", { dateStyle: "short" });
+const timeFormatter = new Intl.DateTimeFormat("es-AR", { timeStyle: "medium" });
 
 function formatTimestamp(iso: string): string {
     const date = new Date(iso);
-    if (Number.isNaN(date.getTime())) {
-        return iso;
-    }
+    if (Number.isNaN(date.getTime())) return iso;
     return dateFormatter.format(date);
+}
+
+function formatTime(iso: string): string {
+    const date = new Date(iso);
+    if (Number.isNaN(date.getTime())) return iso;
+    return timeFormatter.format(date);
 }
 
 function stringifyValue(value: unknown): string {
@@ -268,13 +269,16 @@ const deviceTypeOptions = computed(() => {
 const canSelectAction = computed(() => selectedDeviceType.value !== "all");
 
 const actionOptions = computed(() => {
-    if (!canSelectAction.value) {
-        return [];
+    if (!canSelectAction.value) return [];
+
+    const seen = new Set<string>();
+    for (const item of logs.value) {
+        if (item.deviceType === selectedDeviceType.value) {
+            seen.add(item.actionName);
+        }
     }
 
-    const baseActions = getAllowedActionsForType(selectedDeviceType.value);
-
-    return Array.from(new Set(baseActions))
+    return Array.from(seen)
         .sort((a, b) => a.localeCompare(b, "es"))
         .map((actionName) => ({
             actionName,
@@ -515,8 +519,7 @@ onMounted(() => {
         </div>
 
         <div v-else-if="logs.length === 0" class="empty-state">
-            <div class="empty-state__icon" aria-hidden="true">🕒</div>
-            <h2>No hay acciones registradas</h2>
+            
             <p>
                 Todavía no se encontraron eventos para mostrar en el historial.
             </p>
@@ -543,9 +546,8 @@ onMounted(() => {
                         <th>Dispositivo</th>
                         <th>Tipo</th>
                         <th>Acción</th>
-                        <th>Fecha y hora</th>
-                        <th>Parámetros</th>
-                        <th>Resultado</th>
+                        <th>Fecha</th>
+                        <th>Hora</th>
                         <th>Estado</th>
                     </tr>
                 </thead>
@@ -558,20 +560,10 @@ onMounted(() => {
                             {{ item.deviceType }}
                         </td>
                         <td :title="item.actionName">
-                            <strong>{{
-                                getActionLabel(item.deviceType, item.actionName)
-                            }}</strong>
-                            <span class="cell-muted"
-                                >({{ item.actionName }})</span
-                            >
+                            {{ getActionLabel(item.deviceType, item.actionName) }}
                         </td>
                         <td>{{ formatTimestamp(item.timestamp) }}</td>
-                        <td class="cell-truncate" :title="item.paramsText">
-                            {{ item.paramsText }}
-                        </td>
-                        <td class="cell-truncate" :title="item.resultText">
-                            {{ item.resultText }}
-                        </td>
+                        <td>{{ formatTime(item.timestamp) }}</td>
                         <td>
                             <span
                                 class="status-pill"
@@ -628,7 +620,7 @@ onMounted(() => {
 .section-label {
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     font-weight: 700;
     color: rgba(42, 40, 37, 0.65);
     margin: 0;
@@ -636,7 +628,7 @@ onMounted(() => {
 
 .section-title {
     margin: 0.15rem 0 0.3rem;
-    font-size: 1.35rem;
+    font-size: 1.4rem;
     color: rgba(42, 40, 37, 0.95);
 }
 
@@ -649,23 +641,23 @@ onMounted(() => {
 .load-more-btn,
 .notice__retry,
 .clear-filters-btn {
-    border: 1px solid rgba(42, 40, 37, 0.2);
-    background: rgba(255, 255, 255, 0.8);
-    color: rgba(42, 40, 37, 0.9);
-    padding: 0.45rem 0.95rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-.refresh-btn,
-.load-more-btn,
-.notice__retry {
+    border: none;
+    background: rgba(255, 255, 255, 0.7);
+    color: rgba(42, 40, 37, 0.85);
     border-radius: 999px;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
-.clear-filters-btn {
-    border-radius: 10px;
-    padding: 0.45rem 0.75rem;
+.refresh-btn:hover,
+.load-more-btn:hover,
+.notice__retry:hover,
+.clear-filters-btn:hover {
+    background: rgba(255, 255, 255, 0.95);
 }
 
 .refresh-btn:disabled,
@@ -737,7 +729,7 @@ onMounted(() => {
 .date-range-error {
     margin: -0.25rem 0 0;
     color: #7a2323;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 600;
 }
 
@@ -778,22 +770,42 @@ onMounted(() => {
 .logs-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
+    table-layout: fixed;
 }
+
+.logs-table th:nth-child(1),
+.logs-table td:nth-child(1) { width: 18%; }
+
+.logs-table th:nth-child(2),
+.logs-table td:nth-child(2) { width: 16%; }
+
+.logs-table th:nth-child(3),
+.logs-table td:nth-child(3) { width: 22%; }
+
+.logs-table th:nth-child(4),
+.logs-table td:nth-child(4) { width: 14%; }
+
+.logs-table th:nth-child(5),
+.logs-table td:nth-child(5) { width: 14%; }
+
+.logs-table th:nth-child(6),
+.logs-table td:nth-child(6) { width: 16%; }
 
 .logs-table thead th {
     text-align: left;
-    font-size: 0.75rem;
+    font-size: 0.72rem;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    color: rgba(42, 40, 37, 0.68);
+    letter-spacing: 0.07em;
+    color: rgba(42, 40, 37, 0.55);
     background: rgba(42, 40, 37, 0.06);
     border-bottom: 1px solid rgba(42, 40, 37, 0.12);
-    padding: 0.5rem 0.65rem;
+    padding: 0.75rem 1rem;
+    white-space: nowrap;
 }
 
 .logs-table tbody td {
-    padding: 0.5rem 0.65rem;
+    padding: 0.6rem 1rem;
     border-bottom: 1px solid rgba(42, 40, 37, 0.08);
     color: rgba(42, 40, 37, 0.9);
     vertical-align: middle;
@@ -804,7 +816,6 @@ onMounted(() => {
 }
 
 .cell-device {
-    max-width: 170px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -812,14 +823,12 @@ onMounted(() => {
 }
 
 .cell-type {
-    max-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
 .cell-truncate {
-    max-width: 180px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -827,7 +836,7 @@ onMounted(() => {
 
 .cell-muted {
     margin-left: 0.25rem;
-    font-size: 0.82rem;
+    font-size: 0.8rem;
     color: rgba(42, 40, 37, 0.62);
 }
 
@@ -861,12 +870,9 @@ onMounted(() => {
     display: flex;
     justify-content: center;
     gap: 0.5rem;
-    padding-top: 0.6rem;
+    padding: 1.5rem 0 2rem;
 }
 
-.logs-list__footer .load-more-btn {
-    border-radius: 10px;
-}
 
 .empty-state {
     text-align: center;
