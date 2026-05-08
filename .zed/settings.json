@@ -1,0 +1,24 @@
+{
+  // Point both language servers at the TypeScript installation inside the
+  // frontend workspace so they follow the project-reference chain:
+  //   frontend/tsconfig.json
+  //     └─ tsconfig.app.json   ← has  "paths": { "@/": ["./src/"] }
+  //
+  // Without this, Zed uses the global TypeScript and never resolves @/ imports.
+  "lsp": {
+    "vue-language-server": {
+      "initialization_options": {
+        "typescript": {
+          "tsdk": "frontend/node_modules/typescript/lib"
+        }
+      }
+    },
+    "typescript-language-server": {
+      "initialization_options": {
+        "tsserver": {
+          "path": "frontend/node_modules/typescript/lib"
+        }
+      }
+    }
+  }
+}

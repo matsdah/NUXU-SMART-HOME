@@ -372,7 +372,11 @@ watch(() => socketStore.deviceListVersion, () => {
             @click="openDeviceModal(device)"
           >
             <div class="device-card__top">
-              <div class="device-icon" aria-hidden="true">
+              <div
+                class="device-icon"
+                :class="{ 'device-icon--off': !device.isOn && device.kind !== 'fridge' && device.kind !== 'door' && device.kind !== 'alarm' }"
+                aria-hidden="true"
+              >
                 <svg v-if="device.kind === 'vacuum'" viewBox="0 0 24 24">
                   <rect x="6" y="3" width="12" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="2" />
                   <path d="M12 13v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
@@ -698,6 +702,12 @@ watch(() => socketStore.deviceListVersion, () => {
   place-items: center;
   color: rgba(42, 40, 37, 0.85);
   box-shadow: 0 6px 12px rgba(42, 40, 37, 0.08);
+}
+
+.device-icon--off {
+  background: rgba(42, 40, 37, 0.08);
+  color: rgba(42, 40, 37, 0.42);
+  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
 }
 
 .device-icon svg {

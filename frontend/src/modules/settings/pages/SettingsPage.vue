@@ -13,7 +13,7 @@ const auth = useAuthStore()
 const activeView = computed(() => route.query.view === 'hogar' ? 'hogar' : 'perfil')
 const pageTitle = computed(() => activeView.value === 'hogar' ? 'Mi hogar' : 'Configuración')
 
-//Toast 
+//Toast
 
 const toastMessage = ref('')
 const toastType = ref<'success' | 'error'>('success')
@@ -91,14 +91,21 @@ function goToRecoverPassword() {
   router.push('/recover')
 }
 
-//Home name 
+//Home name
 const isEditingName = ref(false)
 const editingName = ref('')
 const savingName = ref(false)
+const removingMemberEmail = ref('')
 
 const currentHome = computed(() =>
   dashboard.homes.find(h => h.id === dashboard.activeHomeId)
 )
+
+function selectHome(homeId: string) {
+  if (homeId === dashboard.activeHomeId) return
+  isEditingName.value = false
+  dashboard.activeHomeId = homeId
+}
 
 function startEditName() {
   editingName.value = currentHome.value?.name ?? ''
@@ -106,19 +113,30 @@ function startEditName() {
 }
 
 async function saveName() {
-  if (editingName.value.trim() && dashboard.activeHomeId) {
-    savingName.value = true
-    await dashboard.updateHomeName(dashboard.activeHomeId, editingName.value.trim())
+  const nextName = editingName.value.trim()
+  if (!nextName || !dashboard.activeHomeId) {
+    isEditingName.value = false
+    return
+  }
+
+  savingName.value = true
+  try {
+    await dashboard.updateHomeName(dashboard.activeHomeId, nextName)
+    showToastMsg('Nombre del hogar actualizado')
+    isEditingName.value = false
+  } catch (e) {
+    showToastMsg('No se pudo actualizar el nombre del hogar', 'error')
+    console.error(e)
+  } finally {
     savingName.value = false
   }
-  isEditingName.value = false
 }
 
 function cancelEditName() {
   isEditingName.value = false
 }
 
-//Delete home 
+//Delete home
 const showDeleteModal = ref(false)
 const deletingHome = ref(false)
 
@@ -190,25 +208,26 @@ async function confirmRemoveMember(email: string) {
     showToastMsg('Solo podes eliminarte a vos mismo', 'error')
     return
   }
-  if (!isAdmin.value && targetIsSelf) {
-    const confirmed = window.confirm('Si te eliminas, vas a salir del hogar. Queres continuar?')
-    if (!confirmed) return
-  }
+  removingMemberEmail.value = email
   try {
     await dashboard.removeMember(dashboard.activeHomeId, email)
-    showToastMsg('Miembro eliminado')
-    if (!isAdmin.value && targetIsSelf) {
+    closeLeaveHomeModal()
+    showToastMsg(targetIsSelf ? 'Saliste del hogar' : 'Miembro eliminado')
+    if (targetIsSelf) {
       await new Promise(resolve => setTimeout(resolve, 800))
       if (router.currentRoute.value.path !== '/homes') {
         router.push('/homes')
       }
     }
   } catch (e) {
+    showToastMsg('No se pudo eliminar el miembro', 'error')
     console.error(e)
+  } finally {
+    removingMemberEmail.value = ''
   }
 }
 
-//New home modal 
+//New home modal
 const showNewHomeModal = ref(false)
 const newHomeName = ref('')
 const newHomeLoading = ref(false)
@@ -228,6 +247,7 @@ async function confirmCreateHome() {
     closeNewHomeModal()
     showToastMsg('Hogar creado correctamente')
   } catch (e) {
+    showToastMsg('No se pudo crear el hogar', 'error')
     console.error(e)
   } finally {
     newHomeLoading.value = false
@@ -243,7 +263,34 @@ const isAdmin = computed(() => {
   return !dashboard.members.some(member => member.email.toLowerCase() === email)
 })
 
-//Lifecycle 
+const visibleMembers = computed(() => {
+  const userEmail = auth.user?.email ?? ''
+  const userName = auth.user?.name ?? 'Vos'
+  const list = dashboard.members.map(member => ({
+    ...member,
+    isSelf: member.email.toLowerCase() === normalizedUserEmail.value,
+    role: 'Miembro',
+  }))
+
+  if (userEmail && !list.some(member => member.email.toLowerCase() === normalizedUserEmail.value)) {
+    list.unshift({
+      id: auth.user?.id ?? userEmail,
+      name: userName,
+      email: userEmail,
+      isSelf: true,
+      role: 'Administrador',
+    })
+  }
+
+  return list
+})
+
+function canRemoveMember(email: string): boolean {
+  const targetIsSelf = email.toLowerCase() === normalizedUserEmail.value
+  return Boolean(dashboard.activeHomeId && (targetIsSelf ? !isAdmin.value : isAdmin.value))
+}
+
+//Lifecycle
 onMounted(async () => {
   initProfileData()
   await dashboard.loadHomes()
@@ -313,98 +360,151 @@ watch(() => dashboard.activeHomeId, async (newId) => {
       </div>
 
       <div v-if="activeView === 'hogar'" class="settings__column settings__column--home">
-        <section class="config-section">
-          <p class="section-label">TU HOGAR</p>
-
-          <div class="card">
-            <label class="home-name-label">Nombre del hogar</label>
-            <div class="home-name-input-wrapper">
-              <input
-                v-if="isEditingName"
-                v-model="editingName"
-                type="text"
-                class="home-name-input"
-                @keyup.enter="saveName"
-                @keyup.escape="cancelEditName"
-              />
-              <span v-else class="home-name-display">{{ currentHome?.name }}</span>
-              <button
-                v-if="!isEditingName"
-                class="edit-btn"
-                type="button"
-                aria-label="Editar nombre"
-                @click="startEditName"
-              >
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </button>
-              <div v-else class="edit-actions">
-                <button class="save-btn" type="button" :disabled="savingName" @click="saveName">
-                  {{ savingName ? 'Guardando...' : 'Guardar' }}
-                </button>
-                <button class="cancel-btn" type="button" @click="cancelEditName">Cancelar</button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <button class="create-home-btn" type="button" @click="openNewHomeModal">
+        <button class="create-home-btn create-home-btn--top" type="button" @click="openNewHomeModal">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
           </svg>
-          Crear Nuevo Hogar
+          Crear hogar
         </button>
 
         <section class="config-section">
-          <p class="section-label">MIEMBROS DEL HOGAR</p>
-
-          <div class="card">
-            <div class="members-list">
-              <article
-                v-for="member in dashboard.members"
-                :key="member.id"
-                class="member-row"
+          <p id="home-picker-label" class="section-label">HOGAR ACTIVO</p>
+          <div class="home-switch-card">
+            <div class="home-picker" role="group" aria-labelledby="home-picker-label">
+              <button
+                v-for="home in dashboard.homes"
+                :key="home.id"
+                class="home-picker__item"
+                :class="{ 'home-picker__item--active': home.id === dashboard.activeHomeId }"
+                type="button"
+                @click="selectHome(home.id)"
               >
-                <div
-                  class="member-avatar"
-                  :class="`member-avatar--color-${getMemberColorIndex(member.name)}`"
-                >
-                  {{ getInitials(member.name) }}
-                </div>
-                <div class="member-info">
-                  <h3 class="member-name">{{ member.name }}</h3>
-                  <p class="member-email">{{ member.email }}</p>
-                </div>
-              </article>
+                {{ home.name }}
+              </button>
             </div>
-
-            <button class="add-member-btn" type="button" @click="openAddMemberModal">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              </svg>
-              Añadir Miembro
-            </button>
           </div>
-          <button
-            v-if="!isAdmin && auth.user?.email"
-            class="add-member-btn"
-            type="button"
-            @click="openLeaveHomeModal"
-          >
-            Salir del hogar
-          </button>
         </section>
 
-        <section class="config-section config-section--danger">
-          <p class="section-label">ZONA DE PELIGRO</p>
+        <section class="selected-home-panel">
+          <div class="selected-home-panel__header">
+            <div>
+              <p class="section-label">HOGAR SELECCIONADO</p>
+              <h2 class="selected-home-panel__title">{{ currentHome?.name ?? 'Sin hogar seleccionado' }}</h2>
+            </div>
+          </div>
 
-          <div class="card danger-card">
-            <h2 class="danger-title">Eliminar Hogar</h2>
-            <p class="danger-desc">
-              Al eliminar este hogar, se borrarán todas las habitaciones, dispositivos y rutinas asociadas. Esta acción no se puede deshacer.
-            </p>
+          <div class="selected-home-panel__grid">
+            <div class="selected-home-panel__block selected-home-panel__block--name">
+              <label class="home-name-label">Nombre</label>
+              <div class="home-name-input-wrapper">
+                <input
+                  v-if="isEditingName"
+                  v-model="editingName"
+                  type="text"
+                  class="home-name-input"
+                  @keyup.enter="saveName"
+                  @keyup.escape="cancelEditName"
+                />
+                <span v-else class="home-name-display">{{ currentHome?.name }}</span>
+                <button
+                  v-if="!isEditingName"
+                  class="edit-btn"
+                  type="button"
+                  aria-label="Editar nombre"
+                  @click="startEditName"
+                >
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  </svg>
+                </button>
+                <div v-else class="edit-actions">
+                  <button class="save-btn" type="button" :disabled="savingName" @click="saveName">
+                    {{ savingName ? 'Guardando...' : 'Guardar' }}
+                  </button>
+                  <button class="cancel-btn" type="button" @click="cancelEditName">Cancelar</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="selected-home-panel__block selected-home-panel__block--members">
+              <p class="home-name-label">Miembros</p>
+
+              <div class="members-list">
+                <p v-if="visibleMembers.length === 0" class="members-empty">
+                  No hay miembros para mostrar.
+                </p>
+                <article
+                  v-for="member in visibleMembers"
+                  :key="member.id"
+                  class="member-row"
+                >
+                  <div
+                    class="member-avatar"
+                    :class="`member-avatar--color-${getMemberColorIndex(member.name)}`"
+                  >
+                    {{ getInitials(member.name) }}
+                  </div>
+                  <div class="member-info">
+                    <div class="member-title-row">
+                      <h3 class="member-name">
+                        {{ member.name }}
+                        <span v-if="member.isSelf" class="member-self">(vos)</span>
+                      </h3>
+                      <span class="member-role" :class="{ 'member-role--admin': member.role === 'Administrador' }">
+                        {{ member.role }}
+                      </span>
+                    </div>
+                    <p class="member-email">{{ member.email }}</p>
+                  </div>
+                  <button
+                    v-if="canRemoveMember(member.email)"
+                    class="member-remove-btn"
+                    type="button"
+                    :disabled="removingMemberEmail === member.email"
+                    @click="member.isSelf ? openLeaveHomeModal() : confirmRemoveMember(member.email)"
+                  >
+                    {{ removingMemberEmail === member.email ? 'Quitando...' : 'Quitar' }}
+                  </button>
+                </article>
+              </div>
+
+              <button
+                v-if="isAdmin"
+                class="add-member-btn"
+                type="button"
+                :disabled="!dashboard.activeHomeId"
+                @click="openAddMemberModal"
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                Añadir miembro
+              </button>
+              <p v-else class="members-permission-note">
+                Solo el administrador puede añadir o quitar otros miembros.
+              </p>
+            </div>
+          </div>
+
+          <section class="danger-section">
+            <div>
+              <p class="section-label section-label--danger">ZONA DE PELIGRO</p>
+              <h2 class="danger-section__title">Acciones irreversibles</h2>
+              <p class="danger-section__desc">
+                Estas acciones aplican a {{ currentHome?.name ?? 'este hogar' }}.
+              </p>
+            </div>
+
+            <button
+              v-if="!isAdmin && auth.user?.email"
+              class="danger-btn danger-btn--secondary"
+              type="button"
+              @click="openLeaveHomeModal"
+            >
+              Salir del hogar
+            </button>
+
             <button
               v-if="isAdmin"
               class="danger-btn"
@@ -412,12 +512,12 @@ watch(() => dashboard.activeHomeId, async (newId) => {
               :disabled="!dashboard.activeHomeId"
               @click="openDeleteModal"
             >
-              Eliminar Hogar
+              Eliminar {{ currentHome?.name ?? 'hogar' }}
             </button>
             <p v-else class="danger-note">
               Solo el administrador puede eliminar el hogar.
             </p>
-          </div>
+          </section>
         </section>
       </div>
     </div>
@@ -462,11 +562,12 @@ watch(() => dashboard.activeHomeId, async (newId) => {
           <div class="modal-actions">
             <button class="cancel-btn cancel-btn--gray" type="button" @click="closeLeaveHomeModal">Cancelar</button>
             <button
-              class="save-btn"
+              class="danger-btn danger-btn--confirm"
               type="button"
+              :disabled="removingMemberEmail === auth.user?.email"
               @click="confirmRemoveMember(auth.user?.email ?? '')"
             >
-              Salir
+              {{ removingMemberEmail === auth.user?.email ? 'Saliendo...' : 'Salir' }}
             </button>
           </div>
         </div>
@@ -482,7 +583,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
             <ul class="delete-warning__list">
               <li>Dispositivos vinculados</li>
               <li>Rutinas y automatizaciones</li>
-              <li>Acceso de los {{ dashboard.members.length }} miembros</li>
+              <li>Acceso de los {{ visibleMembers.length }} miembros</li>
               <li>Historial de actividad</li>
             </ul>
           </div>
@@ -581,6 +682,10 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   margin-bottom: 0.75rem;
 }
 
+.section-label--danger {
+  color: #8a2d2d;
+}
+
 .config-section {
   display: flex;
   flex-direction: column;
@@ -598,12 +703,102 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   box-shadow: 0 4px 12px rgba(42, 40, 37, 0.06);
 }
 
+.home-switch-card {
+  border-radius: 999px;
+  background: rgba(42, 40, 37, 0.08);
+  padding: 0.35rem;
+  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.05);
+}
+
+.home-picker {
+  display: flex;
+  gap: 0.55rem;
+  overflow-x: auto;
+  padding: 0;
+  border-radius: 999px;
+  background: transparent;
+  scrollbar-width: none;
+}
+
+.home-picker::-webkit-scrollbar {
+  display: none;
+}
+
+.home-picker__item {
+  flex: 0 0 auto;
+  border: none;
+  border-radius: 999px;
+  padding: 0.45rem 0.9rem;
+  background: rgba(255, 255, 255, 0.72);
+  color: rgba(42, 40, 37, 0.74);
+  font-family: inherit;
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.home-picker__item:hover {
+  background: rgba(255, 255, 255, 0.95);
+  color: rgba(42, 40, 37, 0.95);
+}
+
+.home-picker__item--active {
+  background: rgba(42, 40, 37, 0.95);
+  color: #f7f3e7;
+  box-shadow: 0 8px 18px rgba(42, 40, 37, 0.16);
+}
+
+.selected-home-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  border-radius: 12px;
+  background:
+    radial-gradient(circle at 100% 0%, rgba(45, 106, 79, 0.11), transparent 34%),
+    rgba(253, 248, 243, 0.82);
+  box-shadow:
+    0 14px 34px rgba(42, 40, 37, 0.08),
+    inset 0 0 0 1px rgba(42, 40, 37, 0.06);
+}
+
+.selected-home-panel__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.selected-home-panel__header .section-label {
+  margin: 0 0 0.25rem;
+}
+
+.selected-home-panel__title {
+  margin: 0;
+  font-family: var(--font-serif);
+  font-size: 1.28rem;
+  color: var(--color-text);
+}
+
+.selected-home-panel__grid {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.selected-home-panel__block {
+  border-radius: 10px;
+  padding: 1.25rem;
+  background: rgba(255, 255, 255, 0.52);
+  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
+}
+
 .home-name-label {
   display: block;
   font-size: 0.8rem;
   font-weight: 600;
   color: rgba(42, 40, 37, 0.6);
-  margin-bottom: 0.5rem;
+  margin: 0 0 0.5rem;
 }
 
 .home-name-input-wrapper {
@@ -702,6 +897,14 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   border-bottom: 1px solid rgba(42, 40, 37, 0.08);
 }
 
+.members-empty,
+.members-permission-note {
+  margin: 0;
+  color: rgba(42, 40, 37, 0.55);
+  font-size: 0.78rem;
+  line-height: 1.45;
+}
+
 .member-row {
   display: flex;
   align-items: center;
@@ -737,6 +940,13 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   min-width: 0;
 }
 
+.member-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
 .member-name {
   font-size: 0.9rem;
   font-weight: 600;
@@ -746,12 +956,56 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   text-overflow: ellipsis;
 }
 
+.member-self {
+  color: rgba(42, 40, 37, 0.5);
+  font-weight: 500;
+}
+
+.member-role {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 0.18rem 0.48rem;
+  background: rgba(42, 40, 37, 0.08);
+  color: rgba(42, 40, 37, 0.62);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.member-role--admin {
+  background: rgba(45, 106, 79, 0.12);
+  color: #2d6a4f;
+}
+
 .member-email {
   font-size: 0.75rem;
   color: rgba(42, 40, 37, 0.5);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.member-remove-btn {
+  flex-shrink: 0;
+  border: 1px solid rgba(138, 45, 45, 0.25);
+  border-radius: 999px;
+  background: rgba(138, 45, 45, 0.05);
+  color: #8a2d2d;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.35rem 0.65rem;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.member-remove-btn:hover:not(:disabled) {
+  background: rgba(138, 45, 45, 0.11);
+  border-color: rgba(138, 45, 45, 0.42);
+}
+
+.member-remove-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .add-member-btn {
@@ -777,11 +1031,15 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   background: rgba(45, 106, 79, 0.05);
 }
 
+.add-member-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .add-member-btn svg {
   width: 18px;
   height: 18px;
 }
-
 
 .form-group {
   margin-bottom: 0;
@@ -905,6 +1163,15 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   transition: all 0.2s ease;
 }
 
+.create-home-btn--top {
+  background: rgba(45, 106, 79, 0.1);
+  border-color: rgba(45, 106, 79, 0.35);
+  color: #2d6a4f;
+  border-style: solid;
+  border-radius: 999px;
+  padding: 0.8rem 1rem;
+}
+
 .create-home-btn:hover {
   border-color: #2d6a4f;
   color: #2d6a4f;
@@ -916,36 +1183,59 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   height: 18px;
 }
 
-.config-section--danger .section-label {
-  color: #8a2d2d;
+.create-home-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  border: 1px dashed rgba(45, 106, 79, 0.26);
+  background: rgba(253, 248, 243, 0.68);
 }
 
-.danger-card {
-  background: #eeebe5;
-  border-radius: 16px;
-  padding: 1.25rem;
-  box-shadow: 0 4px 12px rgba(42, 40, 37, 0.06);
-  border: 1px solid rgba(138, 45, 45, 0.15);
-}
-
-.danger-title {
+.create-home-card__title {
+  margin: 0 0 0.35rem;
   font-size: 1rem;
   font-weight: 700;
-  color: #8a2d2d;
-  margin-bottom: 0.5rem;
+  color: var(--color-text);
 }
 
-.danger-desc {
+.create-home-card__desc {
+  margin: 0;
   font-size: 0.8rem;
-  color: rgba(42, 40, 37, 0.6);
-  margin-bottom: 1rem;
-  line-height: 1.4;
+  line-height: 1.45;
+  color: rgba(42, 40, 37, 0.62);
 }
 
 .danger-note {
   font-size: 0.8rem;
   color: rgba(42, 40, 37, 0.6);
   margin: 0;
+}
+
+.danger-section {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1.25rem;
+  border: 1px solid rgba(138, 45, 45, 0.18);
+  border-radius: 12px;
+  background: rgba(138, 45, 45, 0.04);
+}
+
+.danger-section .section-label {
+  margin-bottom: 0.35rem;
+}
+
+.danger-section__title {
+  margin: 0 0 0.35rem;
+  color: #8a2d2d;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.danger-section__desc {
+  margin: 0;
+  color: rgba(42, 40, 37, 0.62);
+  font-size: 0.82rem;
+  line-height: 1.45;
 }
 
 .danger-btn {
@@ -963,6 +1253,16 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 .danger-btn:hover {
   background: #8a2d2d;
   color: #fff;
+}
+
+.danger-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.danger-btn--secondary {
+  border-color: rgba(138, 45, 45, 0.32);
+  background: #fff;
 }
 
 .modal-overlay {
@@ -1114,6 +1414,42 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 
   .settings__grid {
     max-width: 100%;
+  }
+
+  .selected-home-panel,
+  .danger-section {
+    padding: 1rem;
+  }
+
+  .home-name-input-wrapper,
+  .edit-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .edit-actions .save-btn,
+  .edit-actions .cancel-btn {
+    width: 100%;
+    margin: 0;
+  }
+
+  .member-row {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .member-info {
+    flex-basis: calc(100% - 52px);
+  }
+
+  .member-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .member-remove-btn {
+    margin-left: 52px;
   }
 }
 </style>
