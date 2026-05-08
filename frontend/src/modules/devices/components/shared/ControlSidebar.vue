@@ -81,6 +81,8 @@ defineEmits<{
   flex-direction: column;
   align-items: center;
   text-align: center;
+  min-width: 0;
+  width: 100%;
 }
 
 .control-sidebar__title {
@@ -88,6 +90,10 @@ defineEmits<{
   font-size: 1.15rem;
   line-height: 1.1;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .control-sidebar__center {

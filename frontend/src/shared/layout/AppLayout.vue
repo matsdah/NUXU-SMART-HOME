@@ -418,6 +418,10 @@ function onLogoutOverlayClick(event: MouseEvent) {
   color: rgba(42, 40, 37, 0.8);
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .home-dropdown__item:hover {
@@ -548,6 +552,10 @@ function onLogoutOverlayClick(event: MouseEvent) {
 .user-chip__name {
   font-size: 0.85rem;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 140px;
 }
 
 .user-chip__chev {

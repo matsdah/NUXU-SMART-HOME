@@ -701,6 +701,10 @@ onMounted(async () => {
   border-radius: 999px;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
 }
 
 .room-tab:hover:not(:disabled) {
@@ -871,10 +875,17 @@ onMounted(async () => {
   text-align: right;
 }
 
+.device-card__body {
+  min-width: 0;
+}
+
 .device-card__body h3 {
   font-size: 0.95rem;
   font-weight: 600;
   margin-bottom: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .device-card__status {

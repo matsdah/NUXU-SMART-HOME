@@ -571,6 +571,10 @@ watch(() => socketStore.deviceListVersion, () => {
   border-radius: 999px;
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
 }
 
 .room-tab:hover:not(:disabled) {
@@ -692,10 +696,17 @@ watch(() => socketStore.deviceListVersion, () => {
   height: 20px;
 }
 
+.device-card__body {
+  min-width: 0;
+}
+
 .device-card__body h3 {
   font-size: 0.95rem;
   font-weight: 600;
   margin-bottom: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .device-card__body p {
@@ -800,9 +811,16 @@ watch(() => socketStore.deviceListVersion, () => {
   height: 22px;
 }
 
+.routine-info {
+  min-width: 0;
+}
+
 .routine-info h3 {
   font-size: 0.95rem;
   font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .routine-info p {

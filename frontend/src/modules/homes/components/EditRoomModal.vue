@@ -75,6 +75,7 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
               required
               class="field__input"
               autocomplete="off"
+              maxlength="25"
             />
             <label for="room-edit-name" class="field__label">Nombre del espacio</label>
           </div>

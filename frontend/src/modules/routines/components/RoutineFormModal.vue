@@ -628,7 +628,7 @@ function onOverlayClick(e: MouseEvent) {
                                 class="field__input"
                                 :class="{ 'field__input--error': nameError }"
                                 autocomplete="off"
-                                maxlength="64"
+                                maxlength="25"
                                 @input="onNameInput"
                             />
                             <span v-if="nameError" class="field__error-text">
@@ -1794,6 +1794,9 @@ function onOverlayClick(e: MouseEvent) {
     border-radius: 999px;
     cursor: pointer;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 160px;
     font-family: var(--font-sans);
 }
 
@@ -1857,6 +1860,10 @@ function onOverlayClick(e: MouseEvent) {
     font-size: 0.98rem;
     font-weight: 600;
     color: rgba(52, 47, 41, 0.92);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
 }
 
 .device-action-block__subtitle {
@@ -1996,6 +2003,10 @@ function onOverlayClick(e: MouseEvent) {
     font-weight: 600;
     text-align: center;
     line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
 }
 
 .device-tile__check {

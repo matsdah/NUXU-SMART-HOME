@@ -145,6 +145,7 @@ onBeforeUnmount(() => {
               required
               class="field__input"
               autocomplete="off"
+              maxlength="25"
             />
             <label for="device-edit-name" class="field__label">Nombre del dispositivo</label>
           </div>
@@ -445,6 +446,10 @@ onBeforeUnmount(() => {
   color: rgba(42, 40, 37, 0.8);
   cursor: pointer;
   transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .room-dropdown__item:hover {

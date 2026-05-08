@@ -617,6 +617,10 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   font-size: 1rem;
   font-weight: 600;
   color: var(--color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
 }
 
 .home-name-input {
