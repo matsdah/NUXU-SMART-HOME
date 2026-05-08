@@ -308,224 +308,224 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 
 <template>
   <div class="settings">
-    <header class="settings__header">
-      <h1 class="settings__title">{{ pageTitle }}</h1>
-    </header>
+    <div v-if="activeView === 'perfil'" class="hogar-view">
+      <div class="hogar__header">
+        <div>
+          <header class="h-panel__header" style="margin-bottom: 0.75rem;">
+            <h1 class="h-panel__title">Configuración</h1>
+          </header>
+        </div>
+      </div>
 
-    <div class="settings__grid">
-      <div v-if="activeView === 'perfil'" class="settings__column settings__column--profile">
-        <section class="config-section">
-          <p class="section-label">TU PERFIL</p>
+      <div class="hogar__content">
+        <section class="h-panel">
+          <header class="h-panel__header">
+            <h2 class="h-panel__title">Tu perfil</h2>
+            <button
+              v-if="hasProfileChanges"
+              class="h-panel__btn"
+              type="button"
+              :disabled="profileSaving"
+              @click="saveProfile"
+            >
+              {{ profileSaving ? 'Guardando...' : 'Guardar' }}
+            </button>
+          </header>
 
-          <div class="card">
-            <div class="profile-fields">
-              <div class="form-group">
-                <label class="form-label">Nombre de usuario</label>
-                <input v-model="profileData.name" class="form-input" type="text" />
-                <span class="form-hint">El nombre que se muestra en el sistema</span>
-              </div>
-
-              <div class="form-group">
-                <label class="form-label">Email</label>
-                <input v-model="profileData.email" class="form-input" type="email" />
-                <span class="form-hint">Tu dirección de correo electrónico</span>
-              </div>
+          <div class="profile-fields">
+            <div class="form-group">
+              <label class="form-label">Nombre de usuario</label>
+              <input v-model="profileData.name" class="form-input" type="text" />
+              <span class="form-hint">El nombre que se muestra en el sistema</span>
             </div>
+            <div class="form-group">
+              <label class="form-label">Email</label>
+              <input v-model="profileData.email" class="form-input" type="email" />
+              <span class="form-hint">Tu dirección de correo electrónico</span>
+            </div>
+          </div>
+        </section>
 
-            <div class="profile-actions">
-              <button
-                class="save-btn"
-                type="button"
-                :disabled="!canSaveProfile"
-                @click="saveProfile"
-              >
-                {{ profileSaving ? 'Guardando...' : 'Guardar' }}
-              </button>
-              <button class="change-password-btn" type="button" @click="goToRecoverPassword">
+        <aside class="h-panel h-panel--actions">
+          <header class="h-panel__header">
+            <h2 class="h-panel__title">Seguridad</h2>
+          </header>
+          <div class="action-list">
+            <button class="action-card" type="button" @click="goToRecoverPassword">
+              <span class="action-card__icon">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <rect x="9" y="11" width="6" height="6" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.7" />
+                  <path d="M10.8 11V9.8a1.2 1.2 0 1 1 2.4 0V11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
                   <path d="M6.4 7.4A8 8 0 0 1 18.6 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
                   <path d="M18.6 8V5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
                   <path d="M18.6 8h-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
                   <path d="M17.6 16.6A8 8 0 0 1 5.4 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
                   <path d="M5.4 16v3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
                   <path d="M5.4 16h3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                  <rect x="9" y="11" width="6" height="6" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.7" />
-                  <path d="M10.8 11V9.8a1.2 1.2 0 1 1 2.4 0V11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
                 </svg>
-                <span>Cambiar Contraseña</span>
-              </button>
-            </div>
+              </span>
+              <div class="action-card__body">
+                <span class="action-card__name">Cambiar contraseña</span>
+                <span class="action-card__desc">Actualizá tu contraseña de acceso</span>
+              </div>
+              <span class="action-card__arrow">›</span>
+            </button>
           </div>
-        </section>
+        </aside>
+      </div>
+    </div>
+
+    <div v-if="activeView === 'hogar'" class="hogar-view">
+      <div class="hogar__header">
+        <div>
+          <header class="h-panel__header">
+            <h1 class="h-panel__title">Mi Hogar</h1>
+          </header>
+          <div class="home-tabs">
+            <button
+              v-for="home in dashboard.homes" :key="home.id"
+              type="button"
+              class="home-tab"
+              :class="{ 'home-tab--active': home.id === dashboard.activeHomeId }"
+              @click="selectHome(home.id)"
+            >{{ home.name }}</button>
+            <button class="home-tab home-tab--icon" type="button" aria-label="Nuevo hogar" @click="openNewHomeModal">+</button>
+          </div>
+        </div>
       </div>
 
-      <div v-if="activeView === 'hogar'" class="settings__column settings__column--home">
-        <button class="create-home-btn create-home-btn--top" type="button" @click="openNewHomeModal">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-          </svg>
-          Crear hogar
-        </button>
+      <div v-if="currentHome" class="hogar__content">
+        <section class="h-panel h-panel--info">
+          <header class="h-panel__header">
+            <h2 class="h-panel__title">{{ currentHome.name }}</h2>
+            <button v-if="!isEditingName" class="h-panel__btn" type="button" @click="startEditName">Renombrar</button>
+          </header>
 
-        <section class="config-section">
-          <p id="home-picker-label" class="section-label">HOGAR ACTIVO</p>
-          <div class="home-switch-card">
-            <div class="home-picker" role="group" aria-labelledby="home-picker-label">
+          <div v-if="isEditingName" class="name-edit-row">
+            <input
+              v-model="editingName"
+              type="text"
+              class="name-edit-input"
+              @keyup.enter="saveName"
+              @keyup.escape="cancelEditName"
+            />
+            <button class="name-edit-save" type="button" :disabled="savingName" @click="saveName">
+              {{ savingName ? '...' : 'Guardar' }}
+            </button>
+            <button class="name-edit-cancel" type="button" @click="cancelEditName">Cancelar</button>
+          </div>
+
+          <p class="members-section__label">MIEMBROS</p>
+          <div class="members-grid">
+            <p v-if="visibleMembers.length === 0" class="members-empty-msg">No hay miembros para mostrar.</p>
+            <article v-for="member in visibleMembers" :key="member.id" class="member-card">
+              <div class="member-card__avatar" :class="`member-avatar--color-${getMemberColorIndex(member.name)}`">
+                {{ getInitials(member.name) }}
+              </div>
+              <div class="member-card__body">
+                <h3>{{ member.name }}<span v-if="member.isSelf" class="member-self"> (vos)</span></h3>
+                <p>{{ member.email }}</p>
+              </div>
+              <span class="member-card__role" :class="{ 'member-card__role--admin': member.role === 'Administrador' }">
+                {{ member.role }}
+              </span>
               <button
-                v-for="home in dashboard.homes"
-                :key="home.id"
-                class="home-picker__item"
-                :class="{ 'home-picker__item--active': home.id === dashboard.activeHomeId }"
+                v-if="canRemoveMember(member.email)"
+                class="member-card__remove"
                 type="button"
-                @click="selectHome(home.id)"
+                :disabled="removingMemberEmail === member.email"
+                @click="member.isSelf ? openLeaveHomeModal() : confirmRemoveMember(member.email)"
               >
-                {{ home.name }}
+                {{ removingMemberEmail === member.email ? '...' : 'Quitar' }}
               </button>
-            </div>
+            </article>
           </div>
         </section>
 
-        <section class="selected-home-panel">
-          <div class="selected-home-panel__header">
-            <div>
-              <p class="section-label">HOGAR SELECCIONADO</p>
-              <h2 class="selected-home-panel__title">{{ currentHome?.name ?? 'Sin hogar seleccionado' }}</h2>
-            </div>
-          </div>
-
-          <div class="selected-home-panel__grid">
-            <div class="selected-home-panel__block selected-home-panel__block--name">
-              <label class="home-name-label">Nombre</label>
-              <div class="home-name-input-wrapper">
-                <input
-                  v-if="isEditingName"
-                  v-model="editingName"
-                  type="text"
-                  class="home-name-input"
-                  @keyup.enter="saveName"
-                  @keyup.escape="cancelEditName"
-                />
-                <span v-else class="home-name-display">{{ currentHome?.name }}</span>
-                <button
-                  v-if="!isEditingName"
-                  class="edit-btn"
-                  type="button"
-                  aria-label="Editar nombre"
-                  @click="startEditName"
-                >
-                  <svg viewBox="0 0 24 24" aria-hidden="true">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                  </svg>
-                </button>
-                <div v-else class="edit-actions">
-                  <button class="save-btn" type="button" :disabled="savingName" @click="saveName">
-                    {{ savingName ? 'Guardando...' : 'Guardar' }}
-                  </button>
-                  <button class="cancel-btn" type="button" @click="cancelEditName">Cancelar</button>
-                </div>
-              </div>
-            </div>
-
-            <div class="selected-home-panel__block selected-home-panel__block--members">
-              <p class="home-name-label">Miembros</p>
-
-              <div class="members-list">
-                <p v-if="visibleMembers.length === 0" class="members-empty">
-                  No hay miembros para mostrar.
-                </p>
-                <article
-                  v-for="member in visibleMembers"
-                  :key="member.id"
-                  class="member-row"
-                >
-                  <div
-                    class="member-avatar"
-                    :class="`member-avatar--color-${getMemberColorIndex(member.name)}`"
-                  >
-                    {{ getInitials(member.name) }}
-                  </div>
-                  <div class="member-info">
-                    <div class="member-title-row">
-                      <h3 class="member-name">
-                        {{ member.name }}
-                        <span v-if="member.isSelf" class="member-self">(vos)</span>
-                      </h3>
-                      <span class="member-role" :class="{ 'member-role--admin': member.role === 'Administrador' }">
-                        {{ member.role }}
-                      </span>
-                    </div>
-                    <p class="member-email">{{ member.email }}</p>
-                  </div>
-                  <button
-                    v-if="canRemoveMember(member.email)"
-                    class="member-remove-btn"
-                    type="button"
-                    :disabled="removingMemberEmail === member.email"
-                    @click="member.isSelf ? openLeaveHomeModal() : confirmRemoveMember(member.email)"
-                  >
-                    {{ removingMemberEmail === member.email ? 'Quitando...' : 'Quitar' }}
-                  </button>
-                </article>
-              </div>
-
-              <button
-                v-if="isAdmin"
-                class="add-member-btn"
-                type="button"
-                :disabled="!dashboard.activeHomeId"
-                @click="openAddMemberModal"
-              >
+        <aside class="h-panel h-panel--actions">
+          <header class="h-panel__header">
+            <h2 class="h-panel__title">Acciones</h2>
+          </header>
+          <div class="action-list">
+            <button
+              v-if="isAdmin"
+              class="action-card"
+              type="button"
+              :disabled="!dashboard.activeHomeId"
+              @click="openAddMemberModal"
+            >
+              <span class="action-card__icon">
                 <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2" />
+                  <path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                  <path d="M19 8v6M16 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                 </svg>
-                Añadir miembro
-              </button>
-              <p v-else class="members-permission-note">
-                Solo el administrador puede añadir o quitar otros miembros.
-              </p>
-            </div>
-          </div>
-
-          <section class="danger-section">
-            <div>
-              <p class="section-label section-label--danger">ZONA DE PELIGRO</p>
-              <h2 class="danger-section__title">Acciones irreversibles</h2>
-              <p class="danger-section__desc">
-                Estas acciones aplican a {{ currentHome?.name ?? 'este hogar' }}.
-              </p>
-            </div>
+              </span>
+              <div class="action-card__body">
+                <span class="action-card__name">Añadir miembro</span>
+                <span class="action-card__desc">Invitá a alguien a tu hogar</span>
+              </div>
+              <span class="action-card__arrow">›</span>
+            </button>
 
             <button
               v-if="!isAdmin && auth.user?.email"
-              class="danger-btn danger-btn--secondary"
+              class="action-card action-card--danger"
               type="button"
               @click="openLeaveHomeModal"
             >
-              Salir del hogar
+              <span class="action-card__icon action-card__icon--danger">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  <polyline points="16 17 21 12 16 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </span>
+              <div class="action-card__body">
+                <span class="action-card__name">Salir del hogar</span>
+                <span class="action-card__desc">Perdés el acceso a este hogar</span>
+              </div>
+              <span class="action-card__arrow">›</span>
             </button>
 
             <button
               v-if="isAdmin"
-              class="danger-btn"
+              class="action-card action-card--danger"
               type="button"
               :disabled="!dashboard.activeHomeId"
               @click="openDeleteModal"
             >
-              Eliminar {{ currentHome?.name ?? 'hogar' }}
+              <span class="action-card__icon action-card__icon--danger">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <polyline points="3 6 5 6 21 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+              </span>
+              <div class="action-card__body">
+                <span class="action-card__name">Eliminar hogar</span>
+                <span class="action-card__desc">{{ currentHome.name }} se eliminará permanentemente</span>
+              </div>
+              <span class="action-card__arrow">›</span>
             </button>
-            <p v-else class="danger-note">
+
+            <p v-if="!isAdmin" class="action-note">
               Solo el administrador puede eliminar el hogar.
             </p>
-          </section>
-        </section>
+          </div>
+        </aside>
       </div>
+
+      <div v-else class="h-notice">No hay un hogar seleccionado. Creá uno nuevo con el botón +.</div>
     </div>
 
     <Teleport to="body">
       <div v-if="showAddMemberModal" class="modal-overlay" @click.self="closeAddMemberModal">
         <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-add-title">
-          <h2 id="modal-add-title" class="modal-title">Añadir Miembro</h2>
+          <div class="modal-header">
+            <h2 id="modal-add-title" class="modal-title">Añadir miembro</h2>
+            <button class="modal-close" type="button" aria-label="Cerrar" @click="closeAddMemberModal">✕</button>
+          </div>
           <p class="modal-desc">Ingresá el email de la persona que querés agregar.</p>
 
           <div class="form-group">
@@ -556,7 +556,10 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 
       <div v-if="showLeaveHomeModal" class="modal-overlay" @click.self="closeLeaveHomeModal">
         <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-leave-title">
-          <h2 id="modal-leave-title" class="modal-title">Salir del hogar</h2>
+          <div class="modal-header">
+            <h2 id="modal-leave-title" class="modal-title">Salir del hogar</h2>
+            <button class="modal-close" type="button" aria-label="Cerrar" @click="closeLeaveHomeModal">✕</button>
+          </div>
           <p class="modal-desc">Si te vas, vas a perder el acceso a este hogar.</p>
 
           <div class="modal-actions">
@@ -575,7 +578,10 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 
       <div v-if="showDeleteModal" class="modal-overlay" @click.self="closeDeleteModal">
         <div class="modal-content modal-content--danger" role="dialog" aria-modal="true" aria-labelledby="modal-delete-title">
-          <h2 id="modal-delete-title" class="modal-title">Eliminar "{{ currentHome?.name }}"</h2>
+          <div class="modal-header">
+            <h2 id="modal-delete-title" class="modal-title">Eliminar "{{ currentHome?.name }}"</h2>
+            <button class="modal-close" type="button" aria-label="Cerrar" @click="closeDeleteModal">✕</button>
+          </div>
           <p class="modal-desc">Esta acción es permanente e irreversible.</p>
 
           <div class="delete-warning">
@@ -599,7 +605,10 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 
       <div v-if="showNewHomeModal" class="modal-overlay" @click.self="closeNewHomeModal">
         <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="modal-home-title">
-          <h2 id="modal-home-title" class="modal-title">Nuevo Hogar</h2>
+          <div class="modal-header">
+            <h2 id="modal-home-title" class="modal-title">Nuevo hogar</h2>
+            <button class="modal-close" type="button" aria-label="Cerrar" @click="closeNewHomeModal">✕</button>
+          </div>
           <p class="modal-desc">Ingresá el nombre para tu nuevo hogar.</p>
 
           <div class="form-group">
@@ -638,7 +647,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 .settings {
   min-height: calc(100vh - 80px);
   margin: -2rem -2.5rem -3rem;
-  padding: 1rem 2.5rem;
+  padding: 2rem 2.5rem;
   background: var(--color-bg);
 }
 
@@ -654,8 +663,8 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 
 .settings__title {
   font-family: var(--font-serif);
-  font-size: 1.6rem;
-  font-weight: 700;
+  font-size: 1.4rem;
+  font-weight: 600;
   color: var(--color-text);
 }
 
@@ -1146,41 +1155,45 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   height: 24px;
 }
 
-.create-home-btn {
+.create-home-row {
   display: flex;
+  justify-content: flex-end;
+}
+
+.create-home-btn--primary {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.75rem;
+  gap: 0.55rem;
+  padding: 0 1.35rem;
+  height: 50px;
   border-radius: 12px;
-  border: 1px dashed rgba(42, 40, 37, 0.15);
-  background: transparent;
-  color: rgba(42, 40, 37, 0.7);
+  border: none;
+  background: var(--color-brown, #674531);
+  color: #fff;
+  font-family: inherit;
+  font-size: 0.95rem;
   font-weight: 600;
-  font-size: 0.85rem;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background 0.2s ease, transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 8px 20px rgba(103, 69, 49, 0.22);
 }
 
-.create-home-btn--top {
-  background: rgba(45, 106, 79, 0.1);
-  border-color: rgba(45, 106, 79, 0.35);
-  color: #2d6a4f;
-  border-style: solid;
-  border-radius: 999px;
-  padding: 0.8rem 1rem;
+.create-home-btn--primary:hover {
+  background: #7a5240;
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(103, 69, 49, 0.28);
 }
 
-.create-home-btn:hover {
-  border-color: #2d6a4f;
-  color: #2d6a4f;
-  background: rgba(45, 106, 79, 0.05);
+.create-home-btn__icon {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
 }
 
-.create-home-btn svg {
-  width: 18px;
-  height: 18px;
+.create-home-btn__icon svg {
+  width: 20px;
+  height: 20px;
 }
 
 .create-home-card {
@@ -1268,13 +1281,14 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 .modal-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(42, 40, 37, 0.6);
+  background: rgba(42, 40, 37, 0.25);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 100;
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
+  padding: 1.5rem;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
 }
 
 @supports not (backdrop-filter: blur(1px)) {
@@ -1285,20 +1299,48 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 
 .modal-content {
   background: #fff;
-  border-radius: 20px;
-  padding: 1.75rem;
-  width: 90%;
-  max-width: 400px;
+  border-radius: 24px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 420px;
   max-height: 90vh;
   overflow-y: auto;
-  box-shadow: 0 20px 50px rgba(42, 40, 37, 0.25);
+  box-shadow: 0 32px 64px rgba(42, 40, 37, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.modal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.modal-close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(42, 40, 37, 0.08);
+  color: rgba(42, 40, 37, 0.7);
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.modal-close:hover {
+  background: rgba(42, 40, 37, 0.15);
 }
 
 .modal-title {
   font-family: var(--font-serif);
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-bottom: 1.25rem;
+  font-size: 1.4rem;
+  font-weight: 300;
+  margin-bottom: 0;
   color: var(--color-text);
 }
 
@@ -1307,38 +1349,84 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 }
 
 .modal-desc {
-  font-size: 0.9rem;
-  color: rgba(42, 40, 37, 0.7);
-  margin-bottom: 1.25rem;
+  font-size: 0.88rem;
+  color: rgba(42, 40, 37, 0.65);
+  margin: 0;
 }
 
 .modal-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.5rem;
-  margin-top: 1.25rem;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 0;
 }
 
 .modal-actions .save-btn,
 .modal-actions .cancel-btn,
-.modal-actions .danger-btn {
+.modal-actions .danger-btn,
+.cancel-btn--gray {
   margin: 0;
+  height: 50px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: var(--font-sans, inherit);
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.modal-actions .save-btn {
+  border: none;
+  background: var(--color-brown, #674531);
+  color: #fff;
+}
+
+.modal-actions .save-btn:hover:not(:disabled) {
+  background: #7a5240;
+  box-shadow: 0 8px 24px rgba(122, 82, 64, 0.2);
+  transform: translateY(-1px);
+}
+
+.modal-actions .save-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.modal-actions .cancel-btn,
+.cancel-btn--gray {
+  border: 1px solid rgba(42, 40, 37, 0.2);
+  color: rgba(42, 40, 37, 0.8);
+  background: #fff;
+}
+
+.modal-actions .cancel-btn:hover:not(:disabled),
+.cancel-btn--gray:hover:not(:disabled) {
+  background: rgba(42, 40, 37, 0.06);
+  transform: translateY(-1px);
 }
 
 .cancel-btn--gray {
-  background: rgba(42, 40, 37, 0.1);
-  color: rgba(42, 40, 37, 0.8);
+  border-radius: 999px;
 }
 
 .danger-btn--confirm {
-  background: #8a2d2d;
+  border: none;
+  background: #b54444;
   color: #fff;
-  border-color: #8a2d2d;
 }
 
-.danger-btn--confirm:hover {
-  background: #a33;
-  border-color: #a33;
+.danger-btn--confirm:hover:not(:disabled) {
+  background: #992f2f;
+  box-shadow: 0 8px 24px rgba(153, 47, 47, 0.2);
+  transform: translateY(-1px);
+}
+
+.modal-actions .cancel-btn:disabled,
+.modal-actions .save-btn:disabled,
+.cancel-btn--gray:disabled,
+.danger-btn--confirm:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .delete-warning {
@@ -1451,5 +1539,373 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   .member-remove-btn {
     margin-left: 52px;
   }
+}
+
+/* ── Hogar view (HomesPage-style layout) ── */
+
+.hogar-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.hogar__header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.home-tabs {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 0.6rem;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+  background: #9e9b8e;
+  border-radius: 999px;
+  padding: 0.45rem 0.7rem;
+  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.08);
+  scrollbar-width: none;
+}
+
+.home-tabs::-webkit-scrollbar { display: none; }
+
+.home-tab {
+  border: none;
+  background: rgba(255, 255, 255, 0.65);
+  color: rgba(42, 40, 37, 0.8);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+  font-family: inherit;
+}
+
+.home-tab:hover { background: rgba(255, 255, 255, 0.85); color: rgba(42, 40, 37, 0.95); }
+.home-tab--active { background: rgba(42, 40, 37, 0.95); color: #f7f3e7; }
+
+.home-tab--icon {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.hogar__content {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(260px, 0.9fr);
+  gap: 1.8rem;
+}
+
+.h-panel {
+  background: rgba(244, 244, 244, 0.7);
+  border-radius: 24px;
+  padding: 1.5rem;
+  box-shadow: 0 20px 40px rgba(42, 40, 37, 0.08);
+}
+
+.h-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.2rem;
+}
+
+.h-panel__title {
+  font-family: var(--font-serif);
+  font-size: 1.4rem;
+  font-weight: 600;
+}
+
+.h-panel__btn {
+  border: none;
+  background: rgba(255, 255, 255, 0.7);
+  color: rgba(42, 40, 37, 0.85);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.h-panel__btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
+}
+
+.name-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  margin-bottom: 1.2rem;
+  padding: 0.6rem 0.85rem;
+  background: rgba(255, 255, 255, 0.6);
+  border-radius: 12px;
+  border: 1.5px solid var(--color-sage, #bebea6);
+}
+
+.name-edit-input {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: inherit;
+  outline: none;
+  color: var(--color-text);
+  min-width: 0;
+}
+
+.name-edit-save {
+  flex-shrink: 0;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  background: var(--color-brown, #674531);
+  color: #fff;
+  transition: background 0.2s ease;
+}
+
+.name-edit-save:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.name-edit-cancel {
+  flex-shrink: 0;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  background: rgba(42, 40, 37, 0.1);
+  color: rgba(42, 40, 37, 0.8);
+}
+
+.members-section__label {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(42, 40, 37, 0.5);
+  margin-bottom: 0.75rem;
+}
+
+.members-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.members-empty-msg {
+  color: rgba(42, 40, 37, 0.55);
+  font-size: 0.85rem;
+}
+
+.member-card {
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: 16px;
+  padding: 0.9rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: center;
+  gap: 0.75rem;
+  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
+}
+
+.member-card__avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.member-card__body { min-width: 0; }
+
+.member-card__body h3 {
+  font-size: 0.95rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 0.2rem;
+}
+
+.member-card__body p {
+  font-size: 0.78rem;
+  color: rgba(42, 40, 37, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-card__role {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 0.18rem 0.48rem;
+  background: rgba(42, 40, 37, 0.08);
+  color: rgba(42, 40, 37, 0.62);
+  font-size: 0.68rem;
+  font-weight: 700;
+}
+
+.member-card__role--admin {
+  background: rgba(45, 106, 79, 0.12);
+  color: #2d6a4f;
+}
+
+.member-card__remove {
+  flex-shrink: 0;
+  border: 1px solid rgba(138, 45, 45, 0.25);
+  border-radius: 999px;
+  background: rgba(138, 45, 45, 0.05);
+  color: #8a2d2d;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.3rem 0.6rem;
+  transition: background 0.2s ease;
+}
+
+.member-card__remove:hover:not(:disabled) { background: rgba(138, 45, 45, 0.11); }
+.member-card__remove:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.action-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.action-card {
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: 16px;
+  padding: 0.9rem;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 0.8rem;
+  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  width: 100%;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.action-card:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
+}
+
+.action-card--danger {
+  background: rgba(138, 45, 45, 0.05);
+  box-shadow: inset 0 0 0 1px rgba(138, 45, 45, 0.1);
+}
+
+.action-card--danger:hover:not(:disabled) {
+  box-shadow: 0 8px 24px rgba(138, 45, 45, 0.1);
+}
+
+.action-card:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.action-card__icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(190, 190, 166, 0.45);
+  color: rgba(42, 40, 37, 0.85);
+  flex-shrink: 0;
+}
+
+.action-card__icon--danger {
+  background: rgba(138, 45, 45, 0.08);
+  color: #8a2d2d;
+}
+
+.action-card__icon svg { width: 22px; height: 22px; }
+
+.action-card__body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.action-card__name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(42, 40, 37, 0.85);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.action-card--danger .action-card__name { color: #8a2d2d; }
+
+.action-card__desc {
+  font-size: 0.78rem;
+  color: rgba(42, 40, 37, 0.6);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.action-card--danger .action-card__desc { color: rgba(138, 45, 45, 0.65); }
+
+.action-card__arrow {
+  font-size: 1.2rem;
+  color: rgba(42, 40, 37, 0.55);
+}
+
+.action-card--danger .action-card__arrow { color: rgba(138, 45, 45, 0.55); }
+
+.action-note {
+  font-size: 0.78rem;
+  color: rgba(42, 40, 37, 0.55);
+  padding: 0 0.25rem;
+}
+
+.h-notice {
+  background: rgba(255, 255, 255, 0.7);
+  border-radius: 16px;
+  padding: 0.8rem 1rem;
+  font-weight: 600;
+  color: rgba(42, 40, 37, 0.7);
+  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.08);
+}
+
+@media (max-width: 1024px) {
+  .hogar__content { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 720px) {
+  .h-panel { padding: 1.1rem; }
+  .member-card { grid-template-columns: auto 1fr auto; }
+  .member-card__role { display: none; }
+  .name-edit-row { flex-wrap: wrap; }
+  .name-edit-save, .name-edit-cancel { flex: 1; text-align: center; }
 }
 </style>

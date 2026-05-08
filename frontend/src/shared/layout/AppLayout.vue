@@ -624,12 +624,24 @@ function onLogoutOverlayClick(event: MouseEvent) {
 }
 
 .ghost-btn {
-  padding: 0.45rem 0.9rem;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.95rem;
   border-radius: 999px;
-  border: 1px solid rgba(42, 40, 37, 0.15);
-  background: transparent;
+  background: rgba(255, 255, 255, 0.5);
+  color: rgba(42, 40, 37, 0.75);
   font-weight: 600;
+  font-size: 0.88rem;
+  font-family: inherit;
+  border: 1px solid transparent;
   cursor: pointer;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.ghost-btn:hover {
+  background: rgba(255, 255, 255, 0.8);
+  color: rgba(42, 40, 37, 0.95);
+  border-color: rgba(42, 40, 37, 0.1);
 }
 
 .logout-overlay {
