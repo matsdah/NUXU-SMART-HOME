@@ -533,12 +533,18 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const error = ref('')
   const pendingActions = ref(new Set<string>())
 
+  /* Flags de carga: evitan re-fetchear recursos ya cargados */
+  const homesLoaded = ref(false)
+  const routinesLoaded = ref(false)
+  const dashboardLoaded = ref(false)
+
   const filteredDevices = computed(() =>
     devices.value.filter(d => d.roomId === activeRoomId.value)
   )
 
   /* Loaders: funciones para cargar datos desde la API */
   async function loadHomes(): Promise<void> {
+    if (homesLoaded.value) return
     let data = await api.get<ApiHome[]>('/homes')
     
     // Si la API no devuelve casas, creamos una por defecto en el backend
@@ -559,6 +565,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
     homes.value = data
     activeHomeId.value = data[0]?.id ?? ''
+    homesLoaded.value = true
   }
 
   async function loadRooms(homeId: string): Promise<void> {
@@ -650,7 +657,13 @@ export const useDashboardStore = defineStore('dashboard', () => {
     return devicesByRoom.flat()
   }
 
+  function invalidateRoutines(): void {
+    routinesLoaded.value = false
+    routines.value = []
+  }
+
   async function loadRoutines(): Promise<void> {
+    if (routinesLoaded.value) return
     const data = await api.get<ApiRoutine[]>('/routines')
     routines.value = data.map(r => ({
       id: r.id,
@@ -659,6 +672,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
       time: r.schedule?.time ?? '',
       icon: mapRoutineIcon(r.name),
     }))
+    routinesLoaded.value = true
   }
 
   async function loadMembers(homeId: string): Promise<void> {
@@ -1354,6 +1368,10 @@ export const useDashboardStore = defineStore('dashboard', () => {
       routines.value = []
       activeRoomId.value = ''
     }
+
+    homesLoaded.value = false
+    dashboardLoaded.value = false
+    routinesLoaded.value = false
   }
 
   async function reconcileDeletedHome(homeId: string): Promise<boolean> {
@@ -1418,21 +1436,18 @@ export const useDashboardStore = defineStore('dashboard', () => {
     activeHomeId.value = home.id
   }
 
-/* Carga inicial del dashboard, se llama desde AppLayout.vue */
+/* Carga datos de homes, rooms y devices. Se usa en páginas que los necesitan. */
   async function loadDashboard(): Promise<void> {
-
-    // Si ya cargamos, no volvemos a fetchear todo
-    if(homes.value.length > 0){
-      return
-    }
+    if (dashboardLoaded.value) return
 
     loading.value = true
     error.value   = ''
 
     try {
       await loadHomes()
-      await Promise.all([loadRooms(activeHomeId.value), loadRoutines(),])
+      await loadRooms(activeHomeId.value)
       await loadDevices(activeRoomId.value)
+      dashboardLoaded.value = true
     }catch(err){
       error.value = err instanceof ApiError
         ? `Error ${err.status} cargando datos.`
@@ -1539,6 +1554,9 @@ export const useDashboardStore = defineStore('dashboard', () => {
     loading.value = false
     error.value = ''
     pendingActions.value = new Set()
+    homesLoaded.value = false
+    routinesLoaded.value = false
+    dashboardLoaded.value = false
   }
 /* Retorno del store: estado y acciones disponibles para los componentes. */
   return {
@@ -1559,6 +1577,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     loadDashboard,
     loadRooms,
     loadRoutines,
+    invalidateRoutines,
     loadDevices,
     fetchHomeDevices,
     loadMembers,

@@ -5,12 +5,15 @@ import { storeToRefs } from 'pinia'
 export function useHomesDashboard() {
 
   const store = useDashboardStore()
-  
-  const { homes, activeHomeId, rooms, routines, 
+
+  const { homes, activeHomeId, rooms, routines,
     activeRoomId, filteredDevices,loading, error, pendingActions } = storeToRefs(store)
 
-  onMounted(store.loadDashboard)
+  onMounted(async () => {
+    await store.loadDashboard()
+    await store.loadRoutines()
+  })
 
-  return { homes, activeHomeId, rooms, routines, activeRoomId, 
+  return { homes, activeHomeId, rooms, routines, activeRoomId,
     filteredDevices,loading, error, pendingActions,toggleDevice: store.toggleDevice }
 }

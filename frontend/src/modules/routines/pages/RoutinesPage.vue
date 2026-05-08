@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from "vue";
 import { api, ApiError } from "@/services/api/client";
+import { useDashboardStore } from "@/app/stores/dashboard";
 import RoutineFormModal from "../components/RoutineFormModal.vue";
 import type {
     RoutineCard,
@@ -60,6 +61,8 @@ function showToast(message: string, type: "success" | "error") {
         toasts.value = toasts.value.filter((t) => t.id !== id);
     }, 3500);
 }
+
+const dashboardStore = useDashboardStore();
 
 /* ─── Page state ─────────────────────────────────────────── */
 
@@ -165,6 +168,7 @@ function openEditModal(card: RoutineCard) {
 function onRoutineCreated(card: RoutineCard) {
     saveRoutineMeta(card.id, { color: card.color, icon: card.icon });
     routines.value.unshift(card);
+    dashboardStore.invalidateRoutines();
     showFormModal.value = false;
     showToast(`"${card.name}" creada.`, "success");
 }
@@ -173,6 +177,7 @@ function onRoutineUpdated(card: RoutineCard) {
     saveRoutineMeta(card.id, { color: card.color, icon: card.icon });
     const idx = routines.value.findIndex((r) => r.id === card.id);
     if (idx >= 0) routines.value[idx] = card;
+    dashboardStore.invalidateRoutines();
     showFormModal.value = false;
     showToast(`"${card.name}" actualizada.`, "success");
 }
@@ -199,6 +204,7 @@ async function confirmDelete() {
         await api.delete(`/routines/${target.id}`);
         deleteRoutineMeta(target.id);
         routines.value = routines.value.filter((r) => r.id !== target.id);
+        dashboardStore.invalidateRoutines();
         showDeleteModal.value = false;
         pendingDelete.value = null;
         showToast(`"${target.name}" eliminada.`, "success");

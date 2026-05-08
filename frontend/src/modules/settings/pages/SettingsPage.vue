@@ -242,9 +242,7 @@ const isAdmin = computed(() => {
 //Lifecycle 
 onMounted(async () => {
   initProfileData()
-  if (dashboard.homes.length === 0) {
-    await dashboard.loadDashboard()
-  }
+  await dashboard.loadHomes()
   if (dashboard.activeHomeId) {
     await dashboard.loadMembers(dashboard.activeHomeId)
   }
