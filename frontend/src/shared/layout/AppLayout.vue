@@ -3,9 +3,11 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/app/stores/auth'
 import { useDashboardStore } from '@/app/stores/dashboard'
+import { useSocketStore } from '@/app/stores/socket'
 
 const auth = useAuthStore()
 const dashboard = useDashboardStore()
+const socket = useSocketStore()
 const router = useRouter()
 
 const navItems = [
@@ -36,13 +38,14 @@ function navigateToSettings(view?: string) {
   isUserMenuOpen.value = false
   router.push({ path: '/settings', query: view ? { view } : {} })
 }
-// 3. Agregamos el listener al montar el componente y lo limpiamos al destruirlo
 onMounted(() => {
   document.addEventListener('click', closeMenuOnClickOutside)
+  socket.connect()
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', closeMenuOnClickOutside)
+  socket.disconnect()
 })
 const activeHomeName = computed(() => {
   const home = dashboard.homes.find(h => h.id === dashboard.activeHomeId)
@@ -65,6 +68,7 @@ const initials = computed(() => {
 })
 
 async function handleLogout() {
+  socket.disconnect()
   await auth.logout()
   router.push({ name: 'login' })
 }

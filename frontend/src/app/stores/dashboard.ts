@@ -1573,6 +1573,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
     loading,
     error,
     pendingActions,
+    homesLoaded,
+    dashboardLoaded,
     /* Acciones */
     loadDashboard,
     loadRooms,

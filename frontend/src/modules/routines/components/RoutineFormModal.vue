@@ -701,34 +701,6 @@ function onOverlayClick(e: MouseEvent) {
                             </div>
                         </div>
 
-                        <div class="color-section">
-                            <p class="section-hint">Color</p>
-                            <div class="color-swatches">
-                                <button
-                                    v-for="c in PRESET_COLORS"
-                                    :key="c.value"
-                                    type="button"
-                                    class="swatch"
-                                    :class="{
-                                        'swatch--active':
-                                            selectedColor === c.value,
-                                    }"
-                                    :style="{ background: c.value }"
-                                    :aria-label="c.label"
-                                    @click="pickPreset(c.value)"
-                                />
-                            </div>
-                            <input
-                                v-model.number="hue"
-                                type="range"
-                                min="0"
-                                max="360"
-                                class="hue-slider"
-                                aria-label="Tono personalizado"
-                                @input="onHueInput"
-                            />
-                        </div>
-
                         <div class="icon-section">
                             <p class="section-hint">Ícono</p>
                             <div class="icon-grid">

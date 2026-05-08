@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { api, ApiError } from '@/services/api/client'
 import { useDashboardStore } from '@/app/stores/dashboard'
+import { useSocketStore } from '@/app/stores/socket'
 import type { Device } from '@/app/stores/dashboard'
 import DeviceModal from '../components/DeviceModal.vue'
 import DeleteDeviceConfirmModal from '@/modules/devices/components/DeleteDeviceConfirmModal.vue'
@@ -13,6 +14,7 @@ import DeleteRoomConfirmModal from '@/modules/homes/components/DeleteRoomConfirm
 import EditRoomModal from '@/modules/homes/components/EditRoomModal.vue'
 
 const store = useDashboardStore()
+const socketStore = useSocketStore()
 const { rooms, activeHomeId, loading, error, pendingActions } = storeToRefs(store)
 
 const allDevices = ref<Device[]>([])
@@ -38,8 +40,6 @@ const renamingRoom = ref(false)
 const editRoomError = ref('')
 const editDeviceError = ref('')
 const isDeviceEditMode = ref(false)
-const LIVE_SYNC_INTERVAL_MS = 4000
-let liveSyncTimer: ReturnType<typeof setInterval> | null = null
 
 const selectedDevice = ref<Device | null>(null)
 const selectedRoomName = ref('')
@@ -254,27 +254,6 @@ async function refreshHomeDevices(options: { silent?: boolean } = {}) {
   }
 }
 
-function stopLiveSync() {
-  if (liveSyncTimer === null) {
-    return
-  }
-  clearInterval(liveSyncTimer)
-  liveSyncTimer = null
-}
-
-function startLiveSync() {
-  stopLiveSync()
-  if (!activeHomeId.value) {
-    return
-  }
-
-  liveSyncTimer = setInterval(() => {
-    if (loading.value || refreshingDevices.value || pendingActions.value.size > 0) {
-      return
-    }
-    void refreshHomeDevices({ silent: true })
-  }, LIVE_SYNC_INTERVAL_MS)
-}
 
 function selectAllRooms() {
   roomActionError.value = ''
@@ -408,13 +387,11 @@ watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
   if (!homeId) {
     allDevices.value = []
     activeFilter.value = 'all'
-    stopLiveSync()
     return
   }
 
   if (homeId !== previousHomeId) {
     activeFilter.value = 'all'
-    startLiveSync()
   }
 
   if (!isLoading) {
@@ -422,12 +399,16 @@ watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
   }
 }, { immediate: true })
 
-onMounted(async () => {
-  await store.loadDashboard()
+watch(() => socketStore.deviceStateVersion, () => {
+  void refreshHomeDevices({ silent: true })
 })
 
-onBeforeUnmount(() => {
-  stopLiveSync()
+watch(() => socketStore.deviceListVersion, () => {
+  void refreshHomeDevices()
+})
+
+onMounted(async () => {
+  await store.loadDashboard()
 })
 </script>
 

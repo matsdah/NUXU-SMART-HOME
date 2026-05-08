@@ -1,0 +1,83 @@
+import { defineStore } from 'pinia'
+import { ref } from 'vue'
+import { socketManager } from '@/services/websocket/socket'
+import { useDashboardStore } from './dashboard'
+
+export const useSocketStore = defineStore('socket', () => {
+  const connected = ref(false)
+
+  // Signals que los componentes pueden observar para reaccionar a cambios
+  const deviceStateVersion = ref(0)  // sube en device.event (cambio de estado)
+  const deviceListVersion  = ref(0)  // sube en created / updated / deleted
+
+  let cleanups: (() => void)[] = []
+
+  function connect(): void {
+    cleanup()
+
+    cleanups = [
+      socketManager.on('ws:connected',    () => { connected.value = true }),
+      socketManager.on('ws:disconnected', () => { connected.value = false }),
+
+      // Estado de un dispositivo cambió (turnOn, setBrightness, etc.)
+      socketManager.on('device.event', onDeviceEvent),
+
+      // Posibles variantes del nombre según la API
+      socketManager.on('DeviceStateChanged', onDeviceEvent),
+      socketManager.on('WebSocketDeviceEvent', onDeviceEvent),
+
+      // Lista de dispositivos cambió
+      socketManager.on('device.created',          onDeviceListChange),
+      socketManager.on('device.updated',          onDeviceListChange),
+      socketManager.on('device.deleted',          onDeviceListChange),
+      socketManager.on('WebSocketDeviceCreated',  onDeviceListChange),
+      socketManager.on('WebSocketDeviceUpdated',  onDeviceListChange),
+      socketManager.on('WebSocketDeviceDeleted',  onDeviceListChange),
+
+      // El hogar fue compartido/descompartido con este usuario
+      socketManager.on('home.shared',           onHomeShared),
+      socketManager.on('home.unshared',         onHomeUnshared),
+      socketManager.on('WebSocketHomeShared',   onHomeShared),
+      socketManager.on('WebSocketHomeUnshared', onHomeUnshared),
+    ]
+
+    socketManager.connect()
+  }
+
+  function disconnect(): void {
+    cleanup()
+    socketManager.disconnect()
+    connected.value = false
+  }
+
+  function cleanup(): void {
+    cleanups.forEach(fn => fn())
+    cleanups = []
+  }
+
+  function onDeviceEvent(): void {
+    deviceStateVersion.value++
+  }
+
+  function onDeviceListChange(): void {
+    deviceListVersion.value++
+  }
+
+  function onHomeShared(): void {
+    // Re-cargar la lista de hogares para que aparezca el nuevo
+    const dashboard = useDashboardStore()
+    dashboard.homesLoaded = false
+    dashboard.dashboardLoaded = false
+    void dashboard.loadDashboard()
+  }
+
+  function onHomeUnshared(): void {
+    // Re-cargar hogares ya que uno fue removido
+    const dashboard = useDashboardStore()
+    dashboard.homesLoaded = false
+    dashboard.dashboardLoaded = false
+    void dashboard.loadDashboard()
+  }
+
+  return { connected, deviceStateVersion, deviceListVersion, connect, disconnect }
+})
