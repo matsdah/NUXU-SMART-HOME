@@ -15,15 +15,26 @@ const navItems = [
   { label: 'Historial', to: '/logs', icon: 'logs' },
 ]
 
-// 3. Lógica del menú de casas
+// Lógica del menú de casas
 const isHomeMenuOpen = ref(false)
-const homeSelectorRef = ref<HTMLElement | null>(null) // <-- 1. Nueva referencia
-  
-  // 2. Función para detectar clics afuera
+const homeSelectorRef = ref<HTMLElement | null>(null)
+
+// Lógica del menú de usuario
+const isUserMenuOpen = ref(false)
+const userChipRef = ref<HTMLElement | null>(null)
+
 function closeMenuOnClickOutside(event: MouseEvent) {
   if (isHomeMenuOpen.value && homeSelectorRef.value && !homeSelectorRef.value.contains(event.target as Node)) {
     isHomeMenuOpen.value = false
   }
+  if (isUserMenuOpen.value && userChipRef.value && !userChipRef.value.contains(event.target as Node)) {
+    isUserMenuOpen.value = false
+  }
+}
+
+function navigateToSettings(view?: string) {
+  isUserMenuOpen.value = false
+  router.push({ path: '/settings', query: view ? { view } : {} })
 }
 // 3. Agregamos el listener al montar el componente y lo limpiamos al destruirlo
 onMounted(() => {
@@ -142,10 +153,42 @@ async function handleLogout() {
             <path d="M9.5 17a2.5 2.5 0 0 0 5 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
           </svg>
         </button>
-        <RouterLink class="user-chip" to="/settings" aria-label="Abrir configuracion">
-          <span class="user-chip__avatar" aria-hidden="true">{{ initials }}</span>
-          <span class="user-chip__name">{{ displayName }}</span>
-        </RouterLink>
+        <div class="user-selector" ref="userChipRef">
+          <button
+            class="user-chip"
+            type="button"
+            :aria-expanded="isUserMenuOpen"
+            aria-label="Abrir menú de usuario"
+            @click="isUserMenuOpen = !isUserMenuOpen"
+          >
+            <span class="user-chip__avatar" aria-hidden="true">{{ initials }}</span>
+            <span class="user-chip__name">{{ displayName }}</span>
+            <span class="user-chip__chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24">
+                <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+              </svg>
+            </span>
+          </button>
+
+          <Transition name="fade-slide">
+            <div v-if="isUserMenuOpen" class="user-dropdown">
+              <button class="user-dropdown__item" type="button" @click="navigateToSettings()">
+                <svg class="user-dropdown__icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.8" />
+                  <path d="M4 20c0-4 3.6-7 8-7s8 3 8 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                </svg>
+                Configuración
+              </button>
+              <button class="user-dropdown__item" type="button" @click="navigateToSettings('hogar')">
+                <svg class="user-dropdown__icon" viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M4 12l8-7 8 7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                  <path d="M7 11v7h10v-7" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                </svg>
+                Mi hogar
+              </button>
+            </div>
+          </Transition>
+        </div>
         <button class="ghost-btn" type="button" @click="handleLogout">Salir</button>
       </div>
     </header>
@@ -369,15 +412,28 @@ async function handleLogout() {
   height: 18px;
 }
 
+.user-selector {
+  position: relative;
+  display: inline-flex;
+}
+
 .user-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.35rem 0.7rem 0.35rem 0.35rem;
+  padding: 0.35rem 0.65rem 0.35rem 0.35rem;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.65);
   border: 1px solid rgba(42, 40, 37, 0.12);
   box-shadow: 0 8px 16px rgba(42, 40, 37, 0.08);
+  cursor: pointer;
+  transition: background 0.2s ease;
+  font-family: inherit;
+  color: var(--color-text, rgba(42, 40, 37, 1));
+}
+
+.user-chip:hover {
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .user-chip__avatar {
@@ -395,6 +451,71 @@ async function handleLogout() {
 .user-chip__name {
   font-size: 0.85rem;
   font-weight: 600;
+}
+
+.user-chip__chev {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  opacity: 0.5;
+  transition: transform 0.2s ease;
+}
+
+.user-chip__chev svg {
+  width: 14px;
+  height: 14px;
+}
+
+.user-chip[aria-expanded="true"] .user-chip__chev {
+  transform: rotate(180deg);
+}
+
+.user-dropdown {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  right: 0;
+  min-width: 200px;
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(42, 40, 37, 0.1);
+  border-radius: 16px;
+  padding: 0.5rem;
+  box-shadow: 0 10px 30px rgba(42, 40, 37, 0.15);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.user-dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  border: none;
+  background: transparent;
+  text-align: left;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: rgba(42, 40, 37, 0.8);
+  cursor: pointer;
+  transition: background 0.2s ease;
+  width: 100%;
+}
+
+.user-dropdown__item:hover {
+  background: rgba(42, 40, 37, 0.05);
+}
+
+.user-dropdown__icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  opacity: 0.7;
 }
 
 .ghost-btn {

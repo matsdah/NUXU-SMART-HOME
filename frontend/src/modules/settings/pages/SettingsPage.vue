@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import { useAuthStore } from '@/app/stores/auth'
 import { ApiError } from '@/services/api/client'
 
 const router = useRouter()
+const route = useRoute()
 const dashboard = useDashboardStore()
 const auth = useAuthStore()
+
+const activeView = computed(() => route.query.view === 'hogar' ? 'hogar' : 'perfil')
+const pageTitle = computed(() => activeView.value === 'hogar' ? 'Mi hogar' : 'Configuración')
 
 //Toast 
 
@@ -258,11 +262,11 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 <template>
   <div class="settings">
     <header class="settings__header">
-      <h1 class="settings__title">Configuración</h1>
+      <h1 class="settings__title">{{ pageTitle }}</h1>
     </header>
 
     <div class="settings__grid">
-      <div class="settings__column settings__column--profile">
+      <div v-if="activeView === 'perfil'" class="settings__column settings__column--profile">
         <section class="config-section">
           <p class="section-label">TU PERFIL</p>
 
@@ -308,7 +312,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
         </section>
       </div>
 
-      <div class="settings__column settings__column--home">
+      <div v-if="activeView === 'hogar'" class="settings__column settings__column--home">
         <section class="config-section">
           <p class="section-label">TU HOGAR</p>
 
@@ -542,6 +546,9 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 0.5rem;
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .settings__title {
@@ -553,8 +560,10 @@ watch(() => dashboard.activeHomeId, async (newId) => {
 
 .settings__grid {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr;
   gap: 2.5rem;
+  max-width: 640px;
+  margin: 0 auto;
 }
 
 .settings__column {
@@ -1100,7 +1109,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   }
 
   .settings__grid {
-    grid-template-columns: 1fr;
+    max-width: 100%;
   }
 }
 </style>
