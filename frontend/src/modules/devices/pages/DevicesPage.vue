@@ -79,7 +79,6 @@ function onDeviceUpdated(id: string, isOn: boolean) {
     d.isOn = isOn
     d.tone = isOn ? 'sage' : 'neutral'
   }
-  void refreshHomeDevices()
 }
 
 function toggleDeviceEditMode() {
@@ -144,7 +143,7 @@ async function confirmDeviceEdition(payload: { name: string; roomId: string }) {
     await store.updateDevice(pendingDeviceEdition.value.id, payload)
     showEditDeviceModal.value = false
     pendingDeviceEdition.value = null
-    await refreshHomeDevices()
+    await refreshHomeDevices({ silent: true })
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
@@ -187,7 +186,7 @@ async function confirmDeviceDeletion() {
     }
     showDeleteDeviceConfirm.value = false
     pendingDeviceDeletion.value = null
-    await refreshHomeDevices()
+    await refreshHomeDevices({ silent: true })
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
@@ -268,18 +267,26 @@ function selectRoom(roomId: string) {
 
 async function onToggleDevice(id: string) {
   await store.toggleDevice(id)
-  await refreshHomeDevices()
+  const storeDevice = store.devices.find(d => d.id === id)
+  if (storeDevice) {
+    const local = allDevices.value.find(d => d.id === id)
+    if (local) {
+      local.isOn = storeDevice.isOn
+      local.tone = storeDevice.tone
+      local.status = storeDevice.status
+    }
+  }
 }
 
 async function onDeviceCreated() {
   showAddDevice.value = false
-  await refreshHomeDevices()
+  await refreshHomeDevices({ silent: true })
 }
 
 async function onRoomCreated() {
   showAddRoom.value = false
   activeFilter.value = store.activeRoomId || 'all'
-  await refreshHomeDevices()
+  await refreshHomeDevices({ silent: true })
 }
 
 function requestRoomRename() {
@@ -368,7 +375,7 @@ async function confirmRoomDeletion() {
     activeFilter.value = store.activeRoomId || 'all'
     showDeleteRoomConfirm.value = false
     pendingRoomDeletion.value = null
-    await refreshHomeDevices()
+    await refreshHomeDevices({ silent: true })
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
@@ -399,12 +406,26 @@ watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
   }
 }, { immediate: true })
 
-watch(() => socketStore.deviceStateVersion, () => {
+watch(() => socketStore.lastDeviceEvent, async (eventData) => {
+  if (!eventData) return
+  const deviceId = (eventData['id'] ?? eventData['deviceId'] ?? eventData['device_id']) as string | undefined
+  if (deviceId) {
+    const updated = await store.fetchDeviceState(deviceId)
+    if (updated) {
+      const local = allDevices.value.find(d => d.id === deviceId)
+      if (local) {
+        local.isOn = updated.isOn
+        local.tone = updated.tone
+        local.status = updated.status
+        return
+      }
+    }
+  }
   void refreshHomeDevices({ silent: true })
 })
 
 watch(() => socketStore.deviceListVersion, () => {
-  void refreshHomeDevices()
+  void refreshHomeDevices({ silent: true })
 })
 
 onMounted(async () => {

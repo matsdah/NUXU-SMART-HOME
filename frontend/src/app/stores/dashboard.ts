@@ -1541,6 +1541,17 @@ export const useDashboardStore = defineStore('dashboard', () => {
     routinesLoaded.value = false
     dashboardLoaded.value = false
   }
+ async function fetchDeviceState(deviceId: string): Promise<{ isOn: boolean; tone: 'sage' | 'neutral'; status: string } | null> {
+    try {
+      const state = await fetchDeviceStateWithFallback(deviceId)
+      if (!state) return null
+      const isOn = resolveIsOn(state)
+      return { isOn, tone: isOn ? 'sage' : 'neutral', status: formatStatus(state) }
+    } catch {
+      return null
+    }
+  }
+
 /* Retorno del store: estado y acciones disponibles para los componentes. */
   return {
     /* Estado */
@@ -1576,6 +1587,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     deleteHome,
     deleteRoom,
     toggleDevice,
+    fetchDeviceState,
     initialStateForNewDevice,
     seedDeviceInitialPowerState,
 

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useHomesDashboard } from '@/modules/homes/composables/useHomesDashboard'
 import { useDashboardStore } from '@/app/stores/dashboard'
+import { useSocketStore } from '@/app/stores/socket'
 import type { Device } from '@/app/stores/dashboard'
 import { ApiError } from '@/services/api/client'
 import DeviceModal from '@/modules/devices/components/DeviceModal.vue'
@@ -13,6 +14,7 @@ import EditRoomModal from '@/modules/homes/components/EditRoomModal.vue'
 const { rooms, routines, activeHomeId, activeRoomId, loading, error, pendingActions } = useHomesDashboard()
 
 const store = useDashboardStore()
+const socketStore = useSocketStore()
 
 const showAddDevice = ref(false)
 const showAddRoom = ref(false)
@@ -30,8 +32,6 @@ const deletingRoom = ref(false)
 const pendingRoomEdition = ref<{ id: string; name: string } | null>(null)
 const renamingRoom = ref(false)
 const editRoomError = ref('')
-const LIVE_SYNC_INTERVAL_MS = 4000
-let liveSyncTimer: ReturnType<typeof setInterval> | null = null
 
 function openDeviceModal(device: Device) {
   selectedDevice.value = device
@@ -48,12 +48,11 @@ function onDeviceUpdated(id: string, isOn: boolean) {
     d.isOn = isOn
     d.tone = isOn ? 'sage' : 'neutral'
   }
-  void refreshHomeDevices()
 }
 
 async function onDeviceCreated() {
   showAddDevice.value = false
-  await refreshHomeDevices()
+  await refreshHomeDevices({ silent: true })
 }
 
 const displayedDevices = computed(() => {
@@ -117,27 +116,6 @@ async function refreshHomeDevices(options: { silent?: boolean } = {}) {
   }
 }
 
-function stopLiveSync() {
-  if (liveSyncTimer === null) {
-    return
-  }
-  clearInterval(liveSyncTimer)
-  liveSyncTimer = null
-}
-
-function startLiveSync() {
-  stopLiveSync()
-  if (!activeHomeId.value) {
-    return
-  }
-
-  liveSyncTimer = setInterval(() => {
-    if (loading.value || refreshingDevices.value || pendingActions.value.size > 0) {
-      return
-    }
-    void refreshHomeDevices({ silent: true })
-  }, LIVE_SYNC_INTERVAL_MS)
-}
 
 function selectAllRooms() {
   roomActionError.value = ''
@@ -152,13 +130,21 @@ function selectRoom(roomId: string) {
 
 async function onToggleDevice(id: string) {
   await store.toggleDevice(id)
-  await refreshHomeDevices()
+  const storeDevice = store.devices.find(d => d.id === id)
+  if (storeDevice) {
+    const local = allDevices.value.find(d => d.id === id)
+    if (local) {
+      local.isOn = storeDevice.isOn
+      local.tone = storeDevice.tone
+      local.status = storeDevice.status
+    }
+  }
 }
 
 async function onRoomCreated() {
   showAddRoom.value = false
   activeRoomFilter.value = store.activeRoomId || 'all'
-  await refreshHomeDevices()
+  await refreshHomeDevices({ silent: true })
 }
 
 function requestRoomRename() {
@@ -247,7 +233,7 @@ async function confirmRoomDeletion() {
     activeRoomFilter.value = store.activeRoomId || 'all'
     showDeleteRoomConfirm.value = false
     pendingRoomDeletion.value = null
-    await refreshHomeDevices()
+    await refreshHomeDevices({ silent: true })
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
@@ -266,13 +252,11 @@ watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
   if (!homeId) {
     allDevices.value = []
     activeRoomFilter.value = 'all'
-    stopLiveSync()
     return
   }
 
   if (homeId !== previousHomeId) {
     activeRoomFilter.value = 'all'
-    startLiveSync()
   }
 
   if (!isLoading) {
@@ -280,8 +264,26 @@ watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
   }
 }, { immediate: true })
 
-onBeforeUnmount(() => {
-  stopLiveSync()
+watch(() => socketStore.lastDeviceEvent, async (eventData) => {
+  if (!eventData) return
+  const deviceId = (eventData['id'] ?? eventData['deviceId'] ?? eventData['device_id']) as string | undefined
+  if (deviceId) {
+    const updated = await store.fetchDeviceState(deviceId)
+    if (updated) {
+      const local = allDevices.value.find(d => d.id === deviceId)
+      if (local) {
+        local.isOn = updated.isOn
+        local.tone = updated.tone
+        local.status = updated.status
+        return
+      }
+    }
+  }
+  void refreshHomeDevices({ silent: true })
+})
+
+watch(() => socketStore.deviceListVersion, () => {
+  void refreshHomeDevices({ silent: true })
 })
 </script>
 

@@ -7,8 +7,9 @@ export const useSocketStore = defineStore('socket', () => {
   const connected = ref(false)
 
   // Signals que los componentes pueden observar para reaccionar a cambios
-  const deviceStateVersion = ref(0)  // sube en device.event (cambio de estado)
-  const deviceListVersion  = ref(0)  // sube en created / updated / deleted
+  const deviceStateVersion = ref(0)             // sube en device.event (cambio de estado)
+  const deviceListVersion  = ref(0)             // sube en created / updated / deleted
+  const lastDeviceEvent    = ref<Record<string, unknown> | null>(null)  // payload del último device.event
 
   let cleanups: (() => void)[] = []
 
@@ -55,8 +56,12 @@ export const useSocketStore = defineStore('socket', () => {
     cleanups = []
   }
 
-  function onDeviceEvent(): void {
+  function onDeviceEvent(data: unknown): void {
     deviceStateVersion.value++
+    // Spread para garantizar nueva referencia aunque el contenido sea igual
+    lastDeviceEvent.value = (data !== null && typeof data === 'object')
+      ? { ...(data as Record<string, unknown>) }
+      : null
   }
 
   function onDeviceListChange(): void {
@@ -79,5 +84,5 @@ export const useSocketStore = defineStore('socket', () => {
     void dashboard.loadDashboard()
   }
 
-  return { connected, deviceStateVersion, deviceListVersion, connect, disconnect }
+  return { connected, deviceStateVersion, deviceListVersion, lastDeviceEvent, connect, disconnect }
 })
