@@ -264,21 +264,30 @@ watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
   }
 }, { immediate: true })
 
+function extractDeviceIdFromEvent(eventData: Record<string, unknown>): string | undefined {
+  const nested = eventData['data'] as Record<string, unknown> | undefined
+  return (nested?.['deviceId'] ?? nested?.['device_id'] ?? eventData['deviceId'] ?? eventData['device_id']) as string | undefined
+}
+
+// Update quirúrgico cuando el payload WS trae device ID (1-2 llamadas en vez de N+1)
 watch(() => socketStore.lastDeviceEvent, async (eventData) => {
   if (!eventData) return
-  const deviceId = (eventData['id'] ?? eventData['deviceId'] ?? eventData['device_id']) as string | undefined
-  if (deviceId) {
-    const updated = await store.fetchDeviceState(deviceId)
-    if (updated) {
-      const local = allDevices.value.find(d => d.id === deviceId)
-      if (local) {
-        local.isOn = updated.isOn
-        local.tone = updated.tone
-        local.status = updated.status
-        return
-      }
-    }
-  }
+  const deviceId = extractDeviceIdFromEvent(eventData)
+  if (!deviceId) return
+  const updated = await store.fetchDeviceState(deviceId)
+  if (!updated) { void refreshHomeDevices({ silent: true }); return }
+  const local = allDevices.value.find(d => d.id === deviceId)
+  if (!local) { void refreshHomeDevices({ silent: true }); return }
+  local.isOn = updated.isOn
+  local.tone = updated.tone
+  local.status = updated.status
+})
+
+// Refresh completo solo cuando el payload no tiene device ID reconocible
+watch(() => socketStore.deviceStateVersion, () => {
+  const ev = socketStore.lastDeviceEvent
+  const deviceId = ev ? extractDeviceIdFromEvent(ev) : undefined
+  if (deviceId && allDevices.value.some(d => d.id === deviceId)) return
   void refreshHomeDevices({ silent: true })
 })
 
