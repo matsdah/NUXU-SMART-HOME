@@ -436,7 +436,9 @@ onBeforeUnmount(() => {
 
     <div class="devices-page__header">
       <div>
-        <p class="section-label">Habitaciones</p>
+        <header class="panel__header">
+          <h2 class="panel__title">Habitaciones</h2>
+        </header>
         <div class="room-tabs">
           <button
             class="room-tab" :class="{ 'room-tab--active': activeFilter === 'all' }"
