@@ -393,7 +393,12 @@ async function handleLogout() {
   height: 18px;
 }
 
-.nav-pill:hover,
+.nav-pill:hover {
+  background: rgba(255, 255, 255, 0.8);
+  color: rgba(42, 40, 37, 0.95);
+  border-color: rgba(42, 40, 37, 0.1);
+}
+
 .nav-pill.router-link-active {
   background: rgba(42, 40, 37, 0.95);
   color: #f7f3e7;

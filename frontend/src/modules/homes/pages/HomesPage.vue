@@ -588,6 +588,7 @@ onBeforeUnmount(() => {
   display: grid;
   place-items: center;
   font-size: 1.1rem;
+  line-height: 1;
 }
 
 .room-tab:disabled {
@@ -757,10 +758,11 @@ onBeforeUnmount(() => {
   width: 40px;
   height: 40px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(200, 200, 200, 0.7);
   display: grid;
   place-items: center;
   font-size: 1.6rem;
+  line-height: 1;
   color: rgba(42, 40, 37, 0.6);
 }
 
