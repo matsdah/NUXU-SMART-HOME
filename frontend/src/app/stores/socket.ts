@@ -20,26 +20,12 @@ export const useSocketStore = defineStore('socket', () => {
       socketManager.on('ws:connected',    () => { connected.value = true }),
       socketManager.on('ws:disconnected', () => { connected.value = false }),
 
-      // Estado de un dispositivo cambió (turnOn, setBrightness, etc.)
-      socketManager.on('device.event', onDeviceEvent),
-
-      // Posibles variantes del nombre según la API
-      socketManager.on('DeviceStateChanged', onDeviceEvent),
-      socketManager.on('WebSocketDeviceEvent', onDeviceEvent),
-
-      // Lista de dispositivos cambió
-      socketManager.on('device.created',          onDeviceListChange),
-      socketManager.on('device.updated',          onDeviceListChange),
-      socketManager.on('device.deleted',          onDeviceListChange),
-      socketManager.on('WebSocketDeviceCreated',  onDeviceListChange),
-      socketManager.on('WebSocketDeviceUpdated',  onDeviceListChange),
-      socketManager.on('WebSocketDeviceDeleted',  onDeviceListChange),
-
-      // El hogar fue compartido/descompartido con este usuario
-      socketManager.on('home.shared',           onHomeShared),
-      socketManager.on('home.unshared',         onHomeUnshared),
-      socketManager.on('WebSocketHomeShared',   onHomeShared),
-      socketManager.on('WebSocketHomeUnshared', onHomeUnshared),
+      socketManager.on('device.event',   onDeviceEvent),
+      socketManager.on('device.created', onDeviceListChange),
+      socketManager.on('device.updated', onDeviceListChange),
+      socketManager.on('device.deleted', onDeviceListChange),
+      socketManager.on('home.shared',    onHomeShared),
+      socketManager.on('home.unshared',  onHomeUnshared),
     ]
 
     socketManager.connect()

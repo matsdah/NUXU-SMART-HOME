@@ -25,6 +25,8 @@ type ApiDevice = {
   name: string
   type?: { id?: string; name?: string }
   typeId?: string
+  room?: { id?: string }
+  state?: Record<string, unknown>
 }
 
 type ApiRoutine = {
@@ -582,45 +584,35 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
   }
 
+  function mapApiDevice(device: ApiDevice, roomId: string): Device {
+    const typeId   = device.type?.id ?? device.typeId ?? ''
+    const typeName = device.type?.name
+    const kind = resolveDeviceKind(typeId, typeName) ?? 'other'
+    const isFridge = kind === 'fridge'
+    const state = mapRecordToDeviceState(device.state)
+    const persistedEntries = readPersistedControlStates(device.id, kind)
+    const persistedState = mergePersistedNormalizedState(persistedEntries)
+    const resolvedIsOn = resolveDevicePowerState(state, persistedState)
+
+    return {
+      id: device.id,
+      name: device.name,
+      roomId,
+      kind,
+      status: formatStatus(state),
+      isOn: isFridge ? true : resolvedIsOn,
+      tone: isFridge ? 'sage' : (resolvedIsOn ? 'sage' : 'neutral'),
+      typeId,
+    }
+  }
+
   async function mapRoomDevices(roomId: string): Promise<Device[]> {
     if(!roomId){
       return []
     }
 
     const data = await api.get<ApiDevice[]>(`/rooms/${roomId}/devices`)
-
-    /* Fetcheamos todos los estados en paralelo */
-    const states = await Promise.all(
-      data.map(device =>
-        fetchDeviceStateWithFallback(device.id)
-          .then(state => ({ id: device.id, state }))
-          .catch(()  => ({ id: device.id, state: undefined }))
-      )
-    )
-    const stateMap = new Map(states.map(s => [s.id, s.state]))
-
-    return data.map(device => {
-      const state = stateMap.get(device.id)
-
-      const typeId   = device.type?.id ?? device.typeId ?? ''
-      const typeName = device.type?.name
-      const kind = resolveDeviceKind(typeId, typeName) ?? 'other'
-      const isFridge = kind === 'fridge'
-      const persistedEntries = readPersistedControlStates(device.id, kind)
-      const persistedState = mergePersistedNormalizedState(persistedEntries)
-      const resolvedIsOn = resolveDevicePowerState(state, persistedState)
-
-      return {
-        id: device.id,
-        name: device.name,
-        roomId,
-        kind,
-        status: formatStatus(state),
-        isOn: isFridge ? true : resolvedIsOn,
-        tone: isFridge ? 'sage' : (resolvedIsOn ? 'sage' : 'neutral'),
-        typeId,
-      }
-    })
+    return data.map(device => mapApiDevice(device, roomId))
   }
 
   async function loadDevices(roomId: string): Promise<void> {
@@ -632,21 +624,15 @@ export const useDashboardStore = defineStore('dashboard', () => {
       return []
     }
 
-    const homeRooms = await api.get<ApiRoom[]>(`/homes/${homeId}/rooms`)
-    const devicesByRoom = await Promise.all(
-      homeRooms.map(async (room) => {
-        try {
-          return await mapRoomDevices(room.id)
-        } catch (err) {
-          if (err instanceof ApiError && err.status === 404) {
-            return []
-          }
-          throw err
-        }
-      }),
-    )
+    const [homeRooms, allDevices] = await Promise.all([
+      api.get<ApiRoom[]>(`/homes/${homeId}/rooms`),
+      api.get<ApiDevice[]>('/devices'),
+    ])
 
-    return devicesByRoom.flat()
+    const roomIdSet = new Set(homeRooms.map(r => r.id))
+    return allDevices
+      .filter(d => d.room?.id && roomIdSet.has(d.room.id))
+      .map(d => mapApiDevice(d, d.room?.id ?? ''))
   }
 
   function invalidateRoutines(): void {
