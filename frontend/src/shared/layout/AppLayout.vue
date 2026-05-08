@@ -252,18 +252,18 @@ async function handleLogout() {
 
 .home-switch {
   position: relative;
-  z-index: 11; /* Se asegura de estar sobre el overlay con z-index mayor. */
+  z-index: 11;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.45rem 0.9rem;
+  padding: 0.35rem 0.65rem 0.35rem 0.35rem;
   border-radius: 999px;
-  border: 1px solid rgba(42, 40, 37, 0.15);
-  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(42, 40, 37, 0.12);
+  background: rgba(255, 255, 255, 0.65);
   color: var(--color-text, rgba(42, 40, 37, 1));
   font-weight: 600;
   font-size: 0.9rem;
-  box-shadow: 0 8px 20px rgba(42, 40, 37, 0.08);
+  box-shadow: 0 8px 16px rgba(42, 40, 37, 0.08);
   cursor: pointer;
   transition: background 0.2s ease;
 }
@@ -272,25 +272,33 @@ async function handleLogout() {
   background: rgba(255, 255, 255, 0.9);
 }
 
-.home-switch__icon,
-.home-switch__chev {
+.home-switch__icon {
   display: grid;
   place-items: center;
+  width: 28px;
+  height: 28px;
+}
+
+.home-switch__icon svg {
   width: 20px;
   height: 20px;
 }
 
-.home-switch__icon svg,
-.home-switch__chev svg {
-  width: 18px;
-  height: 18px;
-}
-
-.home-switch__chev svg {
+.home-switch__chev {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  opacity: 0.5;
   transition: transform 0.2s ease;
 }
 
-.home-switch[aria-expanded="true"] .home-switch__chev svg {
+.home-switch__chev svg {
+  width: 14px;
+  height: 14px;
+}
+
+.home-switch[aria-expanded="true"] .home-switch__chev {
   transform: rotate(180deg);
 }
 

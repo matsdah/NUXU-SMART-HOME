@@ -681,6 +681,11 @@ onMounted(async () => {
   transition: all 0.2s ease;
 }
 
+.room-tab:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.85);
+  color: rgba(42, 40, 37, 0.95);
+}
+
 .room-tab--active {
   background: rgba(42, 40, 37, 0.95);
   color: #f7f3e7;
@@ -739,8 +744,8 @@ onMounted(async () => {
   margin: -0.4rem 0 1rem;
   padding: 0.55rem 0.8rem;
   border-radius: 10px;
-  background: rgba(181, 68, 68, 0.14);
-  color: #7a2323;
+  background: rgba(42, 40, 37, 0.95);
+  color: #f7f3e7;
   font-size: 0.8rem;
   font-weight: 600;
 }
@@ -757,10 +762,15 @@ onMounted(async () => {
   transition: all 0.2s ease;
 }
 
+.panel__edit-toggle:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
+}
+
 .panel__edit-toggle--active {
-  background: #b54444;
-  color: #fff;
-  box-shadow: 0 0 0 1px rgba(122, 35, 35, 0.45);
+  background: rgba(42, 40, 37, 0.95);
+  color: #f7f3e7;
+  box-shadow: 0 0 0 1px rgba(42, 40, 37, 0.45);
 }
 
 .device-grid {
@@ -794,9 +804,9 @@ onMounted(async () => {
 
 .device-card--delete-mode {
   box-shadow:
-    inset 0 0 0 2px #b54444,
-    0 0 0 1px rgba(181, 68, 68, 0.22);
-  background: rgba(255, 244, 244, 0.88);
+    inset 0 0 0 2px rgba(42, 40, 37, 0.95),
+    0 0 0 1px rgba(42, 40, 37, 0.3);
+  background: rgba(255, 255, 255, 0.4);
 }
 
 .device-card__top {

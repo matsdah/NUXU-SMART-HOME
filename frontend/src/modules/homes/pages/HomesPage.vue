@@ -346,7 +346,7 @@ onBeforeUnmount(() => {
       <section class="panel panel--devices">
         <header class="panel__header">
           <h2 class="panel__title">Dispositivos</h2>
-<RouterLink class="panel__link" to="/devices">Ver todas</RouterLink>
+          <RouterLink class="panel__link" to="/devices">Ver todas</RouterLink>
         </header>
 
         <div class="device-grid">
@@ -571,6 +571,11 @@ onBeforeUnmount(() => {
   transition: all 0.2s ease;
 }
 
+.room-tab:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.85);
+  color: rgba(42, 40, 37, 0.95);
+}
+
 .room-tab--active {
   background: rgba(42, 40, 37, 0.95);
   color: #f7f3e7;
@@ -616,10 +621,21 @@ onBeforeUnmount(() => {
   font-weight: 600;
 }
 
-.panel__link {
-  font-size: 0.85rem;
-  color: rgba(42, 40, 37, 0.65);
-  font-weight: 600;
+.panel__link{
+  border: none;
+  background: rgba(255, 255, 255, 0.7);
+  color: rgba(42, 40, 37, 0.85);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.panel__link:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
 }
 
 .device-grid {
