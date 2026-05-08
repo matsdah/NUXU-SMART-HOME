@@ -288,19 +288,21 @@ async function onDispense() {
 .tap-dispense-btn {
   width: 100%;
   height: 46px;
-  border-radius: 12px;
+  border-radius: 999px;
   background: rgba(52, 47, 41, 0.88);
   border: none;
   color: #fff;
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: 700;
   font-family: var(--font-sans);
   cursor: pointer;
-  transition: background 0.2s;
+  transition: background 0.2s, transform 0.2s, box-shadow 0.2s, opacity 0.2s;
 }
 
 .tap-dispense-btn:hover:not(:disabled) {
   background: rgba(52, 47, 41, 1);
+  box-shadow: 0 8px 24px rgba(52, 47, 41, 0.18);
+  transform: translateY(-1px);
 }
 
 .tap-dispense-btn:disabled {

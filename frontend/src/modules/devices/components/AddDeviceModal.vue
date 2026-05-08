@@ -147,14 +147,19 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
           </div>
 
 
-          <button type="submit" class="modal__submit" :disabled="loading">
-            <svg v-if="loading" width="18" height="18" viewBox="0 0 24 24" fill="none"
-              aria-hidden="true" class="spinner">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"
-                stroke-dasharray="60" stroke-dashoffset="20"/>
-            </svg>
-            <span v-else>Agregar</span>
-          </button>
+          <div class="modal__actions">
+            <button type="button" class="modal__cancel" :disabled="loading" @click="emit('close')">
+              Cancelar
+            </button>
+            <button type="submit" class="modal__submit" :disabled="loading">
+              <svg v-if="loading" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                aria-hidden="true" class="spinner">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2"
+                  stroke-dasharray="60" stroke-dashoffset="20"/>
+              </svg>
+              <span v-else>Agregar</span>
+            </button>
+          </div>
 
         </form>
 
@@ -303,25 +308,54 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
   color: var(--color-brown);
 }
 
+.modal__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.modal__cancel,
 .modal__submit {
-  width: 100%;
   height: 50px;
-  border-radius: 12px;
-  background-color: var(--color-brown);
-  border: none;
-  color: #fff;
+  border-radius: 999px;
   font-size: 0.95rem;
-  font-weight: 400;
+  font-weight: 600;
   font-family: var(--font-sans);
   cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.modal__cancel {
+  border: 1px solid rgba(42, 40, 37, 0.2);
+  color: rgba(42, 40, 37, 0.8);
+  background: #fff;
+}
+
+.modal__cancel:hover:not(:disabled) {
+  background: rgba(42, 40, 37, 0.06);
+  transform: translateY(-1px);
+}
+
+.modal__submit {
+  border: none;
+  background-color: var(--color-brown);
+  color: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color 0.2s;
 }
 
-.modal__submit:hover:not(:disabled) { background-color: #7a5240; }
-.modal__submit:disabled { opacity: 0.6; cursor: not-allowed; }
+.modal__submit:hover:not(:disabled) {
+  background-color: #7a5240;
+  box-shadow: 0 8px 24px rgba(122, 82, 64, 0.2);
+  transform: translateY(-1px);
+}
+
+.modal__cancel:disabled,
+.modal__submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .modal__loading {
   font-size: 0.9rem;

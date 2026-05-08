@@ -376,18 +376,21 @@ function formatDuration(secs?: number): string {
 .spk-playlist-btn {
   width: 100%;
   height: 40px;
-  border-radius: 12px;
+  border-radius: 999px;
   background: rgba(52, 47, 41, 0.08);
   border: none;
   color: rgba(52, 47, 41, 0.75);
   font-size: 0.85rem;
+  font-weight: 700;
   font-family: var(--font-sans);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, transform 0.15s, box-shadow 0.15s, opacity 0.15s;
 }
 
 .spk-playlist-btn:hover:not(:disabled) {
   background: rgba(52, 47, 41, 0.13);
+  box-shadow: 0 8px 24px rgba(52, 47, 41, 0.12);
+  transform: translateY(-1px);
 }
 
 .spk-playlist-btn:disabled {
