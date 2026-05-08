@@ -39,6 +39,9 @@ export const DEFAULT_ACTION_LABELS: ActionMap = {
   armAway: "Activar modo away",
   disarm: "Desactivar",
   setGenre: "Seleccionar género",
+  setLocation: "Cambiar ubicacion",
+  changeSecurityCode: "Cambiar codigo",
+  getPlaylist: "Obtener playlist",
 };
 
 export const EXCLUSIVE_ACTION_GROUPS: string[][] = [
@@ -49,7 +52,7 @@ export const EXCLUSIVE_ACTION_GROUPS: string[][] = [
     ["armStay", "armAway", "disarm"],
     ["play", "pause", "resume", "stop"],
 ];
-const STORAGE_KEY = "nuxu.actionsAllowedByType.v1";
+const STORAGE_KEY = "nuxu.actionsAllowedByType.v2";
 
 let actionsAllowedByType: Record<string, string[]> = {};
 

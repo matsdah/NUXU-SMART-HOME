@@ -98,36 +98,37 @@ export type Routine = {
 
 /* Helpers de mapeo y formateo */
 
+const DEFAULT_SECURITY_CODE = '1234'
+
 const TYPE_ID_MAP: Record<string, DeviceKind> = {
-  'go46xmbqei8eoaomjk3p': 'ac',
-  'ofglvd9gzubmmk9hzfal': 'vacuum',
-  'eu0v2xgprrhhg41o':     'lamp',
-  'im77xyzlyfm3oijpo3eh': 'speaker',
-  'dbrlpeuy8t19pbt0mlkr': 'tap',
-  'lsq3up3bkgqk0k0f64jf': 'blind',
-  'otmbrewtofbpfqm6dxne': 'oven',
-  's1b0bk0tj4lpyzm6oc2l': 'door',
-  'rnizejujvmx3dxl1o6km': 'fridge',
+  go46xmbqeomjrsjr: 'ac',
+  eu0v2xgprrhhg41g: 'lamp',
+  im77xxyulpegfmv8: 'alarm',
+  mxztsyjzsrq7iaqc: 'blind',
+  c89qmhhzm3bcpoie: 'door',
+  dbrlsh0juhf3dhf0: 'tap',
+  lsf78ly0eqrjbz91: 'oven',
+  rnizejqr2di0okho: 'fridge',
+  fud5vmuy0fkh6zt9: 'speaker',
+  ofglvd9gqx8yfl3l: 'vacuum',
+  rnizejqr2di0o43o: 'other',
 }
 
-function normalizeDeviceKind(device: ApiDevice): DeviceKind {
-  const resolvedTypeId = device.type?.id ?? device.typeId
-if (resolvedTypeId && TYPE_ID_MAP[resolvedTypeId]) return TYPE_ID_MAP[resolvedTypeId]
-
-  const source = `${device.type?.name ?? ''} ${device.typeId ?? ''} ${device.name ?? ''}`.toLowerCase()
-
-  if (source.includes('vacuum') || source.includes('aspiradora')) return 'vacuum'
-  if (source.includes('speaker') || source.includes('audio') || source.includes('parlante')) return 'speaker'
-  if (source.includes('tap') || source.includes('faucet') || source.includes('canilla') || source.includes('sprinkler') || source.includes('aspersor')) return 'tap'
-  if (source.includes('blind') || source.includes('curtain') || source.includes('persiana') || source.includes('roller')) return 'blind'
-  if (source.includes('lamp') || source.includes('light') || source.includes('luz') || source.includes('lámpara')) return 'lamp'
-  if (source.includes('oven') || source.includes('horno')) return 'oven'
-  if (source.includes('air') || source.includes('conditioner') || source.includes('aire')) return 'ac'
-  if (source.includes('alarm') || source.includes('alarma')) return 'alarm'
-  if (source.includes('door') || source.includes('lock') || source.includes('puerta')) return 'door'
-  if (source.includes('fridge') || source.includes('refrigerator') || source.includes('heladera')) return 'fridge'
-
-  return 'other'
+const TYPE_NAME_MAP: Record<string, DeviceKind> = {
+  ac: 'ac',
+  alarm: 'alarm',
+  blinds: 'blind',
+  blind: 'blind',
+  door: 'door',
+  faucet: 'tap',
+  tap: 'tap',
+  lamp: 'lamp',
+  oven: 'oven',
+  refrigerator: 'fridge',
+  fridge: 'fridge',
+  speaker: 'speaker',
+  vacuum: 'vacuum',
+  timer: 'other',
 }
 
 function formatStatus(state?: ApiDeviceState): string {
@@ -440,15 +441,21 @@ function syncPersistedPowerState(
   writePersistedControlState(preferredKind, deviceId, { ...existing, isOn })
 }
 
-function resolveDeviceKindByTypeId(typeId?: string): DeviceKind | undefined {
-  if (!typeId) {
-    return undefined
+function normalizeTypeName(typeName?: string): string {
+  return typeName?.trim().toLowerCase() ?? ''
+}
+
+function resolveDeviceKind(typeId?: string, typeName?: string): DeviceKind | undefined {
+  const nameKind = TYPE_NAME_MAP[normalizeTypeName(typeName)]
+  if (nameKind) {
+    return nameKind
   }
-  return TYPE_ID_MAP[typeId]
+
+  return typeId ? TYPE_ID_MAP[typeId] : undefined
 }
 
 function initialStateForNewDevice(typeId?: string): Record<string, unknown> {
-  const kind = resolveDeviceKindByTypeId(typeId)
+  const kind = resolveDeviceKind(typeId)
   if (!kind || !DEFAULT_ON_DEVICE_KINDS.has(kind)) {
     return {}
   }
@@ -456,7 +463,7 @@ function initialStateForNewDevice(typeId?: string): Record<string, unknown> {
 }
 
 function seedDeviceInitialPowerState(deviceId: string, typeId?: string): void {
-  const kind = resolveDeviceKindByTypeId(typeId)
+  const kind = resolveDeviceKind(typeId)
   if (!kind || !DEFAULT_ON_DEVICE_KINDS.has(kind)) {
     return
   }
@@ -470,31 +477,23 @@ function getToggleCommands(kind: DeviceKind | undefined, isCurrentlyOn: boolean)
   const vacuumAction = isCurrentlyOn ? 'pause' : 'start'
 
   if (kind === 'tap') {
-    return [{ action: accessAction }, { action: powerAction }]
+    return [{ action: accessAction }]
   }
 
   if (kind === 'blind') {
-    return [
-      { action: 'setLevel', payload: { level: isCurrentlyOn ? 0 : 100 } },
-      { action: accessAction },
-      { action: powerAction },
-    ]
+    return [{ action: 'setLevel', payload: { level: isCurrentlyOn ? 0 : 100 } }]
   }
 
   if (kind === 'speaker') {
-    return [{ action: mediaAction }, { action: powerAction }]
+    return [{ action: mediaAction }]
   }
 
   if (kind === 'vacuum') {
-    return [{ action: vacuumAction }, { action: powerAction }]
+    return [{ action: vacuumAction }]
   }
 
-  if (kind === 'fridge' || kind === 'door' || kind === 'alarm') {
+  if (kind === 'fridge' || kind === 'door' || kind === 'alarm' || kind === 'other') {
     return []
-  }
-
-  if (kind === 'other') {
-    return [{ action: powerAction }, { action: accessAction }]
   }
 
   return [{ action: powerAction }]
@@ -524,7 +523,6 @@ export const useDashboardStore = defineStore('dashboard', () => {
   const homes = ref<ApiHome[]>([])
   const rooms = ref<Room[]>([])
   const devices = ref<Device[]>([])
-  const deviceTypes = ref<DeviceType[]>([])
   const routines = ref<Routine[]>([])
   const members = ref<Member[]>([])
   const activeHomeId = ref('')
@@ -604,15 +602,9 @@ export const useDashboardStore = defineStore('dashboard', () => {
     return data.map(device => {
       const state = stateMap.get(device.id)
 
-      /* Acumulamos tipos únicos para usarlos al crear nuevos dispositivos. */
-      const typeId   = device.type?.id ?? device.typeId
+      const typeId   = device.type?.id ?? device.typeId ?? ''
       const typeName = device.type?.name
-      if (typeId && typeName && !deviceTypes.value.find(t => t.id === typeId)) {
-        deviceTypes.value.push({ id: typeId, name: typeName })
-      }
-
-      const rawTypeId = device.type?.id ?? device.typeId
-      const kind = normalizeDeviceKind(device)
+      const kind = resolveDeviceKind(typeId, typeName) ?? 'other'
       const isFridge = kind === 'fridge'
       const persistedEntries = readPersistedControlStates(device.id, kind)
       const persistedState = mergePersistedNormalizedState(persistedEntries)
@@ -626,7 +618,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
         status: formatStatus(state),
         isOn: isFridge ? true : resolvedIsOn,
         tone: isFridge ? 'sage' : (resolvedIsOn ? 'sage' : 'neutral'),
-        typeId: rawTypeId,
+        typeId,
       }
     })
   }
@@ -895,10 +887,14 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
     if (kind === 'fridge') {
       const mode = getString(snapshot.mode)
+      const fridgeTemperature = getNumber(snapshot.temperature, snapshot.fridgeTemp)
       const freezerTemperature = getNumber(snapshot.freezerTemperature, snapshot.freezerTemp)
       if (mode) await applyDeviceAction(deviceId, 'setMode', { mode })
+      if (fridgeTemperature !== null) {
+        await applyDeviceAction(deviceId, 'setTemperature', { temperature: fridgeTemperature })
+      }
       if (freezerTemperature !== null) {
-        await applyDeviceAction(deviceId, 'setFreezerTemperature', { freezerTemperature })
+        await applyDeviceAction(deviceId, 'setFreezerTemperature', { temperature: freezerTemperature })
       }
       return
     }
@@ -942,11 +938,11 @@ export const useDashboardStore = defineStore('dashboard', () => {
     if (kind === 'alarm') {
       const status = getString(snapshot.status)?.toLowerCase()
       if (status === 'armedaway') {
-        await applyDeviceAction(deviceId, 'armAway')
+        await applyDeviceAction(deviceId, 'armAway', { securityCode: DEFAULT_SECURITY_CODE })
       } else if (status === 'armedhome' || status === 'armedstay') {
-        await applyDeviceAction(deviceId, 'armStay')
+        await applyDeviceAction(deviceId, 'armStay', { securityCode: DEFAULT_SECURITY_CODE })
       } else if (status === 'disarmed') {
-        await applyDeviceAction(deviceId, 'disarm')
+        await applyDeviceAction(deviceId, 'disarm', { securityCode: DEFAULT_SECURITY_CODE })
       }
       return
     }
@@ -975,7 +971,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     if (genericGrill) await applyDeviceAction(deviceId, 'setGrill', { grill: genericGrill })
     if (genericConvection) await applyDeviceAction(deviceId, 'setConvection', { convection: genericConvection })
     if (genericFreezerTemperature !== null) {
-      await applyDeviceAction(deviceId, 'setFreezerTemperature', { freezerTemperature: genericFreezerTemperature })
+      await applyDeviceAction(deviceId, 'setFreezerTemperature', { temperature: genericFreezerTemperature })
     }
     if (genericLevel !== null) await applyDeviceAction(deviceId, 'setLevel', { level: genericLevel })
 
@@ -1465,7 +1461,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
     const target = devices.value.find(d => d.id === id)
 
-    if (target?.kind === 'fridge' || target?.kind === 'door' || target?.kind === 'alarm') {
+    if (target?.kind === 'fridge' || target?.kind === 'door' || target?.kind === 'alarm' || target?.kind === 'other') {
       return
     }
     pendingActions.value.add(id)
@@ -1546,7 +1542,6 @@ export const useDashboardStore = defineStore('dashboard', () => {
     homes.value = []
     rooms.value = []
     devices.value = []
-    deviceTypes.value = []
     routines.value = []
     members.value = []
     activeHomeId.value = ''
@@ -1564,7 +1559,6 @@ export const useDashboardStore = defineStore('dashboard', () => {
     homes,
     rooms,
     devices,
-    deviceTypes,
     routines,
     members,
     activeHomeId,
@@ -1577,6 +1571,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     dashboardLoaded,
     /* Acciones */
     loadDashboard,
+    loadHomes,
     loadRooms,
     loadRoutines,
     invalidateRoutines,

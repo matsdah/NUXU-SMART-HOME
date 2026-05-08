@@ -13,7 +13,18 @@ export interface ApiDeviceType {
   powerUsage?: number;
   actions?: Array<{
     name: string;
-    params?: Array<{ name: string; type: string }>;
+    params?: Array<{
+      name: string;
+      type: string;
+      minValue?: number | string;
+      maxValue?: number | string;
+      supportedValues?: string[];
+    }>;
+    return?: {
+      type?: string;
+      description?: string;
+      example?: unknown;
+    };
   }>;
 }
 

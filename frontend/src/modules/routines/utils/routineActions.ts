@@ -21,7 +21,18 @@ export type DeviceTypeWithActions = {
     name?: string;
     actions?: Array<{
         name?: string;
-        params?: Array<{ name?: string; type?: string }>;
+        params?: Array<{
+            name?: string;
+            type?: string;
+            minValue?: number | string;
+            maxValue?: number | string;
+            supportedValues?: string[];
+        }>;
+        return?: {
+            type?: string;
+            description?: string;
+            example?: unknown;
+        };
     }>;
 };
 
@@ -37,43 +48,84 @@ export type ActionRowError = {
 };
 
 const ACTION_PARAM_OVERRIDES: Record<string, Array<Partial<ActionParamSchema>>> = {
-    setTemperature: [{ min: 18, max: 38, step: 1, label: "Temperatura" }],
-    setBrightness: [{ min: 0, max: 100, step: 5, label: "Brillo" }],
-    setVolume: [{ min: 0, max: 10, step: 1, label: "Volumen" }],
-    setLevel: [{ min: 0, max: 100, step: 5, label: "Nivel" }],
-    setFreezerTemperature: [
-        { min: -20, max: -8, step: 1, label: "Temperatura freezer" },
+    setTemperature: [
+        { name: "temperature", type: "integer", min: 18, max: 38, step: 1, label: "Temperatura" },
     ],
-    setHeat: [{ min: 90, max: 230, step: 5, label: "Temperatura" }],
-    setGrill: [{ min: 90, max: 230, step: 5, label: "Temperatura" }],
-    setConvection: [{ min: 90, max: 230, step: 5, label: "Temperatura" }],
+    setBrightness: [
+        { name: "brightness", type: "integer", min: 0, max: 100, step: 1, label: "Brillo" },
+    ],
+    setColor: [
+        { name: "color", type: "string", label: "Color" },
+    ],
+    setVolume: [
+        { name: "volume", type: "integer", min: 0, max: 10, step: 1, label: "Volumen" },
+    ],
+    setLevel: [
+        { name: "level", type: "integer", min: 0, max: 100, step: 1, label: "Nivel" },
+    ],
+    setFreezerTemperature: [
+        { name: "temperature", type: "integer", min: -20, max: -8, step: 1, label: "Temperatura freezer" },
+    ],
+    setHeat: [
+        { name: "heat", type: "string", enum: ["conventional", "bottom", "top"], label: "Calor" },
+    ],
+    setGrill: [
+        { name: "grill", type: "string", enum: ["large", "eco", "off"], label: "Grill" },
+    ],
+    setConvection: [
+        { name: "convection", type: "string", enum: ["normal", "eco", "off"], label: "Conveccion" },
+    ],
     dispense: [
-        { min: 1, max: 100, step: 5, label: "Cantidad" },
-        { enum: ["ml", "cl", "dl", "l"], label: "Unidad" },
+        { name: "quantity", type: "integer", min: 1, max: 100, step: 1, label: "Cantidad" },
+        { name: "unit", type: "string", enum: ["ml", "cl", "dl", "l", "dal", "hl", "kl"], label: "Unidad" },
     ],
     setFanSpeed: [
         {
-            enum: ["auto", "25%", "50%", "75%", "100%"],
+            name: "fanSpeed",
+            type: "string",
+            enum: ["auto", "25", "50", "75", "100"],
             label: "Velocidad",
         },
     ],
     setVerticalSwing: [
         {
-            enum: ["auto", "22°", "45°", "67°", "90°"],
+            name: "verticalSwing",
+            type: "string",
+            enum: ["auto", "22", "45", "67", "90"],
             label: "Oscilacion vertical",
         },
     ],
     setHorizontalSwing: [
         {
-            enum: ["auto", "-90°", "-45°", "0°", "45°"],
+            name: "horizontalSwing",
+            type: "string",
+            enum: ["auto", "-90", "-45", "0", "45", "90"],
             label: "Oscilacion horizontal",
         },
     ],
     setGenre: [
         {
-            enum: ["clasica", "country", "dance", "latina", "pop", "rock"],
+            name: "genre",
+            type: "string",
+            enum: ["classical", "country", "dance", "latina", "pop", "rock"],
             label: "Genero",
         },
+    ],
+    changeSecurityCode: [
+        { name: "oldSecurityCode", type: "string", label: "Codigo actual" },
+        { name: "newSecurityCode", type: "string", label: "Codigo nuevo" },
+    ],
+    armStay: [
+        { name: "securityCode", type: "string", label: "Codigo de seguridad" },
+    ],
+    armAway: [
+        { name: "securityCode", type: "string", label: "Codigo de seguridad" },
+    ],
+    disarm: [
+        { name: "securityCode", type: "string", label: "Codigo de seguridad" },
+    ],
+    setLocation: [
+        { name: "roomId", type: "string", label: "Habitacion" },
     ],
 };
 
@@ -82,34 +134,48 @@ const ACTION_PARAM_OVERRIDES_BY_TYPE: Record<
     Record<string, Array<Partial<ActionParamSchema>>>
 > = {
     "aire acondicionado": {
-        setMode: [{ enum: ["fan", "cool", "heat"], label: "Modo" }],
+        setMode: [{ name: "mode", type: "string", enum: ["cool", "heat", "fan"], label: "Modo" }],
     },
     "air conditioner": {
-        setMode: [{ enum: ["fan", "cool", "heat"], label: "Modo" }],
+        setMode: [{ name: "mode", type: "string", enum: ["cool", "heat", "fan"], label: "Modo" }],
     },
     ac: {
-        setMode: [{ enum: ["fan", "cool", "heat"], label: "Modo" }],
+        setMode: [{ name: "mode", type: "string", enum: ["cool", "heat", "fan"], label: "Modo" }],
     },
     heladera: {
         setMode: [
-            { enum: ["normal", "party", "vacation"], label: "Modo" },
+            { name: "mode", type: "string", enum: ["default", "vacation", "party"], label: "Modo" },
+        ],
+        setTemperature: [
+            { name: "temperature", type: "integer", min: 2, max: 8, step: 1, label: "Temperatura" },
         ],
     },
     fridge: {
         setMode: [
-            { enum: ["normal", "party", "vacation"], label: "Modo" },
+            { name: "mode", type: "string", enum: ["default", "vacation", "party"], label: "Modo" },
+        ],
+        setTemperature: [
+            { name: "temperature", type: "integer", min: 2, max: 8, step: 1, label: "Temperatura" },
         ],
     },
     refrigerator: {
         setMode: [
-            { enum: ["normal", "party", "vacation"], label: "Modo" },
+            { name: "mode", type: "string", enum: ["default", "vacation", "party"], label: "Modo" },
+        ],
+        setTemperature: [
+            { name: "temperature", type: "integer", min: 2, max: 8, step: 1, label: "Temperatura" },
         ],
     },
     aspiradora: {
-        setMode: [{ enum: ["vacuum", "mop"], label: "Modo" }],
+        setMode: [{ name: "mode", type: "string", enum: ["vacuum", "mop"], label: "Modo" }],
     },
     vacuum: {
-        setMode: [{ enum: ["vacuum", "mop"], label: "Modo" }],
+        setMode: [{ name: "mode", type: "string", enum: ["vacuum", "mop"], label: "Modo" }],
+    },
+    oven: {
+        setTemperature: [
+            { name: "temperature", type: "integer", min: 90, max: 230, step: 1, label: "Temperatura" },
+        ],
     },
 };
 
@@ -130,6 +196,44 @@ function normalizeParamType(raw: string | undefined): ActionParamType {
     return PARAM_TYPE_MAP[key] ?? "string";
 }
 
+function normalizeEnum(values: unknown): string[] | undefined {
+    if (!Array.isArray(values)) return undefined;
+    const cleaned = values.filter((value): value is string => typeof value === "string" && value.length > 0);
+    return cleaned.length > 0 ? cleaned : undefined;
+}
+
+function normalizeNumericConstraint(
+    raw: number | string | undefined,
+    type: ActionParamType,
+): number | undefined {
+    if (raw === undefined || raw === null) return undefined;
+    if (type !== "integer" && type !== "number") return undefined;
+    if (typeof raw === "number" && Number.isFinite(raw)) return raw;
+    return undefined;
+}
+
+function mergeParamOverride(
+    base: ActionParamSchema,
+    overrides?: Partial<ActionParamSchema>,
+): ActionParamSchema {
+    if (!overrides) return base;
+    return {
+        ...base,
+        ...overrides,
+        required: overrides.required ?? base.required,
+    };
+}
+
+function getActionParamOverride(
+    actionName: string,
+    index: number,
+    typeKey?: string,
+): Partial<ActionParamSchema> | undefined {
+    return typeKey
+        ? ACTION_PARAM_OVERRIDES_BY_TYPE[typeKey]?.[actionName]?.[index] ?? ACTION_PARAM_OVERRIDES[actionName]?.[index]
+        : ACTION_PARAM_OVERRIDES[actionName]?.[index];
+}
+
 export function buildDeviceTypeActionMap(
     deviceTypes: DeviceTypeWithActions[],
 ): Record<string, ActionSchema[]> {
@@ -140,16 +244,21 @@ export function buildDeviceTypeActionMap(
         const typeKey = normalizeTypeName(deviceType.name);
         const actions = (deviceType.actions ?? []).reduce<ActionSchema[]>(
             (acc, action) => {
-                if (!action.name) return acc;
+                const actionName = action.name;
+                if (!actionName) return acc;
                 const params = (action.params ?? []).map((param, index) => {
+                    const paramType = normalizeParamType(param.type);
                     const base: ActionParamSchema = {
                         name: param.name?.trim() || `param${index + 1}`,
-                        type: normalizeParamType(param.type),
+                        type: paramType,
                         required: true,
+                        min: normalizeNumericConstraint(param.minValue, paramType),
+                        max: normalizeNumericConstraint(param.maxValue, paramType),
+                        enum: normalizeEnum(param.supportedValues),
                     };
-                    return applyParamOverride(action.name, base, index);
+                    return applyParamOverride(actionName, base, index, typeKey);
                 });
-                acc.push({ actionName: action.name, params });
+                acc.push({ actionName, params });
                 return acc;
             },
             [],
@@ -183,11 +292,11 @@ export function getParamSchemaForAction(
 
     if (!overrides) return [];
     return overrides.map((override, index) =>
-        applyParamOverride(actionName, {
-            name: `param${index + 1}`,
-            type: override.enum ? "string" : "number",
+        mergeParamOverride({
+            name: override.name ?? `param${index + 1}`,
+            type: override.type ?? (override.enum ? "string" : "number"),
             required: true,
-        }, index),
+        }, override),
     );
 }
 
@@ -195,10 +304,10 @@ export function applyParamOverride(
     actionName: string,
     base: ActionParamSchema,
     index: number,
+    typeKey?: string,
 ): ActionParamSchema {
-    const overrides = ACTION_PARAM_OVERRIDES[actionName]?.[index];
-    if (!overrides) return base;
-    return { ...base, ...overrides };
+    const overrides = getActionParamOverride(actionName, index, typeKey);
+    return mergeParamOverride(base, overrides);
 }
 
 export function buildDefaultParams(schema: ActionParamSchema[]): Record<string, unknown> {
@@ -256,10 +365,14 @@ export function mapParamsFromApi(
         const record = raw as Record<string, unknown>;
         if (!schema.length) return { ...record };
 
-        const values = Object.values(record);
         const mapped: Record<string, unknown> = {};
+        const values = Object.values(record);
         schema.forEach((param, index) => {
-            mapped[param.name] = values[index];
+            if (Object.prototype.hasOwnProperty.call(record, param.name)) {
+                mapped[param.name] = record[param.name];
+            } else {
+                mapped[param.name] = values[index];
+            }
         });
         return mapped;
     }
@@ -282,8 +395,9 @@ export function validateActionItem(
         const value = params[param.name];
         const label = param.label ?? param.name;
         const isRequired = param.required !== false;
+        const stringValue = typeof value === "string" ? value.trim() : null;
 
-        if (value === "" || value === undefined || value === null) {
+        if (value === "" || value === undefined || value === null || stringValue === "") {
             if (isRequired) {
                 errors.push({
                     field: param.name,
@@ -304,6 +418,15 @@ export function validateActionItem(
         }
 
         if (param.type === "integer" || param.type === "number") {
+            if (typeof value === "string" && value.trim() === "") {
+                if (isRequired) {
+                    errors.push({
+                        field: param.name,
+                        message: `Completa ${label.toLowerCase()}.`,
+                    });
+                }
+                continue;
+            }
             const numericValue = Number(value);
             if (Number.isNaN(numericValue)) {
                 errors.push({
