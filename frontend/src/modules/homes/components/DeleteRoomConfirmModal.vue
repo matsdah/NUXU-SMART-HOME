@@ -141,12 +141,12 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
 .modal__cancel,
 .modal__confirm {
   height: 50px;
-  border-radius: 12px;
+  border-radius: 999px;
   font-size: 0.95rem;
-  font-weight: 400;
+  font-weight: 600;
   font-family: var(--font-sans);
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s, opacity 0.2s;
+  transition: background-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s, box-shadow 0.2s;
 }
 
 .modal__cancel {
@@ -157,6 +157,7 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
 
 .modal__cancel:hover:not(:disabled) {
   background: rgba(42, 40, 37, 0.06);
+  transform: translateY(-1px);
 }
 
 .modal__confirm {
@@ -167,6 +168,8 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
 
 .modal__confirm:hover:not(:disabled) {
   background: #992f2f;
+  box-shadow: 0 8px 24px rgba(153, 47, 47, 0.2);
+  transform: translateY(-1px);
 }
 
 .modal__cancel:disabled,

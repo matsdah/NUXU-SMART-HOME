@@ -1241,10 +1241,12 @@ export const useDashboardStore = defineStore('dashboard', () => {
     await Promise.all(roomDevices.map(async (device) => {
       try {
         await api.delete(`/devices/${device.id}`)
+        removePersistedControlStates(device.id)
       } catch (err) {
         if (!(err instanceof ApiError) || err.status !== 404) {
           throw err
         }
+        removePersistedControlStates(device.id)
       }
     }))
   }
@@ -1263,6 +1265,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
   }
 
   async function deleteRoom(roomId: string): Promise<void> {
+    await clearRoomDevices(roomId)
+
     try {
       await deleteRoomRequest(roomId)
     } catch (err) {
@@ -1318,23 +1322,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     }
 
     for (const room of homeRooms) {
-      let roomDevices: ApiDevice[] = []
-      try {
-        roomDevices = await api.get<ApiDevice[]>(`/rooms/${room.id}/devices`)
-      } catch (err) {
-        if (!(err instanceof ApiError) || err.status !== 404) {
-          throw err
-        }
-      }
-      await Promise.all(roomDevices.map(async (device) => {
-        try {
-          await api.delete(`/devices/${device.id}`)
-        } catch (err) {
-          if (!(err instanceof ApiError) || err.status !== 404) {
-            throw err
-          }
-        }
-      }))
+      await clearRoomDevices(room.id)
       try {
         await api.delete(`/rooms/${room.id}`)
       } catch (err) {

@@ -24,6 +24,8 @@ const homeSelectorRef = ref<HTMLElement | null>(null)
 // Lógica del menú de usuario
 const isUserMenuOpen = ref(false)
 const userChipRef = ref<HTMLElement | null>(null)
+const showLogoutConfirm = ref(false)
+const loggingOut = ref(false)
 
 function closeMenuOnClickOutside(event: MouseEvent) {
   if (isHomeMenuOpen.value && homeSelectorRef.value && !homeSelectorRef.value.contains(event.target as Node)) {
@@ -38,13 +40,22 @@ function navigateToSettings(view?: string) {
   isUserMenuOpen.value = false
   router.push({ path: '/settings', query: view ? { view } : {} })
 }
+
+function onKeyDown(event: KeyboardEvent) {
+  if (event.key === 'Escape' && showLogoutConfirm.value && !loggingOut.value) {
+    showLogoutConfirm.value = false
+  }
+}
+
 onMounted(() => {
   document.addEventListener('click', closeMenuOnClickOutside)
+  document.addEventListener('keydown', onKeyDown)
   socket.connect()
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('click', closeMenuOnClickOutside)
+  document.removeEventListener('keydown', onKeyDown)
   socket.disconnect()
 })
 const activeHomeName = computed(() => {
@@ -67,10 +78,37 @@ const initials = computed(() => {
   return parts.slice(0, 2).map(part => part[0]).join('').toUpperCase()
 })
 
-async function handleLogout() {
-  socket.disconnect()
-  await auth.logout()
-  router.push({ name: 'login' })
+function requestLogout() {
+  isUserMenuOpen.value = false
+  showLogoutConfirm.value = true
+}
+
+function closeLogoutConfirm() {
+  if (!loggingOut.value) {
+    showLogoutConfirm.value = false
+  }
+}
+
+async function confirmLogout() {
+  if (loggingOut.value) {
+    return
+  }
+
+  loggingOut.value = true
+  try {
+    socket.disconnect()
+    await auth.logout()
+    showLogoutConfirm.value = false
+    router.push({ name: 'login' })
+  } finally {
+    loggingOut.value = false
+  }
+}
+
+function onLogoutOverlayClick(event: MouseEvent) {
+  if (event.target === event.currentTarget) {
+    closeLogoutConfirm()
+  }
 }
 
 </script>
@@ -193,13 +231,55 @@ async function handleLogout() {
             </div>
           </Transition>
         </div>
-        <button class="ghost-btn" type="button" @click="handleLogout">Salir</button>
+        <button class="ghost-btn" type="button" @click="requestLogout">Salir</button>
       </div>
     </header>
 
     <main class="app-main" id="app-main">
       <RouterView />
     </main>
+
+    <Teleport to="body">
+      <div v-if="showLogoutConfirm" class="logout-overlay" @click="onLogoutOverlayClick">
+        <div class="logout-modal" role="dialog" aria-modal="true" aria-labelledby="logout-title">
+          <div class="logout-modal__header">
+            <h2 id="logout-title" class="logout-modal__title">Cerrar sesión</h2>
+            <button
+              class="logout-modal__close"
+              type="button"
+              :disabled="loggingOut"
+              aria-label="Cerrar"
+              @click="closeLogoutConfirm"
+            >
+              ✕
+            </button>
+          </div>
+
+          <p class="logout-modal__message">
+            ¿Estás seguro de que querés cerrar sesión?
+          </p>
+
+          <div class="logout-modal__actions">
+            <button
+              type="button"
+              class="logout-modal__cancel"
+              :disabled="loggingOut"
+              @click="closeLogoutConfirm"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              class="logout-modal__confirm"
+              :disabled="loggingOut"
+              @click="confirmLogout"
+            >
+              Salir
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
@@ -542,6 +622,120 @@ async function handleLogout() {
   background: transparent;
   font-weight: 600;
   cursor: pointer;
+}
+
+.logout-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  background: rgba(42, 40, 37, 0.25);
+  padding: 1.5rem;
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  .logout-overlay {
+    background: rgba(42, 40, 37, 0.72);
+  }
+}
+
+.logout-modal {
+  background: #fff;
+  border-radius: 24px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 32px 64px rgba(42, 40, 37, 0.22);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.logout-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.logout-modal__title {
+  font-size: 1.4rem;
+  font-weight: 300;
+  color: var(--color-text);
+}
+
+.logout-modal__close {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(42, 40, 37, 0.08);
+  color: rgba(42, 40, 37, 0.7);
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.logout-modal__close:hover:not(:disabled) {
+  background: rgba(42, 40, 37, 0.15);
+}
+
+.logout-modal__message {
+  color: rgba(42, 40, 37, 0.75);
+  line-height: 1.4;
+}
+
+.logout-modal__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+}
+
+.logout-modal__cancel,
+.logout-modal__confirm {
+  height: 50px;
+  border-radius: 999px;
+  font-size: 0.95rem;
+  font-weight: 600;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s, opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+
+.logout-modal__cancel {
+  border: 1px solid rgba(42, 40, 37, 0.2);
+  color: rgba(42, 40, 37, 0.8);
+  background: #fff;
+}
+
+.logout-modal__cancel:hover:not(:disabled) {
+  background: rgba(42, 40, 37, 0.06);
+  transform: translateY(-1px);
+}
+
+.logout-modal__confirm {
+  border: none;
+  color: #fff;
+  background: #b54444;
+}
+
+.logout-modal__confirm:hover:not(:disabled) {
+  background: #992f2f;
+  box-shadow: 0 8px 24px rgba(153, 47, 47, 0.2);
+  transform: translateY(-1px);
+}
+
+.logout-modal__cancel:disabled,
+.logout-modal__confirm:disabled,
+.logout-modal__close:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .app-main {
