@@ -2,14 +2,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { api, ApiError } from '@/services/api/client'
 import { useDashboardStore } from '@/app/stores/dashboard'
-import type { DeviceType, DeviceKind } from '@/app/stores/dashboard'
-
-const KIND_LABELS: Partial<Record<DeviceKind, string>> = {
-  ac: 'Aire acondicionado', vacuum: 'Aspiradora', lamp: 'Lámpara',
-  speaker: 'Parlante', tap: 'Canilla', blind: 'Persiana',
-  oven: 'Horno', door: 'Puerta', fridge: 'Heladera', alarm: 'Alarma', other: 'Otro',
-}
-function kindLabel(kind: DeviceKind): string { return KIND_LABELS[kind] ?? kind }
+import type { DeviceType } from '@/app/stores/dashboard'
 
 const props = defineProps<{
   roomId: string
@@ -23,26 +16,12 @@ const emit = defineEmits<{
 
 const store = useDashboardStore()
 
-// Tipos conocidos como fallback si el endpoint no responde correctamente
-const FALLBACK_TYPES: DeviceType[] = [
-  { id: 'go46xmbqei8eoaomjk3p', name: 'Aire acondicionado' },
-  { id: 'ofglvd9gzubmmk9hzfal', name: 'Aspiradora' },
-  { id: 'eu0v2xgprrhhg41o',     name: 'Lámpara' },
-  { id: 'im77xyzlyfm3oijpo3eh', name: 'Parlante' },
-  { id: 'dbrlpeuy8t19pbt0mlkr', name: 'Canilla' },
-  { id: 'lsq3up3bkgqk0k0f64jf', name: 'Persiana' },
-  { id: 'otmbrewtofbpfqm6dxne', name: 'Horno' },
-  { id: 's1b0bk0tj4lpyzm6oc2l', name: 'Puerta' },
-  { id: 'rnizejujvmx3dxl1o6km', name: 'Heladera' },
-]
-
 const deviceTypes = ref<DeviceType[]>([])
 const name = ref('')
 const selectedTypeId = ref('')
 const error = ref('')
 const loading = ref(false)
 const loadingTypes = ref(true)
-type ApiDeviceDetail = { type?: { id?: string; name?: string } }
 type ApiCreatedDevice = { id?: string }
 
 async function loadDeviceTypes(): Promise<DeviceType[]> {
@@ -51,61 +30,11 @@ async function loadDeviceTypes(): Promise<DeviceType[]> {
 }
 
 onMounted(async () => {
-  try {
-    const backendTypes = await loadDeviceTypes()
-    if (backendTypes.length > 0) {
-      deviceTypes.value = backendTypes
-      selectedTypeId.value =
-        backendTypes.find(type => type.name.toLowerCase().includes('aire acondicionado'))?.id
-        ?? backendTypes[0].id
-      loadingTypes.value = false
-      return
-    }
-  } catch {
-    // Sigue con los fallbacks locales.
-  }
-
-  if (store.deviceTypes.length > 0) {
-    deviceTypes.value = store.deviceTypes
-    selectedTypeId.value =
-      store.deviceTypes.find(type => type.name.toLowerCase().includes('aire acondicionado'))?.id
-      ?? store.deviceTypes[0].id
-    loadingTypes.value = false
-    return
-  }
-
-  if (store.devices.length > 0) {
-    const seen = new Set<string>()
-    const fromDetails: DeviceType[] = []
-
-    await Promise.all(store.devices.map(async (d) => {
-      try {
-        const detail = await api.get<ApiDeviceDetail>(`/devices/${d.id}`)
-        const typeId = detail.type?.id
-        const typeName = detail.type?.name ?? kindLabel(d.kind)
-        if (typeId && !seen.has(typeId)) {
-          seen.add(typeId)
-          fromDetails.push({ id: typeId, name: typeName })
-        }
-      } catch {
-        // ignora dispositivos que fallen
-      }
-    }))
-
-    if (fromDetails.length > 0) {
-      deviceTypes.value = fromDetails
-      selectedTypeId.value =
-        fromDetails.find(type => type.name.toLowerCase().includes('aire acondicionado'))?.id
-        ?? fromDetails[0].id
-      loadingTypes.value = false
-      return
-    }
-  }
-
-  deviceTypes.value = FALLBACK_TYPES
+  const backendTypes = await loadDeviceTypes()
+  deviceTypes.value = backendTypes
   selectedTypeId.value =
-    FALLBACK_TYPES.find(type => type.name.toLowerCase().includes('aire acondicionado'))?.id
-    ?? FALLBACK_TYPES[0].id
+    backendTypes.find(type => type.name.toLowerCase().includes('aire acondicionado'))?.id
+    ?? backendTypes[0]!.id
   loadingTypes.value = false
   document.addEventListener('keydown', onKeyDown)
 })

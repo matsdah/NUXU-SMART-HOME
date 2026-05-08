@@ -31,7 +31,7 @@ const PRESET_COLORS = [
 const state = ref<LampState>({
   isOn: props.initialIsOn ?? true,
   brightness: 80,
-  color: '#FFD580',
+  color: '#FFFFFF',
 })
 
 const loading = ref(true)
@@ -65,7 +65,7 @@ function readPersistedState(): Partial<LampState> | null {
 function applyStatePatch(patch: Partial<LampState>) {
   if (typeof patch.isOn === 'boolean') state.value.isOn = patch.isOn
   if (typeof patch.brightness === 'number') state.value.brightness = patch.brightness
-  if (typeof patch.color === 'string') state.value.color = patch.color
+  if (typeof patch.color === 'string') state.value.color = normalizeColor(patch.color)
 }
 
 function hasUnsavedChanges(): boolean {
@@ -78,7 +78,7 @@ onMounted(async () => {
     const raw = await api.get<Record<string, unknown>>(`/devices/${props.deviceId}/state`)
     if (typeof raw.on === 'boolean') state.value.isOn = raw.on
     if (typeof raw.brightness === 'number') state.value.brightness = raw.brightness
-    if (typeof raw.color === 'string') state.value.color = raw.color
+    if (typeof raw.color === 'string') state.value.color = normalizeColor(raw.color)
   } catch {
     // Se usan valores por defecto
   } finally {
@@ -101,6 +101,14 @@ onBeforeUnmount(() => {
 function togglePower() {
   state.value.isOn = !state.value.isOn
   emit('powerToggled', state.value.isOn)
+}
+
+function normalizeColor(raw: string): string {
+  const trimmed = raw.trim()
+  if (!trimmed) return '#FFFFFF'
+  if (trimmed.toLowerCase() === 'white') return '#FFFFFF'
+  if (/^#[0-9a-fA-F]{6}$/.test(trimmed)) return trimmed.toUpperCase()
+  return '#FFFFFF'
 }
 
 function hslToHex(h: number): string {

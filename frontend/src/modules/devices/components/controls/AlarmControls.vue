@@ -78,13 +78,9 @@ function showSuccessToast(msg: string) {
 function onModeSelect(value: string) {
   if (value === currentMode.value || actionPending.value) return
   const mode = value as AlarmMode
-  if (mode === 'disarmed') {
-    void applyMode(mode, '')
-  } else {
-    pendingMode.value = mode
-    securityCode.value = ''
-    error.value = ''
-  }
+  pendingMode.value = mode
+  securityCode.value = '1234'
+  error.value = ''
 }
 
 async function confirmCode() {
@@ -98,7 +94,7 @@ async function applyMode(newMode: AlarmMode, code: string) {
   const previous = currentMode.value
   currentMode.value = newMode
   try {
-    await api.patch(`/devices/${props.deviceId}/${MODE_ACTIONS[newMode]}`, { code })
+    await api.patch(`/devices/${props.deviceId}/${MODE_ACTIONS[newMode]}`, { securityCode: code })
     const raw = await api.get<Record<string, unknown>>(`/devices/${props.deviceId}/state`)
     const parsed = parseMode(raw.status as string)
     if (parsed) currentMode.value = parsed
@@ -128,8 +124,8 @@ async function changeCode() {
   changingCode.value = true
   try {
     await api.patch(`/devices/${props.deviceId}/changeSecurityCode`, {
-      currentCode: currentCode.value,
-      newCode: newCode.value,
+      oldSecurityCode: currentCode.value,
+      newSecurityCode: newCode.value,
     })
     currentCode.value = ''
     newCode.value = ''
@@ -186,7 +182,10 @@ async function changeCode() {
           </div>
 
           <div v-if="pendingMode" class="alarm-code-prompt">
-            <p class="alarm-hint">Ingresá el código para activar <strong>{{ MODE_LABELS[pendingMode] }}</strong></p>
+            <p class="alarm-hint">
+              <span v-if="pendingMode === 'disarmed'">Ingresá el código para desactivar la alarma</span>
+              <span v-else>Ingresá el código para activar <strong>{{ MODE_LABELS[pendingMode] }}</strong></span>
+            </p>
             <input
               v-model="securityCode"
               type="password"

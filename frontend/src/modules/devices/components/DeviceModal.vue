@@ -43,111 +43,16 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeyDown)
 })
 
-const isAirConditioner = computed(() => {
-  const source = [
-    props.device.kind,
-    props.device.typeId ?? '',
-    props.device.name,
-    props.device.status,
-  ].join(' ').toLowerCase()
-
-  return source.includes('air')
-    || source.includes(' ac ') || source.includes('ac ') || props.device.kind === 'ac'
-    || source.includes('conditioner')
-    || source.includes('aire')
-    || source.includes('acondicion')
-    || props.device.typeId === 'go46xmbqei8eoaomjk3p'
-})
-
-const isOven = computed(() => {
-  const source = [
-    props.device.kind,
-    props.device.typeId ?? '',
-    props.device.name,
-    props.device.status,
-  ].join(' ').toLowerCase()
-
-  return source.includes('oven')
-    || source.includes('horno')
-    || source.includes('stove')
-})
-
-const isFridge = computed(() => {
-  const source = [
-    props.device.kind,
-    props.device.typeId ?? '',
-    props.device.name,
-    props.device.status,
-  ].join(' ').toLowerCase()
-
-  return source.includes('fridge')
-    || source.includes('heladera')
-    || source.includes('refrigerator')
-    || source.includes('freezer')
-})
-
-const isLamp = computed(() => {
-  const source = [
-    props.device.kind,
-    props.device.typeId ?? '',
-    props.device.name,
-    props.device.status,
-  ].join(' ').toLowerCase()
-
-  return source.includes('lamp')
-    || source.includes('light')
-    || source.includes('luz')
-    || source.includes('lampara')
-    || source.includes('lámpara')
-})
-
-const isDoor = computed(() => {
-  const source = [
-    props.device.kind,
-    props.device.typeId ?? '',
-    props.device.name,
-    props.device.status,
-  ].join(' ').toLowerCase()
-
-  return source.includes('door')
-    || source.includes('puerta')
-})
-
-const isAlarm = computed(() => {
-  const source = [props.device.kind, props.device.typeId ?? '', props.device.name].join(' ').toLowerCase()
-  return props.device.kind === 'alarm' || source.includes('alarm') || source.includes('alarma')
-})
-
-const isBlind = computed(() => {
-  const source = [props.device.kind, props.device.typeId ?? '', props.device.name].join(' ').toLowerCase()
-  return props.device.kind === 'blind'
-    || source.includes('blind') || source.includes('persiana')
-    || source.includes('curtain') || source.includes('roller')
-    || props.device.typeId === 'lsq3up3bkgqk0k0f64jf'
-})
-
-const isVacuum = computed(() => {
-  const source = [props.device.kind, props.device.typeId ?? '', props.device.name].join(' ').toLowerCase()
-  return props.device.kind === 'vacuum'
-    || source.includes('vacuum') || source.includes('aspiradora')
-    || props.device.typeId === 'ofglvd9gzubmmk9hzfal'
-})
-
-const isSpeaker = computed(() => {
-  const source = [props.device.kind, props.device.typeId ?? '', props.device.name].join(' ').toLowerCase()
-  return props.device.kind === 'speaker'
-    || source.includes('speaker') || source.includes('parlante') || source.includes('audio')
-    || props.device.typeId === 'im77xyzlyfm3oijpo3eh'
-})
-
-const isTap = computed(() => {
-  const source = [props.device.kind, props.device.typeId ?? '', props.device.name].join(' ').toLowerCase()
-  return props.device.kind === 'tap'
-    || source.includes('tap') || source.includes('faucet')
-    || source.includes('canilla') || source.includes('sprinkler')
-    || source.includes('aspersor')
-    || props.device.typeId === 'dbrlpeuy8t19pbt0mlkr'
-})
+const isAirConditioner = computed(() => props.device.kind === 'ac')
+const isOven = computed(() => props.device.kind === 'oven')
+const isFridge = computed(() => props.device.kind === 'fridge')
+const isLamp = computed(() => props.device.kind === 'lamp')
+const isDoor = computed(() => props.device.kind === 'door')
+const isAlarm = computed(() => props.device.kind === 'alarm')
+const isBlind = computed(() => props.device.kind === 'blind')
+const isVacuum = computed(() => props.device.kind === 'vacuum')
+const isSpeaker = computed(() => props.device.kind === 'speaker')
+const isTap = computed(() => props.device.kind === 'tap')
 
 function onOverlayClick(e: MouseEvent) {
   if (e.target === e.currentTarget) emit('close')

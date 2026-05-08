@@ -11,7 +11,7 @@ const props = defineProps<{ deviceId: string; deviceName?: string }>()
 type PlaybackStatus = 'playing' | 'paused' | 'stopped'
 
 const GENRES: PillOption[] = [
-  { value: 'clasica',  label: 'Clásica'  },
+  { value: 'classical',  label: 'Clásica'  },
   { value: 'country',  label: 'Country'  },
   { value: 'dance',    label: 'Dance'    },
   { value: 'latina',   label: 'Latina'   },
@@ -59,7 +59,7 @@ async function fetchState() {
   const raw = await api.get<Record<string, unknown>>(`/devices/${props.deviceId}/state`)
   playbackStatus.value = parseStatus(raw.status)
   volume.value  = Number(raw.volume ?? volume.value)
-  genre.value   = String(raw.genre ?? genre.value)
+  genre.value   = normalizeGenre(raw.genre ?? genre.value)
   const song = raw.song as Record<string, unknown> | string | undefined
   if (typeof song === 'string') {
     songTitle.value = song
@@ -94,6 +94,13 @@ function handleError(e: unknown) {
   }
 }
 
+function normalizeGenre(raw: unknown): string {
+  const value = String(raw ?? '').trim().toLowerCase()
+  if (!value) return genre.value
+  if (value === 'clasica') return 'classical'
+  return value
+}
+
 async function doAction(action: string, body: Record<string, unknown> = {}, toast?: string) {
   if (actionPending.value) return
   actionPending.value = true
@@ -126,9 +133,13 @@ async function fetchPlaylist() {
   playlistLoading.value = true
   error.value = ''
   try {
-    const raw = await api.get<unknown>(`/devices/${props.deviceId}/playList`)
-    const items = Array.isArray(raw) ? raw : (raw as Record<string, unknown>)?.songs as PlaylistSong[] ?? []
-    playlist.value = items
+    const raw = await api.patch<{ result?: unknown }>(`/devices/${props.deviceId}/getPlaylist`, {})
+    const payload = raw?.result ?? raw
+    const record = (payload && typeof payload === 'object') ? payload as Record<string, unknown> : null
+    const items = Array.isArray(payload)
+      ? payload
+      : (record?.songs as PlaylistSong[] | undefined) ?? []
+    playlist.value = Array.isArray(items) ? items : []
     showPlaylist.value = true
   } catch (e) {
     handleError(e)

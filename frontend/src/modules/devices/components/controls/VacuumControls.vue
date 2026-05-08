@@ -70,13 +70,21 @@ async function fetchState() {
   vacuumStatus.value = parseStatus(raw.status)
   mode.value = parseMode(raw.mode)
 
-  const loc  = raw.location        as Record<string, unknown> | undefined
-  const dock = raw.dockingStation   as Record<string, unknown> | undefined
+  const loc = raw.location as Record<string, unknown> | null | undefined
+  const dock = raw.dockingStation as Record<string, unknown> | null | undefined
 
-  locationId.value   = String(loc?.id   ?? loc?.roomId ?? '')
-  locationName.value = String(loc?.name ?? '')
-  dockId.value       = String(dock?.id   ?? dock?.roomId ?? '')
-  dockName.value     = String(dock?.name ?? '')
+  locationId.value = typeof loc === 'object' && loc
+    ? String(loc.id ?? loc.roomId ?? '')
+    : ''
+  locationName.value = typeof loc === 'object' && loc
+    ? String(loc.name ?? '')
+    : ''
+  dockId.value = typeof dock === 'object' && dock
+    ? String(dock.id ?? dock.roomId ?? '')
+    : ''
+  dockName.value = typeof dock === 'object' && dock
+    ? String(dock.name ?? '')
+    : ''
 }
 
 onMounted(async () => {

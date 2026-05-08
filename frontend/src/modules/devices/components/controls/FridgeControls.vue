@@ -9,7 +9,7 @@ import PillButtons from '../shared/PillButtons.vue'
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 
 type FridgeState = {
-  mode: 'normal' | 'party' | 'vacation'
+  mode: 'default' | 'party' | 'vacation'
   fridgeTemp: number
   freezerTemp: number
 }
@@ -21,13 +21,13 @@ const FREEZER_TEMP_MAX = -8
 const STORAGE_KEY_PREFIX = 'fridge-controls-state:'
 
 const MODES: PillOption[] = [
-  { value: 'normal', label: 'Normal' },
+  { value: 'default', label: 'Normal' },
   { value: 'party', label: 'Fiesta' },
   { value: 'vacation', label: 'Vacaciones' },
 ]
 
 const state = ref<FridgeState>({
-  mode: 'normal',
+  mode: 'default',
   fridgeTemp: 4,
   freezerTemp: -18,
 })
@@ -43,7 +43,7 @@ let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 const currentModeLabel = computed(() => {
   const modeMap: Record<FridgeState['mode'], string> = {
-    normal: 'Normal',
+    default: 'Normal',
     party: 'Fiesta',
     vacation: 'Vacaciones',
   }
@@ -70,7 +70,7 @@ function readPersistedState(): Partial<FridgeState> | null {
 }
 
 function applyStatePatch(patch: Partial<FridgeState>) {
-  if (patch.mode) state.value.mode = patch.mode
+  if (patch.mode) state.value.mode = normalizeMode(patch.mode)
   if (typeof patch.fridgeTemp === 'number') state.value.fridgeTemp = patch.fridgeTemp
   if (typeof patch.freezerTemp === 'number') state.value.freezerTemp = patch.freezerTemp
 }
@@ -86,7 +86,7 @@ function hasUnsavedChanges(): boolean {
 onMounted(async () => {
   try {
     const raw = await api.get<Record<string, unknown>>(`/devices/${props.deviceId}/state`)
-    if (raw.mode) state.value.mode = raw.mode as FridgeState['mode']
+    if (raw.mode) state.value.mode = normalizeMode(raw.mode)
     if (raw.fridgeTemp) state.value.fridgeTemp = raw.fridgeTemp as number
     if (raw.freezerTemp) state.value.freezerTemp = raw.freezerTemp as number
   } catch {
@@ -139,6 +139,14 @@ async function saveChanges() {
   } finally {
     saving.value = false
   }
+}
+
+function normalizeMode(raw: unknown): FridgeState['mode'] {
+  const value = String(raw ?? '').trim().toLowerCase()
+  if (value === 'normal') return 'default'
+  if (value === 'party') return 'party'
+  if (value === 'vacation') return 'vacation'
+  return 'default'
 }
 </script>
 
