@@ -489,9 +489,10 @@ onMounted(async () => {
       <div class="device-grid">
         <button
           class="device-card device-card--new"
+          :class="{ 'device-card--new--editing': isDeviceEditMode }"
           type="button"
           aria-label="Agregar dispositivo"
-          :disabled="rooms.length === 0"
+          :disabled="rooms.length === 0 || isDeviceEditMode"
           @click="showAddDevice = true"
         >
           <span class="device-card__plus">+</span>
@@ -897,11 +898,20 @@ onMounted(async () => {
 .switch input:disabled + .switch__track { background: #e0e0e0; }
 
 .device-card--new {
-  border: 1px dashed rgba(42, 40, 37, 0.2);
+  border: 1px dashed rgba(42, 40, 37, 0.45);
   align-items: center;
   justify-content: center;
-  background: transparent;
-  cursor: pointer;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.device-card--new--editing {
+  background: transparent !important;
+  border-color: rgba(42, 40, 37, 0.2);
+}
+
+.device-card--new:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
   transform: none !important;
   box-shadow: none !important;
 }
@@ -915,11 +925,6 @@ onMounted(async () => {
   place-items: center;
   font-size: 1.6rem;
   color: rgba(42, 40, 37, 0.6);
-}
-
-.device-card--new:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
 }
 
 .devices-empty {

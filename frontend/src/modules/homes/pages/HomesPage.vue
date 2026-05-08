@@ -747,13 +747,10 @@ onBeforeUnmount(() => {
 }
 
 .device-card--new {
-  border: 1px dashed rgba(42, 40, 37, 0.2);
+  border: 1px dashed rgba(42, 40, 37, 0.45);
   align-items: center;
   justify-content: center;
-  background: transparent;
-  cursor: pointer;
-  transform: none !important;
-  box-shadow: none !important;
+  background: rgba(255, 255, 255, 0.85);
 }
 
 .device-card__plus {
