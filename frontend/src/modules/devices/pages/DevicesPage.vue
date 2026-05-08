@@ -619,6 +619,7 @@ onMounted(async () => {
       v-if="showAddDevice"
       :room-id="selectedCreationRoomId"
       :room-name="selectedCreationRoomName"
+      :show-room-selector="activeFilter === 'all'"
       @close="showAddDevice = false"
       @created="onDeviceCreated"
     />

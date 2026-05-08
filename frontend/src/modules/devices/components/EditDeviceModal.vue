@@ -354,20 +354,21 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  padding: 0.62rem 0.9rem;
+  padding: 0.7rem 0.8rem;
   border-radius: 12px;
-  border: 1px solid rgba(42, 40, 37, 0.15);
-  background: rgba(255, 255, 255, 0.7);
-  color: var(--color-text, rgba(42, 40, 37, 1));
-  font-weight: 600;
+  border: 1.5px solid var(--color-sage);
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--color-text);
+  font-family: inherit;
   font-size: 0.9rem;
-  box-shadow: 0 8px 20px rgba(42, 40, 37, 0.08);
+  font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s ease;
+  transition: border-color 0.2s, background 0.2s;
 }
 
 .room-switch:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.9);
+  border-color: var(--color-brown);
+  background: rgba(255, 255, 255, 0.75);
 }
 
 .room-switch:disabled {
@@ -379,14 +380,19 @@ onBeforeUnmount(() => {
 .room-switch__chev {
   display: grid;
   place-items: center;
-  width: 20px;
-  height: 20px;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
 }
 
 .room-switch__icon svg,
 .room-switch__chev svg {
   width: 18px;
   height: 18px;
+}
+
+.room-switch__icon svg {
+  opacity: 0.6;
 }
 
 .room-switch__label {
@@ -397,11 +403,17 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
 }
 
-.room-switch__chev svg {
+.room-switch__chev {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  opacity: 0.5;
   transition: transform 0.2s ease;
 }
 
-.room-switch[aria-expanded="true"] .room-switch__chev svg {
+.room-switch[aria-expanded="true"] .room-switch__chev {
   transform: rotate(180deg);
 }
 

@@ -4,12 +4,14 @@ import { useHomesDashboard } from '@/modules/homes/composables/useHomesDashboard
 import { useDashboardStore } from '@/app/stores/dashboard'
 import { useSocketStore } from '@/app/stores/socket'
 import type { Device } from '@/app/stores/dashboard'
-import { ApiError } from '@/services/api/client'
+import { api, ApiError } from '@/services/api/client'
 import DeviceModal from '@/modules/devices/components/DeviceModal.vue'
 import AddDeviceModal from '@/modules/devices/components/AddDeviceModal.vue'
 import AddRoomModal from '@/modules/homes/components/AddRoomModal.vue'
 import DeleteRoomConfirmModal from '@/modules/homes/components/DeleteRoomConfirmModal.vue'
 import EditRoomModal from '@/modules/homes/components/EditRoomModal.vue'
+import RoutineFormModal from '@/modules/routines/components/RoutineFormModal.vue'
+import type { RoutineCard } from '@/modules/routines/components/RoutineFormModal.vue'
 
 const { rooms, routines, activeHomeId, activeRoomId, loading, error, pendingActions } = useHomesDashboard()
 
@@ -32,6 +34,20 @@ const deletingRoom = ref(false)
 const pendingRoomEdition = ref<{ id: string; name: string } | null>(null)
 const renamingRoom = ref(false)
 const editRoomError = ref('')
+const showCreateRoutine = ref(false)
+const runningRoutineId = ref<string | null>(null)
+
+type Toast = { id: number; message: string; type: 'success' | 'error' }
+const toasts = ref<Toast[]>([])
+let toastId = 0
+
+function showToast(message: string, type: 'success' | 'error') {
+  const id = ++toastId
+  toasts.value.push({ id, message, type })
+  setTimeout(() => {
+    toasts.value = toasts.value.filter(t => t.id !== id)
+  }, 3500)
+}
 
 function openDeviceModal(device: Device) {
   selectedDevice.value = device
@@ -163,6 +179,28 @@ function requestRoomRename() {
 
   pendingRoomEdition.value = { id: room.id, name: room.name }
   showEditRoomModal.value = true
+}
+
+async function executeRoutine(id: string) {
+  if (runningRoutineId.value) return
+  runningRoutineId.value = id
+  try {
+    await api.patch(`/routines/${id}/execute`, {})
+    showToast('Rutina ejecutada correctamente.', 'success')
+  } catch (e) {
+    const msg = e instanceof ApiError
+      ? `Error ${e.status} al ejecutar la rutina.`
+      : 'No se pudo ejecutar la rutina.'
+    showToast(msg, 'error')
+  } finally {
+    runningRoutineId.value = null
+  }
+}
+
+function onRoutineCreated(_routine: RoutineCard) {
+  showCreateRoutine.value = false
+  store.invalidateRoutines()
+  void store.loadRoutines()
 }
 
 function closeEditRoomModal() {
@@ -467,10 +505,29 @@ watch(() => socketStore.deviceListVersion, () => {
               <p>{{ routine.summary }}</p>
               <span v-if="routine.time">{{ routine.time }}</span>
             </div>
-            <span class="routine-arrow" aria-hidden="true">›</span>
+            <button
+              type="button"
+              class="routine-card__play"
+              :disabled="runningRoutineId !== null"
+              :aria-label="`Ejecutar ${routine.name}`"
+              @click="executeRoutine(routine.id)"
+            >
+              <svg
+                v-if="runningRoutineId === routine.id"
+                class="spinner"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-dasharray="60" stroke-dashoffset="20" />
+              </svg>
+              <svg v-else viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </button>
           </article>
 
-          <button class="routine-card routine-card--new" type="button" aria-label="Crear rutina">
+          <button class="routine-card routine-card--new" type="button" aria-label="Crear rutina" @click="showCreateRoutine = true">
             <span class="routine-card__plus">+</span>
             <span>Nuevo</span>
           </button>
@@ -490,6 +547,7 @@ watch(() => socketStore.deviceListVersion, () => {
       v-if="showAddDevice"
       :room-id="activeRoomId"
       :room-name="store.rooms.find(r => r.id === activeRoomId)?.name ?? ''"
+      :show-room-selector="activeRoomFilter === 'all'"
       @close="showAddDevice = false"
       @created="onDeviceCreated"
     />
@@ -508,6 +566,13 @@ watch(() => socketStore.deviceListVersion, () => {
       @confirm="confirmRoomDeletion"
     />
 
+    <RoutineFormModal
+      v-if="showCreateRoutine"
+      mode="create"
+      @close="showCreateRoutine = false"
+      @created="onRoutineCreated"
+    />
+
     <EditRoomModal
       v-if="showEditRoomModal && pendingRoomEdition"
       :room-name="pendingRoomEdition.name"
@@ -516,6 +581,19 @@ watch(() => socketStore.deviceListVersion, () => {
       @close="closeEditRoomModal"
       @updated="confirmRoomRename"
     />
+
+    <Teleport to="body">
+      <TransitionGroup name="toast" tag="div" class="toast-stack">
+        <div
+          v-for="t in toasts" :key="t.id"
+          class="toast" :class="t.type === 'success' ? 'toast--success' : 'toast--error'"
+          role="status"
+        >
+          <span class="toast__dot" aria-hidden="true" />
+          {{ t.message }}
+        </div>
+      </TransitionGroup>
+    </Teleport>
 
   </section>
 </template>
@@ -815,6 +893,11 @@ watch(() => socketStore.deviceListVersion, () => {
   box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
 }
 
+.routine-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
+}
+
 .routine-icon {
   width: 44px;
   height: 44px;
@@ -852,28 +935,62 @@ watch(() => socketStore.deviceListVersion, () => {
   color: rgba(42, 40, 37, 0.6);
 }
 
-.routine-arrow {
-  font-size: 1.2rem;
-  color: rgba(42, 40, 37, 0.55);
+.routine-card__play {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(42, 40, 37, 0.88);
+  color: #f7f3e7;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.18s;
+}
+
+.routine-card__play svg {
+  width: 18px;
+  height: 18px;
+}
+
+.routine-card__play:hover:not(:disabled) {
+  background: rgba(42, 40, 37, 1);
+}
+
+.routine-card__play:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .routine-card--new {
-  border: 1px dashed rgba(42, 40, 37, 0.2);
-  background: transparent;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
   justify-content: center;
-  grid-template-columns: auto auto;
+  gap: 0.6rem;
+  padding: 0.9rem;
+  border: 1px dashed rgba(42, 40, 37, 0.45);
+  background: rgba(255, 255, 255, 0.85);
   cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.routine-card--new:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
 }
 
 .routine-card__plus {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(200, 200, 200, 0.7);
   display: grid;
   place-items: center;
-  font-size: 1.4rem;
-  color: rgba(42, 40, 37, 0.55);
+  font-size: 1.6rem;
+  line-height: 1;
+  color: rgba(42, 40, 37, 0.6);
 }
 
 @media (max-width: 1024px) {
@@ -890,5 +1007,80 @@ watch(() => socketStore.deviceListVersion, () => {
   .device-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  animation: spin 0.9s linear infinite;
+}
+
+/* ─── Toast notifications ────────────────────────────────── */
+.toast-stack {
+  position: fixed;
+  bottom: 1.75rem;
+  right: 1.75rem;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(42, 40, 37, 0.18);
+  pointer-events: auto;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.toast--success {
+  background: rgba(255, 255, 255, 0.95);
+  color: #2a4d3a;
+  border: 1px solid rgba(82, 196, 125, 0.35);
+}
+
+.toast--error {
+  background: rgba(255, 255, 255, 0.95);
+  color: #7a1f1f;
+  border: 1px solid rgba(180, 60, 60, 0.3);
+}
+
+.toast__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.toast--success .toast__dot {
+  background: #52c47d;
+}
+.toast--error .toast__dot {
+  background: #e05252;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(24px);
+}
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(24px);
 }
 </style>
