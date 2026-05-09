@@ -362,15 +362,10 @@ watch(() => dashboard.activeHomeId, async (newId) => {
           <div class="action-list">
             <button class="action-card" type="button" @click="goToRecoverPassword">
               <span class="action-card__icon">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <rect x="9" y="11" width="6" height="6" rx="1.3" fill="none" stroke="currentColor" stroke-width="1.7" />
-                  <path d="M10.8 11V9.8a1.2 1.2 0 1 1 2.4 0V11" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-                  <path d="M6.4 7.4A8 8 0 0 1 18.6 8" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M18.6 8V5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M18.6 8h-3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M17.6 16.6A8 8 0 0 1 5.4 16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M5.4 16v3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M5.4 16h3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" stroke-width="1.7" />
+                  <path d="M8 11V7a4 4 0 0 1 8 0v4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                  <circle cx="12" cy="16" r="1.2" fill="currentColor" />
                 </svg>
               </span>
               <div class="action-card__body">
