@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { api, ApiError } from '@/services/api/client'
+import { useDashboardStore } from '@/app/stores/dashboard'
 import ControlSidebar from '../shared/ControlSidebar.vue'
 import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
 import { useToast } from '@/shared/composables/useToast'
+import { persistClose, cancelClose, getRemainingMs } from './doorCloseTracker'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
@@ -31,44 +33,111 @@ const actionPending = ref(false)
 const autoCloseSecondsLeft = ref(0)
 
 const { showToast } = useToast()
+const store = useDashboardStore()
 
-let toastTimer: ReturnType<typeof setTimeout> | null = null
-let autoCloseInterval: ReturnType<typeof setInterval> | null = null
+let autoCloseTimer: ReturnType<typeof setTimeout> | null = null
+let initialDelayTimer: ReturnType<typeof setTimeout> | null = null
+let countdownInterval: ReturnType<typeof setInterval> | null = null
+let componentActive = true
+let autoCloseFired = false
 
 const accessDisabled = computed(() => state.value.lock === 'locked' || actionPending.value)
 const lockDisabled = computed(() => state.value.status === 'open' || actionPending.value)
 
+async function executeAutoClose() {
+  autoCloseFired = true
+  autoCloseTimer = null
+  cancelClose(props.deviceId)
+  if (countdownInterval !== null) { clearInterval(countdownInterval); countdownInterval = null }
+  try {
+    await api.patch(`/devices/${props.deviceId}/close`, {})
+    // Sync store so the page card updates even if the popup is closed
+    const dev = store.devices.find(d => d.id === props.deviceId)
+    if (dev) {
+      dev.isOn = false
+      dev.tone = 'neutral'
+      dev.status = 'Cerrado'
+    }
+    if (componentActive) {
+      const raw = await api.get<Record<string, unknown>>(`/devices/${props.deviceId}/state`)
+      if (raw.status === 'open' || raw.status === 'closed') state.value.status = raw.status
+      if (raw.lock === 'locked' || raw.lock === 'unlocked') state.value.lock = raw.lock
+      emit('powerToggled', false)
+      showToast('Puerta cerrada automáticamente', 'success')
+    }
+  } catch {
+    // Se mantiene cerrada visualmente aunque falle la API
+  }
+}
+
 function clearAutoClose() {
-  if (autoCloseInterval !== null) { clearInterval(autoCloseInterval); autoCloseInterval = null }
+  if (initialDelayTimer !== null) { clearTimeout(initialDelayTimer); initialDelayTimer = null }
+  if (autoCloseTimer !== null) { clearTimeout(autoCloseTimer); autoCloseTimer = null }
+  if (countdownInterval !== null) { clearInterval(countdownInterval); countdownInterval = null }
   autoCloseSecondsLeft.value = 0
+  cancelClose(props.deviceId)
 }
 
 function startAutoClose() {
   clearAutoClose()
   autoCloseSecondsLeft.value = AUTO_CLOSE_SECONDS
-  autoCloseInterval = setInterval(async () => {
+
+  countdownInterval = setInterval(() => {
     autoCloseSecondsLeft.value -= 1
-    if (autoCloseSecondsLeft.value > 0) return
-    clearAutoClose()
-    state.value.status = 'closed'
-    try {
-      await api.patch(`/devices/${props.deviceId}/close`, {})
-      const raw = await api.get<Record<string, unknown>>(`/devices/${props.deviceId}/state`)
-      if (raw.status === 'open' || raw.status === 'closed') state.value.status = raw.status
-      if (raw.lock === 'locked' || raw.lock === 'unlocked') state.value.lock = raw.lock
-    } catch {
-      // Se mantiene cerrada visualmente aunque falle la API
+    if (autoCloseSecondsLeft.value <= 0) {
+      if (countdownInterval !== null) { clearInterval(countdownInterval); countdownInterval = null }
     }
-    emit('powerToggled', state.value.status === 'open' || state.value.lock === 'unlocked')
-    showToast('Puerta cerrada automáticamente', 'success')
   }, 1000)
+
+  const delayMs = AUTO_CLOSE_SECONDS * 1000
+  const timer = setTimeout(executeAutoClose, delayMs)
+  autoCloseTimer = timer
+  persistClose(props.deviceId, Date.now() + delayMs, timer)
 }
 
 onMounted(async () => {
+  // Restore pending auto-close if re-entering before the timer fires
+  const remainingMs = getRemainingMs(props.deviceId)
+  if (remainingMs > 0) {
+    // Optimistic: we know the door is open if an auto-close is scheduled
+    state.value.status = 'open'
+
+    const displaySeconds = Math.ceil(remainingMs / 1000)
+    autoCloseSecondsLeft.value = displaySeconds
+    cancelClose(props.deviceId)
+    const timer = setTimeout(executeAutoClose, remainingMs)
+    autoCloseTimer = timer
+    persistClose(props.deviceId, Date.now() + remainingMs, timer)
+
+    // Precise countdown: first tick accounts for the fractional ms
+    const firstTickDelay = remainingMs % 1000 || 1000
+    let tick = displaySeconds
+    initialDelayTimer = setTimeout(() => {
+      initialDelayTimer = null
+      tick -= 1
+      autoCloseSecondsLeft.value = tick
+      countdownInterval = setInterval(() => {
+        tick -= 1
+        autoCloseSecondsLeft.value = tick
+        if (tick <= 0 && countdownInterval !== null) {
+          clearInterval(countdownInterval)
+          countdownInterval = null
+        }
+      }, 1000)
+    }, firstTickDelay)
+  }
+
   try {
     const raw = await api.get<Record<string, unknown>>(`/devices/${props.deviceId}/state`)
-    if (raw.status === 'open' || raw.status === 'closed') state.value.status = raw.status
-    if (raw.lock === 'locked' || raw.lock === 'unlocked') state.value.lock = raw.lock
+    if (!autoCloseFired) {
+      const backendStatus = raw.status as string | undefined
+      if (backendStatus === 'closed' && remainingMs > 0) {
+        cancelClose(props.deviceId)
+        clearAutoClose()
+      }
+      if (backendStatus === 'open' || backendStatus === 'closed') state.value.status = backendStatus
+      if (raw.lock === 'locked' || raw.lock === 'unlocked') state.value.lock = raw.lock
+    }
   } catch {
     // Se usan valores por defecto
   } finally {
@@ -77,8 +146,10 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
-  if (toastTimer !== null) clearTimeout(toastTimer)
-  clearAutoClose()
+  componentActive = false
+  if (initialDelayTimer !== null) clearTimeout(initialDelayTimer)
+  if (countdownInterval !== null) clearInterval(countdownInterval)
+  // autoCloseTimer stays alive via persistClose — door closes on backend
 })
 
 async function performAction(action: 'open' | 'close' | 'lock' | 'unlock') {

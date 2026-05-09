@@ -49,11 +49,15 @@ function closeDeviceModal() {
 
 function onDeviceUpdated(id: string, isOn: boolean) {
   const d = allDevices.value.find(x => x.id === id)
-  if (d) {
-    d.isOn = isOn
-    d.tone = isOn ? 'sage' : 'neutral'
-    d.status = statusForKind(d.kind, isOn)
-  }
+  if (!d) return
+  d.isOn = isOn
+  d.tone = isOn ? 'sage' : 'neutral'
+  d.status = statusForKind(d.kind, isOn)
+  store.fetchDeviceState(id).then(state => {
+    if (!state) return
+    const device = allDevices.value.find(x => x.id === id)
+    if (device) device.status = state.status
+  })
 }
 
 async function onDeviceCreated() {

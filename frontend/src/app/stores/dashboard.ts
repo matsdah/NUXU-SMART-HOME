@@ -147,6 +147,7 @@ const STATUS_TRANSLATIONS: Record<string, string> = {
   on: 'Encendido',
   off: 'Apagado',
   open: 'Abierto',
+  opened: 'Abierto',
   closed: 'Cerrado',
   opening: 'Abriendo',
   closing: 'Cerrando',
