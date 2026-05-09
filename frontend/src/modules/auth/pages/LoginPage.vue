@@ -5,14 +5,15 @@ import { useAuthStore } from '@/app/stores/auth'
 import { ApiError } from '@/services/api/client'
 import { LockClosedIcon, UserIcon } from '@heroicons/vue/24/outline'
 import AuthLayout from '../components/AuthLayout.vue'
-
+import { useToast } from '@/shared/composables/useToast'
 
 const email = ref('')
 const password = ref('')
-const error = ref('')
 const showVerifyAction = ref(false)
 const loading = ref(false)
 const showPass = ref(false)
+
+const { showToast } = useToast()
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -25,7 +26,6 @@ function isUnverifiedAccountError(status: number, description: string): boolean 
 }
 
 async function handleSubmit() {
-  error.value = ''
   showVerifyAction.value = false
   loading.value = true
   try {
@@ -36,16 +36,19 @@ async function handleSubmit() {
       const message = (e.body as { error?: { description?: string } })?.error?.description ?? ''
       const shouldOfferVerification = Boolean(email.value.trim()) && [400, 401, 403].includes(e.status)
       if (isUnverifiedAccountError(e.status, message)) {
-        error.value = 'Tu cuenta existe, pero todavía no está verificada.'
+        showToast('Tu cuenta existe, pero todavía no está verificada.', 'error')
         showVerifyAction.value = shouldOfferVerification
       } else {
-        error.value = e.status === 401 || e.status === 400
-          ? 'Usuario o contraseña incorrectos.'
-          : `Error ${e.status}. Intentá de nuevo.`
+        showToast(
+          e.status === 401 || e.status === 400
+            ? 'Usuario o contraseña incorrectos.'
+            : `Error ${e.status}. Intentá de nuevo.`,
+          'error'
+        )
         showVerifyAction.value = shouldOfferVerification
       }
     } else {
-      error.value = 'Error inesperado. Intentá de nuevo.'
+      showToast('Error inesperado. Intentá de nuevo.', 'error')
     }
   } finally {
     loading.value = false
@@ -61,7 +64,6 @@ async function handleSubmit() {
       <p class="login__subtitle">Iniciá sesión para continuar</p>
     </div>
 
-    <div v-if="error" class="login__error" role="alert">{{ error }}</div>
     <div v-if="showVerifyAction" class="login__verify-help">
       <RouterLink :to="{ name: 'verify', query: { email: email.trim() } }">Reenviar código de verificación</RouterLink>
     </div>
@@ -147,17 +149,6 @@ async function handleSubmit() {
   font-size: 0.875rem;
   color: var(--color-text-muted);
   font-weight: 300;
-}
-
-.login__error {
-  width: 100%;
-  padding: 0.6rem 0.9rem;
-  background: rgba(180, 60, 60, 0.1);
-  border: 1px solid rgba(180, 60, 60, 0.3);
-  border-radius: 12px;
-  color: #a03030;
-  font-size: 0.85rem;
-  text-align: center;
 }
 
 .login__verify-help {

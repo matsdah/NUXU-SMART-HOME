@@ -1,16 +1,15 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type { Room } from '@/app/stores/dashboard'
+import { useToast } from '@/shared/composables/useToast'
 
 const props = withDefaults(defineProps<{
   deviceName: string
   roomId: string
   rooms: Room[]
   loading?: boolean
-  error?: string
 }>(), {
   loading: false,
-  error: '',
 })
 
 const emit = defineEmits<{
@@ -19,9 +18,10 @@ const emit = defineEmits<{
   delete: []
 }>()
 
+const { showToast } = useToast()
+
 const editedName = ref(props.deviceName)
 const selectedRoomId = ref(props.roomId)
-const validationError = ref('')
 const isRoomMenuOpen = ref(false)
 const roomSelectorRef = ref<HTMLElement | null>(null)
 
@@ -39,7 +39,6 @@ const selectedRoomName = computed(() => (
 
 function selectRoom(roomId: string) {
   selectedRoomId.value = roomId
-  validationError.value = ''
   isRoomMenuOpen.value = false
 }
 
@@ -57,15 +56,14 @@ function closeRoomMenuOnClickOutside(event: MouseEvent) {
 }
 
 function handleSubmit() {
-  validationError.value = ''
   const trimmedName = editedName.value.trim()
   if (!trimmedName) {
-    validationError.value = 'Ingresá un nombre para el dispositivo.'
+    showToast('Ingresá un nombre para el dispositivo.', 'error')
     return
   }
 
   if (!props.rooms.some(room => room.id === selectedRoomId.value)) {
-    validationError.value = 'Seleccioná una habitación para el dispositivo.'
+    showToast('Seleccioná una habitación para el dispositivo.', 'error')
     return
   }
 
@@ -129,10 +127,6 @@ onBeforeUnmount(() => {
           >
             ✕
           </button>
-        </div>
-
-        <div v-if="error || validationError" class="modal__error" role="alert">
-          {{ validationError || error }}
         </div>
 
         <form class="modal__form" @submit.prevent="handleSubmit" novalidate>
@@ -268,15 +262,6 @@ onBeforeUnmount(() => {
 
 .modal__close:hover:not(:disabled) {
   background: rgba(42, 40, 37, 0.15);
-}
-
-.modal__error {
-  padding: 0.6rem 0.9rem;
-  background: rgba(180, 60, 60, 0.1);
-  border: 1px solid rgba(180, 60, 60, 0.3);
-  border-radius: 12px;
-  color: #a03030;
-  font-size: 0.85rem;
 }
 
 .modal__form {

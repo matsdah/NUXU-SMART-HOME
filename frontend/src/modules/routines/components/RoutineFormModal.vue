@@ -2,6 +2,7 @@
 import { ref, computed, onMounted } from "vue";
 import { api, ApiError } from "@/services/api/client";
 import { useDashboardStore } from "@/app/stores/dashboard";
+import { useToast } from "@/shared/composables/useToast";
 import type { Device } from "@/app/stores/dashboard";
 import {
     getActionLabel,
@@ -72,6 +73,7 @@ const ICONS: RoutineIcon[] = ["bolt", "sun", "moon", "home", "star", "clock"];
 /* ─── Store ──────────────────────────────────────────────── */
 
 const store = useDashboardStore();
+const { showToast } = useToast();
 
 /* ─── Reactive state ─────────────────────────────────────── */
 
@@ -95,8 +97,6 @@ const validationErrorsByDeviceAction = ref<
 >({});
 
 const submitting = ref(false);
-const submitError = ref("");
-const attemptedContinue = ref(false);
 const routineActionsLoaded = ref(false);
 const showActionErrors = ref(false);
 
@@ -142,11 +142,6 @@ const selectedDevicesInfo = computed(() =>
 );
 
 const canContinue = computed(() => selectedDeviceIds.value.length > 0);
-
-const nameError = computed(() => {
-    if (!attemptedContinue.value) return false;
-    return routineName.value.trim() === "";
-});
 
 const canSubmit = computed(
     () => routineName.value.trim() !== "" && selectedDeviceIds.value.length > 0,
@@ -365,9 +360,7 @@ onMounted(async () => {
 /* ─── Methods ────────────────────────────────────────────── */
 
 function onNameInput() {
-    if (routineName.value.trim() !== "") {
-        attemptedContinue.value = false;
-    }
+    // input handler kept for potential future use
 }
 
 function toggleDevice(id: string) {
@@ -384,7 +377,7 @@ function toggleDevice(id: string) {
 
 function continueFromDetails() {
     if (routineName.value.trim() === "") {
-        attemptedContinue.value = true;
+        showToast("Completar un nombre para la rutina.", "error");
         return;
     }
     showActionErrors.value = false;
@@ -482,7 +475,6 @@ function updateParamValue(
 async function handleSubmit() {
     if (!canSubmit.value || submitting.value || !routineActionsLoaded.value)
         return;
-    submitError.value = "";
     submitting.value = true;
     showActionErrors.value = true;
 
@@ -495,7 +487,7 @@ async function handleSubmit() {
         );
         validationErrorsByDeviceAction.value = errorsByDevice;
         if (Object.keys(errorsByDevice).length > 0) {
-            submitError.value = "Corregí los errores antes de guardar.";
+            showToast("Corregí los errores antes de guardar.", "error");
             return;
         }
 
@@ -547,9 +539,9 @@ async function handleSubmit() {
         if (e instanceof ApiError) {
             const msg = (e.body as { error?: { description?: string } })?.error
                 ?.description;
-            submitError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`;
+            showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, "error");
         } else {
-            submitError.value = "Error inesperado. Intentá de nuevo.";
+            showToast("Error inesperado. Intentá de nuevo.", "error");
         }
     } finally {
         submitting.value = false;
@@ -588,10 +580,6 @@ function onOverlayClick(e: MouseEvent) {
                     </button>
                 </div>
 
-                <div v-if="submitError" class="modal__error" role="alert">
-                    {{ submitError }}
-                </div>
-
                 <div
                     class="modal__body"
                     :class="{ 'modal__body--single': isStep1 || isStep2 || isStep3 }"
@@ -604,14 +592,10 @@ function onOverlayClick(e: MouseEvent) {
                                     type="text"
                                     placeholder="Nombre de la Rutina"
                                     class="field__input"
-                                    :class="{ 'field__input--error': nameError }"
                                     autocomplete="off"
                                     maxlength="25"
                                     @input="onNameInput"
                                 />
-                                <span v-if="nameError" class="field__error-text">
-                                    Completar un nombre
-                                </span>
                                 <span class="field__icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none">
                                         <path
@@ -1418,17 +1402,6 @@ function onOverlayClick(e: MouseEvent) {
     cursor: not-allowed;
 }
 
-.modal__error {
-    margin: 0 1.75rem;
-    padding: 0.6rem 1rem;
-    background: rgba(180, 60, 60, 0.1);
-    border: 1px solid rgba(180, 60, 60, 0.25);
-    border-radius: 12px;
-    color: #9a2d2d;
-    font-size: 0.85rem;
-    flex-shrink: 0;
-}
-
 .modal__body {
     display: grid;
     grid-template-columns: 260px 1fr;
@@ -1538,18 +1511,6 @@ function onOverlayClick(e: MouseEvent) {
     font-family: var(--font-sans);
     color: rgba(52, 47, 41, 0.88);
     outline: none;
-}
-
-.field__input--error {
-    border-color: #c44;
-    background: rgba(200, 68, 68, 0.08);
-}
-
-.field__error-text {
-    font-size: 0.75rem;
-    color: #c44;
-    margin-top: 0.35rem;
-    display: block;
 }
 
 .field__icon {

@@ -2,6 +2,7 @@
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { ApiError } from '@/services/api/client'
 import { useDashboardStore } from '@/app/stores/dashboard'
+import { useToast } from '@/shared/composables/useToast'
 
 const emit = defineEmits<{
   close: []
@@ -9,15 +10,14 @@ const emit = defineEmits<{
 }>()
 
 const store = useDashboardStore()
+const { showToast } = useToast()
 
 const spaceName = ref('')
-const error = ref('')
 const loading = ref(false)
 
 async function handleSubmit() {
-  error.value = ''
   if (!spaceName.value.trim()) {
-    error.value = 'Ingresá un nombre para el espacio.'
+    showToast('Ingresá un nombre para el espacio.', 'error')
     return
   }
 
@@ -28,10 +28,10 @@ async function handleSubmit() {
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
       return
     }
-    error.value = e instanceof Error ? e.message : 'Error inesperado. Intentá de nuevo.'
+    showToast(e instanceof Error ? e.message : 'Error inesperado. Intentá de nuevo.', 'error')
   } finally {
     loading.value = false
   }
@@ -59,8 +59,6 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
           <h2 class="modal__title">Agregar habitación</h2>
           <button class="modal__close" type="button" @click="emit('close')" aria-label="Cerrar">✕</button>
         </div>
-
-        <div v-if="error" class="modal__error" role="alert">{{ error }}</div>
 
         <form class="modal__form" @submit.prevent="handleSubmit" novalidate>
           <div class="field">
@@ -152,15 +150,6 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
 
 .modal__close:hover {
   background: rgba(42, 40, 37, 0.15);
-}
-
-.modal__error {
-  padding: 0.6rem 0.9rem;
-  background: rgba(180, 60, 60, 0.1);
-  border: 1px solid rgba(180, 60, 60, 0.3);
-  border-radius: 12px;
-  color: #a03030;
-  font-size: 0.85rem;
 }
 
 .modal__form {

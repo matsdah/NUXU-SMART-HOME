@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api, ApiError } from '@/services/api/client'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import ControlSidebar from '../shared/ControlSidebar.vue'
 import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
+import { useToast } from '@/shared/composables/useToast'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 
@@ -38,11 +39,8 @@ const dockName      = ref('')
 
 const loading       = ref(true)
 const actionPending = ref(false)
-const error         = ref('')
-const toastMessage  = ref('')
-const showToast     = ref(false)
 
-let toastTimer: ReturnType<typeof setTimeout> | null = null
+const { showToast } = useToast()
 
 const isActive  = computed(() => vacuumStatus.value === 'active')
 const isPaused  = computed(() => vacuumStatus.value === 'paused')
@@ -92,34 +90,22 @@ onMounted(async () => {
   finally { loading.value = false }
 })
 
-onBeforeUnmount(() => {
-  if (toastTimer !== null) clearTimeout(toastTimer)
-})
-
-function showSuccessToast(msg: string) {
-  toastMessage.value = msg
-  showToast.value = true
-  if (toastTimer !== null) clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => { showToast.value = false; toastTimer = null }, 2000)
-}
-
 function handleError(e: unknown) {
   if (e instanceof ApiError) {
     const msg = (e.body as { error?: { description?: string } })?.error?.description
-    error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+    showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
   } else {
-    error.value = 'Error inesperado. Intentá de nuevo.'
+    showToast('Error inesperado. Intentá de nuevo.', 'error')
   }
 }
 
 async function doAction(action: string, body: Record<string, unknown> = {}, toast?: string) {
   if (actionPending.value) return
   actionPending.value = true
-  error.value = ''
   try {
     await api.patch(`/devices/${props.deviceId}/${action}`, body)
     await fetchState()
-    if (toast) showSuccessToast(toast)
+    if (toast) showToast(toast, 'success')
   } catch (e) {
     handleError(e)
   } finally {
@@ -231,13 +217,8 @@ async function onLocationChange(roomId: string) {
           </section>
         </div>
 
-        <div v-if="error" class="vac-error" role="alert">{{ error }}</div>
       </div>
     </section>
-
-    <Teleport to="body">
-      <div v-if="showToast" class="toast toast--success">{{ toastMessage }}</div>
-    </Teleport>
   </div>
 </template>
 
@@ -380,39 +361,6 @@ async function onLocationChange(roomId: string) {
   font-size: 0.85rem;
   color: #2a4f80;
   font-weight: 500;
-}
-
-.vac-error {
-  padding: 0.6rem 0.9rem;
-  background: rgba(180, 60, 60, 0.1);
-  border: 1px solid rgba(180, 60, 60, 0.3);
-  border-radius: 12px;
-  color: #a03030;
-  font-size: 0.85rem;
-}
-
-.toast {
-  position: fixed;
-  bottom: 2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  color: #fff;
-  padding: 0.75rem 1.5rem;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.85rem;
-  z-index: 400;
-  animation: toast-in 0.3s ease;
-}
-
-.toast--success {
-  background: #2d6a4f;
-  box-shadow: 0 4px 15px rgba(45, 106, 79, 0.3);
-}
-
-@keyframes toast-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 @media (max-width: 900px) {

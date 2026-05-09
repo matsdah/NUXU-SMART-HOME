@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { api } from '@/services/api/client'
 import ControlSidebar from '../shared/ControlSidebar.vue'
 import TemperatureControl from '../shared/TemperatureControl.vue'
 import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
+import { useToast } from '@/shared/composables/useToast'
 
 const props = defineProps<{ deviceId: string; deviceName?: string; initialIsOn?: boolean }>()
 
@@ -50,12 +51,9 @@ const state = ref<OvenState>({
 
 const loading = ref(true)
 const saving = ref(false)
-const saveError = ref('')
-const toastMessage = ref('')
-const showToast = ref(false)
 const savedState = ref<OvenState | null>(null)
 
-let toastTimer: ReturnType<typeof setTimeout> | null = null
+const { showToast } = useToast()
 
 const currentHeatSourceLabel = computed(() => {
   const source = HEAT_SOURCES.find(hs => hs.value === state.value.heatSource)
@@ -130,38 +128,20 @@ watch(state, async () => {
   await saveChanges()
 }, { deep: true })
 
-onBeforeUnmount(() => {
-  if (toastTimer !== null) {
-    clearTimeout(toastTimer)
-  }
-})
-
 function togglePower() {
   state.value.isOn = !state.value.isOn
   emit('powerToggled', state.value.isOn)
 }
 
 async function saveChanges() {
-  if (saving.value) {
-    return
-  }
-
-  saveError.value = ''
+  if (saving.value) return
   saving.value = true
   try {
     localStorage.setItem(storageKey(), JSON.stringify(state.value))
     savedState.value = snapshotState()
-    toastMessage.value = 'Datos guardados correctamente.'
-    showToast.value = true
-    if (toastTimer !== null) {
-      clearTimeout(toastTimer)
-    }
-    toastTimer = setTimeout(() => {
-      showToast.value = false
-      toastTimer = null
-    }, 2000)
+    showToast('Datos guardados correctamente.', 'success')
   } catch {
-    saveError.value = 'No se pudo guardar. Volvé a intentarlo.'
+    showToast('No se pudo guardar. Volvé a intentarlo.', 'error')
   } finally {
     saving.value = false
   }
@@ -204,17 +184,8 @@ async function saveChanges() {
           <PillButtons v-model="state.convectionMode" :options="CONVECTION_MODES" appearance="container" />
         </section>
 
-        <div class="oven-actions">
-          <p v-if="saveError" class="oven-save__error" role="alert">{{ saveError }}</p>
-        </div>
       </div>
     </section>
-
-    <Teleport to="body">
-      <div v-if="showToast" class="toast toast--success">
-        {{ toastMessage }}
-      </div>
-    </Teleport>
   </div>
 </template>
 
@@ -258,49 +229,6 @@ async function saveChanges() {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(42, 40, 37, 0.55);
-}
-
-.oven-actions {
-  margin-top: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.oven-save__error {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #9d4d43;
-}
-
-.toast {
-  position: fixed;
-  bottom: 2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  color: #fff;
-  padding: 0.75rem 1.5rem;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.85rem;
-  z-index: 200;
-  animation: toast-in 0.3s ease;
-}
-
-.toast--success {
-  background: #2d6a4f;
-  box-shadow: 0 4px 15px rgba(45, 106, 79, 0.3);
-}
-
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
 }
 
 @media (max-width: 900px) {

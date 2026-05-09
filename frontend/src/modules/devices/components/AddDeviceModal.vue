@@ -4,6 +4,7 @@ import { api, ApiError } from '@/services/api/client'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import type { DeviceType } from '@/app/stores/dashboard'
 import CustomSelect from '@/shared/components/CustomSelect.vue'
+import { useToast } from '@/shared/composables/useToast'
 
 const props = defineProps<{
   roomId: string
@@ -17,11 +18,11 @@ const emit = defineEmits<{
 }>()
 
 const store = useDashboardStore()
+const { showToast } = useToast()
 
 const deviceTypes = ref<DeviceType[]>([])
 const name = ref('')
 const selectedTypeId = ref('')
-const error = ref('')
 const loading = ref(false)
 const loadingTypes = ref(true)
 type ApiCreatedDevice = { id?: string }
@@ -43,17 +44,16 @@ onMounted(async () => {
 })
 
 async function handleSubmit() {
-  error.value = ''
   if (!name.value.trim()) {
-    error.value = 'Ingresá un nombre para el dispositivo.'
+    showToast('Ingresá un nombre para el dispositivo.', 'error')
     return
   }
   if (!selectedTypeId.value) {
-    error.value = 'Elegí un tipo de dispositivo.'
+    showToast('Elegí un tipo de dispositivo.', 'error')
     return
   }
   if (props.showRoomSelector && !selectedRoomId.value) {
-    error.value = 'Elegí un ambiente.'
+    showToast('Elegí un ambiente.', 'error')
     return
   }
   loading.value = true
@@ -64,7 +64,7 @@ async function handleSubmit() {
       ? selectedRoomId.value
       : (props.roomId || store.activeRoomId || store.rooms[0]?.id)
     if (!roomId) {
-      error.value = 'No hay una habitación seleccionada.'
+      showToast('No hay una habitación seleccionada.', 'error')
       loading.value = false
       return
     }
@@ -79,7 +79,7 @@ async function handleSubmit() {
 
     const deviceId = created.id
     if (!deviceId) {
-      error.value = 'No se pudo obtener el dispositivo creado.'
+      showToast('No se pudo obtener el dispositivo creado.', 'error')
       return
     }
     store.seedDeviceInitialPowerState(deviceId, selectedTypeId.value)
@@ -91,9 +91,9 @@ async function handleSubmit() {
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
     } else {
-      error.value = 'Error inesperado. Intentá de nuevo.'
+      showToast('Error inesperado. Intentá de nuevo.', 'error')
     }
   } finally {
     loading.value = false
@@ -127,8 +127,6 @@ onBeforeUnmount(() => {
           <h2 class="modal__title">Agregar dispositivo</h2>
           <button type="button" class="modal__close" @click="emit('close')" aria-label="Cerrar">✕</button>
         </div>
-
-        <div v-if="error" class="modal__error" role="alert">{{ error }}</div>
 
         <div v-if="loadingTypes" class="modal__loading">Cargando tipos...</div>
 
@@ -243,15 +241,6 @@ onBeforeUnmount(() => {
 }
 
 .modal__close:hover { background: rgba(42, 40, 37, 0.15); }
-
-.modal__error {
-  padding: 0.6rem 0.9rem;
-  background: rgba(180, 60, 60, 0.1);
-  border: 1px solid rgba(180, 60, 60, 0.3);
-  border-radius: 12px;
-  color: #a03030;
-  font-size: 0.85rem;
-}
 
 .modal__form {
   display: flex;

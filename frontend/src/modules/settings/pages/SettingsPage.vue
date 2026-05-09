@@ -4,6 +4,7 @@ import { useRouter, useRoute } from 'vue-router'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import { useAuthStore } from '@/app/stores/auth'
 import { ApiError } from '@/services/api/client'
+import { useToast } from '@/shared/composables/useToast'
 
 const router = useRouter()
 const route = useRoute()
@@ -15,18 +16,7 @@ const pageTitle = computed(() => activeView.value === 'hogar' ? 'Mi hogar' : 'Co
 
 //Toast
 
-const toastMessage = ref('')
-const toastType = ref<'success' | 'error'>('success')
-const showToast = ref(false)
-let toastTimer: ReturnType<typeof setTimeout>
-
-function showToastMsg(msg: string, type: 'success' | 'error' = 'success') {
-  toastMessage.value = msg
-  toastType.value = type
-  showToast.value = true
-  clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => { showToast.value = false }, 3000)
-}
+const { toasts, showToast: showToastMsg } = useToast()
 
 //Helpers
 
@@ -170,12 +160,10 @@ async function confirmDeleteHome() {
 const showAddMemberModal = ref(false)
 const addMemberEmail = ref('')
 const addMemberLoading = ref(false)
-const addMemberError = ref('')
 const showLeaveHomeModal = ref(false)
 
 function openAddMemberModal() {
   addMemberEmail.value = ''
-  addMemberError.value = ''
   showAddMemberModal.value = true
 }
 
@@ -186,16 +174,15 @@ function closeLeaveHomeModal() { showLeaveHomeModal.value = false }
 async function confirmAddMember() {
   if (!addMemberEmail.value.trim() || !dashboard.activeHomeId) return
   addMemberLoading.value = true
-  addMemberError.value = ''
   try {
     await dashboard.addMember(dashboard.activeHomeId, addMemberEmail.value.trim())
     closeAddMemberModal()
     showToastMsg('Miembro añadido correctamente')
   } catch (e: any) {
-    if (e?.status === 409) addMemberError.value = 'Este usuario ya es miembro'
-    else if (e?.status === 404) addMemberError.value = 'Hogar no encontrado'
-    else if (e?.status === 400) addMemberError.value = 'Email inválido'
-    else addMemberError.value = 'Error al añadir miembro'
+    if (e?.status === 409) showToastMsg('Este usuario ya es miembro', 'error')
+    else if (e?.status === 404) showToastMsg('Hogar no encontrado', 'error')
+    else if (e?.status === 400) showToastMsg('Email inválido', 'error')
+    else showToastMsg('Error al añadir miembro', 'error')
   } finally {
     addMemberLoading.value = false
   }
@@ -538,7 +525,6 @@ watch(() => dashboard.activeHomeId, async (newId) => {
               placeholder="usuario@ejemplo.com"
               @keyup.enter="confirmAddMember"
             />
-            <span v-if="addMemberError" class="form-error">{{ addMemberError }}</span>
           </div>
 
           <div class="modal-actions">
@@ -637,9 +623,16 @@ watch(() => dashboard.activeHomeId, async (newId) => {
         </div>
       </div>
 
-      <div v-if="showToast" class="toast" :class="`toast--${toastType}`">
-        {{ toastMessage }}
-      </div>
+      <TransitionGroup name="toast" tag="div" class="toast-stack">
+        <div
+          v-for="t in toasts" :key="t.id"
+          class="toast" :class="t.type === 'success' ? 'toast--success' : 'toast--error'"
+          role="status"
+        >
+          <span class="toast__dot" aria-hidden="true" />
+          {{ t.message }}
+        </div>
+      </TransitionGroup>
     </Teleport>
   </div>
 </template>
@@ -1086,13 +1079,6 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   margin-top: 0.35rem;
 }
 
-.form-error {
-  display: block;
-  font-size: 0.7rem;
-  color: #8a2d2d;
-  margin-top: 0.35rem;
-}
-
 .profile-fields {
   display: flex;
   flex-direction: column;
@@ -1454,39 +1440,68 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   margin-bottom: 0.25rem;
 }
 
-.toast {
+.toast-stack {
   position: fixed;
-  bottom: 2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  color: #fff;
-  padding: 0.75rem 1.5rem;
-  border-radius: 999px;
+  bottom: 1.75rem;
+  right: 1.75rem;
+  z-index: 400;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  pointer-events: none;
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1.1rem;
+  border-radius: 14px;
+  font-size: 0.875rem;
   font-weight: 600;
-  font-size: 0.85rem;
-  z-index: 200;
-  animation: toast-in 0.3s ease;
+  box-shadow: 0 8px 24px rgba(42, 40, 37, 0.18);
+  pointer-events: auto;
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
 }
 
 .toast--success {
-  background: #2d6a4f;
-  box-shadow: 0 4px 15px rgba(45, 106, 79, 0.3);
+  background: rgba(255, 255, 255, 0.95);
+  color: #2a4d3a;
+  border: 1px solid rgba(82, 196, 125, 0.35);
 }
 
 .toast--error {
-  background: #8a2d2d;
-  box-shadow: 0 4px 15px rgba(138, 45, 45, 0.3);
+  background: rgba(255, 255, 255, 0.95);
+  color: #7a1f1f;
+  border: 1px solid rgba(180, 60, 60, 0.3);
 }
 
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
+.toast__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.toast--success .toast__dot {
+  background: #52c47d;
+}
+.toast--error .toast__dot {
+  background: #e05252;
+}
+
+.toast-enter-active,
+.toast-leave-active {
+  transition: all 0.3s ease;
+}
+.toast-enter-from {
+  opacity: 0;
+  transform: translateX(24px);
+}
+.toast-leave-to {
+  opacity: 0;
+  transform: translateX(24px);
 }
 
 @media (max-width: 768px) {

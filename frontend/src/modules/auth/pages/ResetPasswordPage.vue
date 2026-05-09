@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { LockClosedIcon, UserIcon } from '@heroicons/vue/24/outline'
 import { api, ApiError, TOKEN_KEY } from '@/services/api/client'
 import AuthLayout from '../components/AuthLayout.vue'
+import { useToast } from '@/shared/composables/useToast'
 
 const route = useRoute()
 const router = useRouter()
@@ -15,8 +16,9 @@ const code = ref('')
 const currentPassword = ref('')
 const password = ref('')
 const confirm = ref('')
-const error = ref('')
 const loading = ref(false)
+
+const { showToast } = useToast()
 const showCurrentPass = ref(false)
 const showPass = ref(false)
 const showConfirm = ref(false)
@@ -29,9 +31,8 @@ const step = ref<'email' | 'code' | 'password'>(
 )
 
 function handleEmailStep() {
-  error.value = ''
   if (!email.value.trim()) {
-    error.value = 'Ingresá tu email para continuar.'
+    showToast('Ingresá tu email para continuar.', 'error')
     return
   }
   step.value = 'code'
@@ -43,16 +44,14 @@ function handleCodeInput(event: Event) {
 }
 
 function handleCodeStep() {
-  error.value = ''
-
   if (code.value.length !== 6) {
-    error.value = 'Ingresá un código de 6 dígitos.'
+    showToast('Ingresá un código de 6 dígitos.', 'error')
     return
   }
 
   const savedCode = sessionStorage.getItem('recovery_code')
   if (code.value !== savedCode) {
-    error.value = 'Código incorrecto. Revisá tu mail e intentá de nuevo.'
+    showToast('Código incorrecto. Revisá tu mail e intentá de nuevo.', 'error')
     return
   }
 
@@ -60,10 +59,8 @@ function handleCodeStep() {
 }
 
 async function handlePasswordStep() {
-  error.value = ''
-
   if (password.value !== confirm.value) {
-    error.value = 'Las contraseñas no coinciden.'
+    showToast('Las contraseñas no coinciden.', 'error')
     return
   }
 
@@ -93,12 +90,12 @@ async function handlePasswordStep() {
     router.push(fromSettings ? { name: 'settings', query: { passwordChanged: '1' } } : { name: 'login' })
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) {
-      error.value = 'Contraseña actual incorrecta.'
+      showToast('Contraseña actual incorrecta.', 'error')
     } else if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
     } else {
-      error.value = 'Error inesperado. Intentá de nuevo.'
+      showToast('Error inesperado. Intentá de nuevo.', 'error')
     }
   } finally {
     loading.value = false
@@ -117,8 +114,6 @@ async function handlePasswordStep() {
         {{ step === 'email' ? 'Ingresá tu email para continuar' : step === 'code' ? `Ingresá el código enviado a ${email}` : 'Ingresá tu contraseña actual y la nueva' }}
       </p>
     </div>
-
-    <div v-if="error" class="reset__error" role="alert">{{ error }}</div>
 
     <form v-if="step === 'email'" class="reset__form" @submit.prevent="handleEmailStep" novalidate>
 
@@ -276,17 +271,6 @@ async function handlePasswordStep() {
   font-size: 0.875rem;
   color: var(--color-text-muted);
   font-weight: 300;
-}
-
-.reset__error {
-  width: 100%;
-  padding: 0.6rem 0.9rem;
-  background: rgba(180, 60, 60, 0.1);
-  border: 1px solid rgba(180, 60, 60, 0.3);
-  border-radius: 12px;
-  color: #a03030;
-  font-size: 0.85rem;
-  text-align: center;
 }
 
 .reset__form {

@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
+import { useToast } from '@/shared/composables/useToast'
 
 const props = withDefaults(defineProps<{
   roomName: string
   loading?: boolean
-  error?: string
 }>(), {
   loading: false,
-  error: '',
 })
 
 const emit = defineEmits<{
@@ -15,13 +14,13 @@ const emit = defineEmits<{
   updated: [name: string]
 }>()
 
+const { showToast } = useToast()
+
 const spaceName = ref(props.roomName)
-const validationError = ref('')
 
 function handleSubmit() {
-  validationError.value = ''
   if (!spaceName.value.trim()) {
-    validationError.value = 'Ingresá un nombre para el espacio.'
+    showToast('Ingresá un nombre para el espacio.', 'error')
     return
   }
   emit('updated', spaceName.value.trim())
@@ -59,10 +58,6 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
           >
             ✕
           </button>
-        </div>
-
-        <div v-if="error || validationError" class="modal__error" role="alert">
-          {{ validationError || error }}
         </div>
 
         <form class="modal__form" @submit.prevent="handleSubmit" novalidate>
@@ -155,15 +150,6 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
 
 .modal__close:hover:not(:disabled) {
   background: rgba(42, 40, 37, 0.15);
-}
-
-.modal__error {
-  padding: 0.6rem 0.9rem;
-  background: rgba(180, 60, 60, 0.1);
-  border: 1px solid rgba(180, 60, 60, 0.3);
-  border-radius: 12px;
-  color: #a03030;
-  font-size: 0.85rem;
 }
 
 .modal__form {

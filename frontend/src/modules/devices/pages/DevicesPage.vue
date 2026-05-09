@@ -5,6 +5,7 @@ import { api, ApiError } from '@/services/api/client'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import { useSocketStore } from '@/app/stores/socket'
 import type { Device } from '@/app/stores/dashboard'
+import { useToast } from '@/shared/composables/useToast'
 import DeviceModal from '../components/DeviceModal.vue'
 import DeleteDeviceConfirmModal from '@/modules/devices/components/DeleteDeviceConfirmModal.vue'
 import AddDeviceModal from '@/modules/devices/components/AddDeviceModal.vue'
@@ -15,14 +16,13 @@ import EditRoomModal from '@/modules/homes/components/EditRoomModal.vue'
 
 const store = useDashboardStore()
 const socketStore = useSocketStore()
+const { showToast } = useToast()
 const { rooms, activeHomeId, loading, error, pendingActions } = storeToRefs(store)
 
 const allDevices = ref<Device[]>([])
 const loadingDevices = ref(false)
 const refreshingDevices = ref(false)
 const activeFilter = ref<'all' | string>('all')
-const roomActionError = ref('')
-const deviceActionError = ref('')
 const showAddDevice = ref(false)
 const showAddRoom = ref(false)
 const showDeleteDeviceConfirm = ref(false)
@@ -37,8 +37,6 @@ const pendingRoomDeletion = ref<{ id: string; name: string } | null>(null)
 const deletingRoom = ref(false)
 const pendingRoomEdition = ref<{ id: string; name: string } | null>(null)
 const renamingRoom = ref(false)
-const editRoomError = ref('')
-const editDeviceError = ref('')
 const isDeviceEditMode = ref(false)
 
 const selectedDevice = ref<Device | null>(null)
@@ -102,8 +100,6 @@ function requestDeviceEdition(device: Device) {
     return
   }
 
-  deviceActionError.value = ''
-  editDeviceError.value = ''
   pendingDeviceEdition.value = { id: device.id, name: device.name, roomId: device.roomId }
   showEditDeviceModal.value = true
 }
@@ -114,7 +110,6 @@ function closeEditDeviceModal() {
   }
   showEditDeviceModal.value = false
   pendingDeviceEdition.value = null
-  editDeviceError.value = ''
 }
 
 function requestDeviceDeletionFromEditModal() {
@@ -129,7 +124,6 @@ function requestDeviceDeletionFromEditModal() {
   showDeleteDeviceConfirm.value = true
   showEditDeviceModal.value = false
   pendingDeviceEdition.value = null
-  editDeviceError.value = ''
 }
 
 async function confirmDeviceEdition(payload: { name: string; roomId: string }) {
@@ -138,7 +132,6 @@ async function confirmDeviceEdition(payload: { name: string; roomId: string }) {
   }
 
   editingDevice.value = true
-  editDeviceError.value = ''
   try {
     await store.updateDevice(pendingDeviceEdition.value.id, payload)
     showEditDeviceModal.value = false
@@ -147,10 +140,10 @@ async function confirmDeviceEdition(payload: { name: string; roomId: string }) {
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      editDeviceError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
       return
     }
-    editDeviceError.value = e instanceof Error ? e.message : 'Error inesperado. Intentá de nuevo.'
+    showToast(e instanceof Error ? e.message : 'Error inesperado. Intentá de nuevo.', 'error')
   } finally {
     editingDevice.value = false
   }
@@ -160,7 +153,6 @@ function requestDeviceDeletion(device: Device) {
   if (deletingDevice.value) {
     return
   }
-  deviceActionError.value = ''
   pendingDeviceDeletion.value = { id: device.id, name: device.name }
   showDeleteDeviceConfirm.value = true
 }
@@ -192,10 +184,10 @@ async function confirmDeviceDeletion() {
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      deviceActionError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
       return
     }
-    deviceActionError.value = 'Error inesperado. Intentá de nuevo.'
+    showToast('Error inesperado. Intentá de nuevo.', 'error')
   } finally {
     deletingDevice.value = false
   }
@@ -257,12 +249,10 @@ async function refreshHomeDevices(options: { silent?: boolean } = {}) {
 
 
 function selectAllRooms() {
-  roomActionError.value = ''
   activeFilter.value = 'all'
 }
 
 function selectRoom(roomId: string) {
-  roomActionError.value = ''
   activeFilter.value = roomId
   store.activeRoomId = roomId
 }
@@ -292,16 +282,14 @@ async function onRoomCreated() {
 }
 
 function requestRoomRename() {
-  roomActionError.value = ''
-  editRoomError.value = ''
   if (activeFilter.value === 'all') {
-    roomActionError.value = 'Seleccioná una habitación para editar.'
+    showToast('Seleccioná una habitación para editar.', 'error')
     return
   }
 
   const room = rooms.value.find(currentRoom => currentRoom.id === activeFilter.value)
   if (!room) {
-    roomActionError.value = 'No se encontró la habitación seleccionada.'
+    showToast('No se encontró la habitación seleccionada.', 'error')
     return
   }
 
@@ -315,7 +303,6 @@ function closeEditRoomModal() {
   }
   showEditRoomModal.value = false
   pendingRoomEdition.value = null
-  editRoomError.value = ''
 }
 
 async function confirmRoomRename(name: string) {
@@ -324,7 +311,6 @@ async function confirmRoomRename(name: string) {
   }
 
   renamingRoom.value = true
-  editRoomError.value = ''
   try {
     await store.updateRoomName(pendingRoomEdition.value.id, name)
     showEditRoomModal.value = false
@@ -332,25 +318,24 @@ async function confirmRoomRename(name: string) {
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      editRoomError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
       return
     }
-    editRoomError.value = e instanceof Error ? e.message : 'Error inesperado. Intentá de nuevo.'
+    showToast(e instanceof Error ? e.message : 'Error inesperado. Intentá de nuevo.', 'error')
   } finally {
     renamingRoom.value = false
   }
 }
 
 function requestRoomDeletion() {
-  roomActionError.value = ''
   if (activeFilter.value === 'all') {
-    roomActionError.value = 'Seleccioná una habitación para eliminar.'
+    showToast('Seleccioná una habitación para eliminar.', 'error')
     return
   }
 
   const room = rooms.value.find(currentRoom => currentRoom.id === activeFilter.value)
   if (!room) {
-    roomActionError.value = 'No se encontró la habitación seleccionada.'
+    showToast('No se encontró la habitación seleccionada.', 'error')
     return
   }
 
@@ -382,10 +367,10 @@ async function confirmRoomDeletion() {
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      roomActionError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
       return
     }
-    roomActionError.value = 'Error inesperado. Intentá de nuevo.'
+    showToast('Error inesperado. Intentá de nuevo.', 'error')
   } finally {
     deletingRoom.value = false
   }
@@ -497,8 +482,6 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div v-if="roomActionError" class="notice notice--error" role="alert">{{ roomActionError }}</div>
-    <div v-if="deviceActionError" class="notice notice--error" role="alert">{{ deviceActionError }}</div>
     <div v-if="error" class="notice notice--error" role="alert">{{ error }}</div>
     <div v-else-if="loading || loadingDevices" class="notice">Cargando dispositivos...</div>
 
@@ -633,7 +616,6 @@ onMounted(async () => {
       :room-id="pendingDeviceEdition.roomId"
       :rooms="rooms"
       :loading="editingDevice"
-      :error="editDeviceError"
       @close="closeEditDeviceModal"
       @updated="confirmDeviceEdition"
       @delete="requestDeviceDeletionFromEditModal"
@@ -665,7 +647,6 @@ onMounted(async () => {
       v-if="showEditRoomModal && pendingRoomEdition"
       :room-name="pendingRoomEdition.name"
       :loading="renamingRoom"
-      :error="editRoomError"
       @close="closeEditRoomModal"
       @updated="confirmRoomRename"
     />

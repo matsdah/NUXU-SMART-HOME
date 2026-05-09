@@ -5,6 +5,7 @@ import { useDashboardStore } from '@/app/stores/dashboard'
 import { useSocketStore } from '@/app/stores/socket'
 import type { Device } from '@/app/stores/dashboard'
 import { api, ApiError } from '@/services/api/client'
+import { useToast } from '@/shared/composables/useToast'
 import DeviceModal from '@/modules/devices/components/DeviceModal.vue'
 import AddDeviceModal from '@/modules/devices/components/AddDeviceModal.vue'
 import AddRoomModal from '@/modules/homes/components/AddRoomModal.vue'
@@ -28,26 +29,14 @@ const activeRoomFilter = ref<'all' | string>('all')
 const allDevices = ref<Device[]>([])
 const loadingDevices = ref(false)
 const refreshingDevices = ref(false)
-const roomActionError = ref('')
 const pendingRoomDeletion = ref<{ id: string; name: string } | null>(null)
 const deletingRoom = ref(false)
 const pendingRoomEdition = ref<{ id: string; name: string } | null>(null)
 const renamingRoom = ref(false)
-const editRoomError = ref('')
 const showCreateRoutine = ref(false)
 const runningRoutineId = ref<string | null>(null)
 
-type Toast = { id: number; message: string; type: 'success' | 'error' }
-const toasts = ref<Toast[]>([])
-let toastId = 0
-
-function showToast(message: string, type: 'success' | 'error') {
-  const id = ++toastId
-  toasts.value.push({ id, message, type })
-  setTimeout(() => {
-    toasts.value = toasts.value.filter(t => t.id !== id)
-  }, 3500)
-}
+const { toasts, showToast } = useToast()
 
 function openDeviceModal(device: Device) {
   selectedDevice.value = device
@@ -134,12 +123,10 @@ async function refreshHomeDevices(options: { silent?: boolean } = {}) {
 
 
 function selectAllRooms() {
-  roomActionError.value = ''
   activeRoomFilter.value = 'all'
 }
 
 function selectRoom(roomId: string) {
-  roomActionError.value = ''
   activeRoomFilter.value = roomId
   activeRoomId.value = roomId
 }
@@ -164,16 +151,14 @@ async function onRoomCreated() {
 }
 
 function requestRoomRename() {
-  roomActionError.value = ''
-  editRoomError.value = ''
   if (activeRoomFilter.value === 'all') {
-    roomActionError.value = 'Seleccioná una habitación para editar.'
+    showToast('Seleccioná una habitación para editar.', 'error')
     return
   }
 
   const room = store.rooms.find(currentRoom => currentRoom.id === activeRoomFilter.value)
   if (!room) {
-    roomActionError.value = 'No se encontró la habitación seleccionada.'
+    showToast('No se encontró la habitación seleccionada.', 'error')
     return
   }
 
@@ -209,7 +194,6 @@ function closeEditRoomModal() {
   }
   showEditRoomModal.value = false
   pendingRoomEdition.value = null
-  editRoomError.value = ''
 }
 
 async function confirmRoomRename(name: string) {
@@ -218,7 +202,6 @@ async function confirmRoomRename(name: string) {
   }
 
   renamingRoom.value = true
-  editRoomError.value = ''
   try {
     await store.updateRoomName(pendingRoomEdition.value.id, name)
     showEditRoomModal.value = false
@@ -226,25 +209,24 @@ async function confirmRoomRename(name: string) {
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      editRoomError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
       return
     }
-    editRoomError.value = e instanceof Error ? e.message : 'Error inesperado. Intentá de nuevo.'
+    showToast(e instanceof Error ? e.message : 'Error inesperado. Intentá de nuevo.', 'error')
   } finally {
     renamingRoom.value = false
   }
 }
 
 function requestRoomDeletion() {
-  roomActionError.value = ''
   if (activeRoomFilter.value === 'all') {
-    roomActionError.value = 'Seleccioná una habitación para eliminar.'
+    showToast('Seleccioná una habitación para eliminar.', 'error')
     return
   }
 
   const room = store.rooms.find(currentRoom => currentRoom.id === activeRoomFilter.value)
   if (!room) {
-    roomActionError.value = 'No se encontró la habitación seleccionada.'
+    showToast('No se encontró la habitación seleccionada.', 'error')
     return
   }
 
@@ -275,10 +257,10 @@ async function confirmRoomDeletion() {
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      roomActionError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
       return
     }
-    roomActionError.value = 'Error inesperado. Intentá de nuevo.'
+    showToast('Error inesperado. Intentá de nuevo.', 'error')
   } finally {
     deletingRoom.value = false
   }
@@ -387,7 +369,6 @@ watch(() => socketStore.deviceListVersion, () => {
       </div>
     </div>
 
-    <div v-if="roomActionError" class="notice notice--error" role="alert">{{ roomActionError }}</div>
     <div v-if="error" class="notice notice--error" role="alert">{{ error }}</div>
     <div v-else-if="loading || loadingDevices" class="notice">Cargando dashboard...</div>
 
@@ -577,7 +558,6 @@ watch(() => socketStore.deviceListVersion, () => {
       v-if="showEditRoomModal && pendingRoomEdition"
       :room-name="pendingRoomEdition.name"
       :loading="renamingRoom"
-      :error="editRoomError"
       @close="closeEditRoomModal"
       @updated="confirmRoomRename"
     />

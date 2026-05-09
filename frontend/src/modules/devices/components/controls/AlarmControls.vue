@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { api, ApiError } from '@/services/api/client'
 import ControlSidebar from '../shared/ControlSidebar.vue'
 import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
+import { useToast } from '@/shared/composables/useToast'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 
@@ -27,21 +28,17 @@ const MODE_ACTIONS: Record<AlarmMode, string> = {
   armedAway: 'armAway',
 }
 
+const { showToast } = useToast()
+
 const currentMode   = ref<AlarmMode>('disarmed')
 const loading       = ref(true)
 const actionPending = ref(false)
-const error         = ref('')
 
 const pendingMode   = ref<AlarmMode | null>(null)
 const securityCode  = ref('')
 const currentCode   = ref('')
 const newCode       = ref('')
 const changingCode  = ref(false)
-const codeChangeError = ref('')
-
-const toastMessage = ref('')
-const showToast    = ref(false)
-let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 const isArmed = computed(() => currentMode.value !== 'disarmed')
 
@@ -64,23 +61,11 @@ onMounted(async () => {
   }
 })
 
-onBeforeUnmount(() => {
-  if (toastTimer !== null) clearTimeout(toastTimer)
-})
-
-function showSuccessToast(msg: string) {
-  toastMessage.value = msg
-  showToast.value = true
-  if (toastTimer !== null) clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => { showToast.value = false; toastTimer = null }, 2500)
-}
-
 function onModeSelect(value: string) {
   if (value === currentMode.value || actionPending.value) return
   const mode = value as AlarmMode
   pendingMode.value = mode
   securityCode.value = '1234'
-  error.value = ''
 }
 
 async function confirmCode() {
@@ -90,7 +75,6 @@ async function confirmCode() {
 
 async function applyMode(newMode: AlarmMode, code: string) {
   actionPending.value = true
-  error.value = ''
   const previous = currentMode.value
   currentMode.value = newMode
   try {
@@ -100,14 +84,14 @@ async function applyMode(newMode: AlarmMode, code: string) {
     if (parsed) currentMode.value = parsed
     pendingMode.value = null
     securityCode.value = ''
-    showSuccessToast(`Alarma: ${MODE_LABELS[newMode]}`)
+    showToast(`Alarma: ${MODE_LABELS[newMode]}`, 'success')
   } catch (e) {
     currentMode.value = previous
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
     } else {
-      error.value = 'Error inesperado. Intentá de nuevo.'
+      showToast('Error inesperado. Intentá de nuevo.', 'error')
     }
   } finally {
     actionPending.value = false
@@ -116,9 +100,8 @@ async function applyMode(newMode: AlarmMode, code: string) {
 
 async function changeCode() {
   if (changingCode.value) return
-  codeChangeError.value = ''
   if (!currentCode.value || !newCode.value) {
-    codeChangeError.value = 'Completá ambos códigos.'
+    showToast('Completá ambos códigos.', 'error')
     return
   }
   changingCode.value = true
@@ -129,13 +112,13 @@ async function changeCode() {
     })
     currentCode.value = ''
     newCode.value = ''
-    showSuccessToast('Código de seguridad actualizado')
+    showToast('Código de seguridad actualizado', 'success')
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      codeChangeError.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
     } else {
-      codeChangeError.value = 'Error inesperado. Intentá de nuevo.'
+      showToast('Error inesperado. Intentá de nuevo.', 'error')
     }
   } finally {
     changingCode.value = false
@@ -202,7 +185,7 @@ async function changeCode() {
                 type="button"
                 class="alarm-code-btn alarm-code-btn--secondary"
                 :disabled="actionPending"
-                @click="pendingMode = null; securityCode = ''; error = ''"
+                @click="pendingMode = null; securityCode = ''"
               >Cancelar</button>
               <button
                 type="button"
@@ -213,7 +196,6 @@ async function changeCode() {
             </div>
           </div>
 
-          <div v-if="error" class="alarm-error" role="alert">{{ error }}</div>
         </section>
 
         <section class="alarm-section alarm-section--divider">
@@ -257,15 +239,11 @@ async function changeCode() {
             {{ changingCode ? 'Guardando...' : 'Actualizar código' }}
           </button>
 
-          <div v-if="codeChangeError" class="alarm-error" role="alert">{{ codeChangeError }}</div>
         </section>
 
       </div>
     </section>
 
-    <Teleport to="body">
-      <div v-if="showToast" class="toast toast--success">{{ toastMessage }}</div>
-    </Teleport>
   </div>
 </template>
 
@@ -447,39 +425,6 @@ async function changeCode() {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.5rem;
-}
-
-.alarm-error {
-  margin: 0;
-  font-size: 0.82rem;
-  color: #a03030;
-  padding: 0.5rem 0.75rem;
-  background: rgba(180, 60, 60, 0.08);
-  border-radius: 10px;
-}
-
-.toast {
-  position: fixed;
-  bottom: 2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  color: #fff;
-  padding: 0.75rem 1.5rem;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.85rem;
-  z-index: 400;
-  animation: toast-in 0.3s ease;
-}
-
-.toast--success {
-  background: #2d6a4f;
-  box-shadow: 0 4px 15px rgba(45, 106, 79, 0.3);
-}
-
-@keyframes toast-in {
-  from { opacity: 0; transform: translateX(-50%) translateY(20px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
 @media (max-width: 900px) {

@@ -4,27 +4,28 @@ import { useRouter } from 'vue-router'
 import { api, ApiError } from '@/services/api/client'
 import { sendVerificationEmail } from '@/services/email'
 import AuthLayout from '../components/AuthLayout.vue'
+import { useToast } from '@/shared/composables/useToast'
 
 const name = ref('')
 const email = ref('')
 const password = ref('')
 const confirmPassword = ref('')
-const error = ref('')
 const loading = ref(false)
+
+const { showToast } = useToast()
 const showPass = ref(false)
 const showConfirmPass = ref(false)
 
 const router = useRouter()
 
 async function handleSubmit() {
-  error.value = ''
   const normalizedEmail = email.value.trim()
   if (!normalizedEmail) {
-    error.value = 'Ingresá un email válido.'
+    showToast('Ingresá un email válido.', 'error')
     return
   }
   if (password.value !== confirmPassword.value) {
-    error.value = 'Las contraseñas no coinciden.'
+    showToast('Las contraseñas no coinciden.', 'error')
     return
   }
 
@@ -52,12 +53,12 @@ async function handleSubmit() {
     }
 
     if (e instanceof ApiError && e.status === 409) {
-      error.value = 'Este mail ya tiene una cuenta. Podés iniciar sesión directamente.'
+      showToast('Este mail ya tiene una cuenta. Podés iniciar sesión directamente.', 'error')
     } else if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
     } else {
-      error.value = 'No se pudo enviar el mail de verificación. Intentá de nuevo.'
+      showToast('No se pudo enviar el mail de verificación. Intentá de nuevo.', 'error')
     }
   } finally {
     loading.value = false
@@ -72,8 +73,6 @@ async function handleSubmit() {
       <h1 class="register__title">Crear cuenta</h1>
       <p class="register__subtitle">Registrate para continuar</p>
     </div>
-
-    <div v-if="error" class="register__error" role="alert">{{ error }}</div>
 
     <form class="register__form" @submit.prevent="handleSubmit" novalidate>
 
@@ -165,17 +164,6 @@ async function handleSubmit() {
   font-size: 0.875rem;
   color: var(--color-text-muted);
   font-weight: 300;
-}
-
-.register__error {
-  width: 100%;
-  padding: 0.6rem 0.9rem;
-  background: rgba(180, 60, 60, 0.1);
-  border: 1px solid rgba(180, 60, 60, 0.3);
-  border-radius: 12px;
-  color: #a03030;
-  font-size: 0.85rem;
-  text-align: center;
 }
 
 .register__form {

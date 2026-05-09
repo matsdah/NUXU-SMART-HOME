@@ -4,17 +4,17 @@ import { useRouter } from 'vue-router'
 import { api, ApiError } from '@/services/api/client'
 import { generateVerificationCode, sendVerificationEmail } from '@/services/email'
 import AuthLayout from '../components/AuthLayout.vue'
+import { useToast } from '@/shared/composables/useToast'
 
 const email = ref('')
-const error = ref('')
 const loading = ref(false)
 const router = useRouter()
+const { showToast } = useToast()
 
 async function handleSubmit() {
-  error.value = ''
   const normalizedEmail = email.value.trim()
   if (!normalizedEmail) {
-    error.value = 'Ingresá tu email para continuar.'
+    showToast('Ingresá tu email para continuar.', 'error')
     return
   }
 
@@ -34,12 +34,12 @@ async function handleSubmit() {
     sessionStorage.removeItem('recovery_code')
     sessionStorage.removeItem('recovery_session')
     if (e instanceof ApiError && e.status === 404) {
-      error.value = 'No existe una cuenta con ese email.'
+      showToast('No existe una cuenta con ese email.', 'error')
     } else if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
     } else {
-      error.value = 'No se pudo enviar el mail. Intentá de nuevo.'
+      showToast('No se pudo enviar el mail. Intentá de nuevo.', 'error')
     }
   } finally {
     loading.value = false
@@ -54,8 +54,6 @@ async function handleSubmit() {
       <h1 class="recover__title">Cambiar contraseña</h1>
       <p class="recover__subtitle">Ingresá tu email para continuar</p>
     </div>
-
-    <div v-if="error" class="recover__error" role="alert">{{ error }}</div>
 
     <form class="recover__form" @submit.prevent="handleSubmit" novalidate>
 
@@ -101,17 +99,6 @@ async function handleSubmit() {
   font-size: 0.875rem;
   color: var(--color-text-muted);
   font-weight: 300;
-}
-
-.recover__error {
-  width: 100%;
-  padding: 0.6rem 0.9rem;
-  background: rgba(180, 60, 60, 0.1);
-  border: 1px solid rgba(180, 60, 60, 0.3);
-  border-radius: 12px;
-  color: #a03030;
-  font-size: 0.85rem;
-  text-align: center;
 }
 
 .recover__form {

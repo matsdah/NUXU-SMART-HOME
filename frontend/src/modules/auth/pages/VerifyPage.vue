@@ -1,22 +1,25 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError } from '@/services/api/client'
 import { sendVerificationEmail } from '@/services/email'
 import AuthLayout from '../components/AuthLayout.vue'
+import { useToast } from '@/shared/composables/useToast'
 
 const route = useRoute()
 const router = useRouter()
 
 const code = ref('')
-const error = ref('')
-const info = ref(
-  route.query.notice === 'needs-resend'
-    ? 'La cuenta ya fue creada, pero no pudimos enviar el primer mail. Pedí un nuevo código.'
-    : '',
-)
 const loading = ref(false)
 const resendLoading = ref(false)
+
+const { showToast } = useToast()
+
+onMounted(() => {
+  if (route.query.notice === 'needs-resend') {
+    showToast('La cuenta ya fue creada, pero no pudimos enviar el primer mail. Pedí un nuevo código.', 'error')
+  }
+})
 
 const verificationEmail = computed(() => {
   const email = typeof route.query.email === 'string' ? route.query.email.trim() : ''
@@ -33,16 +36,13 @@ function handleCodeInput(event: Event) {
 }
 
 async function handleSubmit() {
-  error.value = ''
-  info.value = ''
-
   if (!verificationEmail.value) {
-    error.value = 'No encontramos el email a verificar. Volvé a crear la cuenta.'
+    showToast('No encontramos el email a verificar. Volvé a crear la cuenta.', 'error')
     return
   }
 
   if (!code.value) {
-    error.value = 'Ingresá el código de verificación.'
+    showToast('Ingresá el código de verificación.', 'error')
     return
   }
 
@@ -53,9 +53,9 @@ async function handleSubmit() {
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      error.value = msg ?? 'Código incorrecto. Revisá tu mail e intentá de nuevo.'
+      showToast(msg ?? 'Código incorrecto. Revisá tu mail e intentá de nuevo.', 'error')
     } else {
-      error.value = 'Error inesperado. Intentá de nuevo.'
+      showToast('Error inesperado. Intentá de nuevo.', 'error')
     }
   } finally {
     loading.value = false
@@ -63,11 +63,8 @@ async function handleSubmit() {
 }
 
 async function handleResendCode() {
-  error.value = ''
-  info.value = ''
-
   if (!verificationEmail.value) {
-    error.value = 'No encontramos el email a verificar. Volvé a crear la cuenta.'
+    showToast('No encontramos el email a verificar. Volvé a crear la cuenta.', 'error')
     return
   }
 
@@ -77,13 +74,13 @@ async function handleResendCode() {
       email: verificationEmail.value,
     })
     await sendVerificationEmail(verificationEmail.value, verificationCode)
-    info.value = `Reenviamos un nuevo código a ${verificationEmail.value}.`
+    showToast(`Reenviamos un nuevo código a ${verificationEmail.value}.`, 'success')
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
-      error.value = msg ?? `Error ${e.status}. Intentá de nuevo.`
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
     } else {
-      error.value = 'No se pudo reenviar el código. Intentá de nuevo.'
+      showToast('No se pudo reenviar el código. Intentá de nuevo.', 'error')
     }
   } finally {
     resendLoading.value = false
@@ -98,9 +95,6 @@ async function handleResendCode() {
       <h1 class="verify__title">Verificación de cuenta</h1>
       <p class="verify__subtitle">Ingresar el número de 6 dígitos enviados al mail {{ targetEmail }}</p>
     </div>
-
-    <div v-if="error" class="verify__error" role="alert">{{ error }}</div>
-    <div v-if="info" class="verify__info" role="status">{{ info }}</div>
 
     <form class="verify__form" @submit.prevent="handleSubmit" novalidate>
 
@@ -164,28 +158,6 @@ async function handleResendCode() {
   font-size: 0.875rem;
   color: var(--color-text-muted);
   font-weight: 300;
-}
-
-.verify__error {
-  width: 100%;
-  padding: 0.6rem 0.9rem;
-  background: rgba(180, 60, 60, 0.1);
-  border: 1px solid rgba(180, 60, 60, 0.3);
-  border-radius: 12px;
-  color: #a03030;
-  font-size: 0.85rem;
-  text-align: center;
-}
-
-.verify__info {
-  width: 100%;
-  padding: 0.6rem 0.9rem;
-  background: rgba(92, 122, 92, 0.14);
-  border: 1px solid rgba(92, 122, 92, 0.35);
-  border-radius: 12px;
-  color: #415d41;
-  font-size: 0.85rem;
-  text-align: center;
 }
 
 .verify__form {

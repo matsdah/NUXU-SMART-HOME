@@ -4,6 +4,7 @@ import { api, ApiError } from "@/services/api/client";
 import { useDashboardStore } from "@/app/stores/dashboard";
 import { useSocketStore } from "@/app/stores/socket";
 import { useEditMode } from "@/app/composables/useEditMode";
+import { useToast } from "@/shared/composables/useToast";
 import RoutineFormModal from "../components/RoutineFormModal.vue";
 import EditEntityModal from "@/app/components/EditEntityModal.vue";
 import DeleteEntityConfirmModal from "@/app/components/DeleteEntityConfirmModal.vue";
@@ -22,17 +23,7 @@ type ApiRoutineAction = {
     device?: { id?: string };
 };
 
-type Toast = { id: number; message: string; type: "success" | "error" };
-const toasts = ref<Toast[]>([]);
-let _toastId = 0;
-
-function showToast(message: string, type: "success" | "error") {
-    const id = ++_toastId;
-    toasts.value.push({ id, message, type });
-    setTimeout(() => {
-        toasts.value = toasts.value.filter((t) => t.id !== id);
-    }, 3500);
-}
+const { toasts, showToast } = useToast();
 
 const dashboardStore = useDashboardStore();
 const socketStore = useSocketStore();
@@ -40,7 +31,6 @@ const { isEditMode, toggleEditMode } = useEditMode();
 
 const routines = ref<RoutineCard[]>([]);
 const loading = ref(true);
-const pageError = ref("");
 
 const runningId = ref<string | null>(null);
 
@@ -52,7 +42,6 @@ const formInitialStep = ref<1 | 2 | 3>(1);
 const showEditEntityModal = ref(false);
 const pendingEditRoutine = ref<{ id: string; name: string } | null>(null);
 const editingRoutine = ref(false);
-const editRoutineError = ref("");
 
 const showDeleteConfirm = ref(false);
 const pendingDelete = ref<{ id: string; name: string } | null>(null);
@@ -60,7 +49,6 @@ const deletingRoutine = ref(false);
 
 async function loadRoutines() {
     loading.value = true;
-    pageError.value = "";
 
     try {
         const data = await api.get<ApiRoutineRaw[]>("/routines");
@@ -83,9 +71,10 @@ async function loadRoutines() {
         });
     } catch (e: unknown) {
         const apiError = e instanceof ApiError ? e : null;
-        pageError.value = apiError
+        const msg = apiError
             ? `Error ${apiError.status} al cargar las rutinas.`
             : "Error inesperado al cargar las rutinas.";
+        showToast(msg, "error");
     } finally {
         loading.value = false;
     }
@@ -149,7 +138,6 @@ function onRoutineCardClick(card: RoutineCard) {
 
 function requestRoutineEdition(card: RoutineCard) {
     if (editingRoutine.value) return
-    editRoutineError.value = ""
     pendingEditRoutine.value = { id: card.id, name: card.name }
     showEditEntityModal.value = true
 }
@@ -158,14 +146,12 @@ function closeEditEntityModal() {
     if (editingRoutine.value) return
     showEditEntityModal.value = false
     pendingEditRoutine.value = null
-    editRoutineError.value = ""
 }
 
 async function confirmRoutineEdition(payload: { name: string }) {
     if (!pendingEditRoutine.value) return
 
     editingRoutine.value = true
-    editRoutineError.value = ""
     try {
         await api.put(`/routines/${pendingEditRoutine.value.id}`, { name: payload.name })
         const idx = routines.value.findIndex(r => r.id === pendingEditRoutine.value?.id)
@@ -181,7 +167,7 @@ async function confirmRoutineEdition(payload: { name: string }) {
         const msg = apiError
             ? `Error ${apiError.status} al actualizar la rutina.`
             : "No se pudo actualizar la rutina."
-        editRoutineError.value = msg
+        showToast(msg, "error")
     } finally {
         editingRoutine.value = false
     }
@@ -237,8 +223,7 @@ async function confirmDeletion() {
             </div>
         </div>
 
-        <div v-if="pageError" class="notice notice--error" role="alert">{{ pageError }}</div>
-        <div v-else-if="loading" class="notice">Cargando rutinas...</div>
+        <div v-if="loading" class="notice">Cargando rutinas...</div>
 
         <section v-else class="panel">
             <header class="panel__header">
@@ -385,7 +370,6 @@ async function confirmDeletion() {
             :entity-name="pendingEditRoutine.name"
             entity-type="routine"
             :loading="editingRoutine"
-            :error="editRoutineError"
             @close="closeEditEntityModal"
             @updated="confirmRoutineEdition"
             @delete="requestRoutineDeletion"
@@ -498,17 +482,6 @@ async function confirmDeletion() {
     font-weight: 600;
     color: rgba(42, 40, 37, 0.7);
     box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.08);
-}
-
-.notice--error {
-    background: rgba(180, 60, 60, 0.12);
-    border: 1px solid rgba(180, 60, 60, 0.22);
-    border-radius: 16px;
-    padding: 0.8rem 1rem;
-    color: #8a2d2d;
-    font-weight: 600;
-    font-size: 0.9rem;
-    box-shadow: none;
 }
 
 .routine-grid {

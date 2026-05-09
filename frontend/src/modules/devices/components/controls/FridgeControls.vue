@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, ref, onMounted, watch } from 'vue'
 import { api } from '@/services/api/client'
 import ControlSidebar from '../shared/ControlSidebar.vue'
 import TemperatureControl from '../shared/TemperatureControl.vue'
 import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
+import { useToast } from '@/shared/composables/useToast'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 
@@ -34,12 +35,9 @@ const state = ref<FridgeState>({
 
 const loading = ref(true)
 const saving = ref(false)
-const saveError = ref('')
-const toastMessage = ref('')
-const showToast = ref(false)
 const savedState = ref<FridgeState | null>(null)
 
-let toastTimer: ReturnType<typeof setTimeout> | null = null
+const { showToast } = useToast()
 
 const currentModeLabel = computed(() => {
   const modeMap: Record<FridgeState['mode'], string> = {
@@ -109,33 +107,15 @@ watch(state, async () => {
   await saveChanges()
 }, { deep: true })
 
-onBeforeUnmount(() => {
-  if (toastTimer !== null) {
-    clearTimeout(toastTimer)
-  }
-})
-
 async function saveChanges() {
-  if (saving.value) {
-    return
-  }
-
-  saveError.value = ''
+  if (saving.value) return
   saving.value = true
   try {
     localStorage.setItem(storageKey(), JSON.stringify(state.value))
     savedState.value = snapshotState()
-    toastMessage.value = 'Datos guardados correctamente.'
-    showToast.value = true
-    if (toastTimer !== null) {
-      clearTimeout(toastTimer)
-    }
-    toastTimer = setTimeout(() => {
-      showToast.value = false
-      toastTimer = null
-    }, 2000)
+    showToast('Datos guardados correctamente.', 'success')
   } catch {
-    saveError.value = 'No se pudo guardar. Volvé a intentarlo.'
+    showToast('No se pudo guardar. Volvé a intentarlo.', 'error')
   } finally {
     saving.value = false
   }
@@ -180,17 +160,8 @@ function normalizeMode(raw: unknown): FridgeState['mode'] {
           <TemperatureControl v-model="state.freezerTemp" :min="FREEZER_TEMP_MIN" :max="FREEZER_TEMP_MAX" label="temperatura freezer" />
         </section>
 
-        <div class="fridge-actions">
-          <p v-if="saveError" class="fridge-save__error" role="alert">{{ saveError }}</p>
-        </div>
       </div>
     </section>
-
-    <Teleport to="body">
-      <div v-if="showToast" class="toast toast--success">
-        {{ toastMessage }}
-      </div>
-    </Teleport>
   </div>
 </template>
 
@@ -233,49 +204,6 @@ function normalizeMode(raw: unknown): FridgeState['mode'] {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(42, 40, 37, 0.55);
-}
-
-.fridge-actions {
-  margin-top: 0.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.fridge-save__error {
-  margin: 0;
-  font-size: 0.85rem;
-  color: #9d4d43;
-}
-
-.toast {
-  position: fixed;
-  bottom: 2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  color: #fff;
-  padding: 0.75rem 1.5rem;
-  border-radius: 999px;
-  font-weight: 600;
-  font-size: 0.85rem;
-  z-index: 200;
-  animation: toast-in 0.3s ease;
-}
-
-.toast--success {
-  background: #2d6a4f;
-  box-shadow: 0 4px 15px rgba(45, 106, 79, 0.3);
-}
-
-@keyframes toast-in {
-  from {
-    opacity: 0;
-    transform: translateX(-50%) translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
-  }
 }
 
 @media (max-width: 900px) {
