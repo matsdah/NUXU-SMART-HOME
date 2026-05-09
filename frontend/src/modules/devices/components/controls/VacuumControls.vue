@@ -48,6 +48,13 @@ const isPaused  = computed(() => vacuumStatus.value === 'paused')
 const isDocked  = computed(() => vacuumStatus.value === 'docked')
 const isRunning = computed(() => isActive.value || isPaused.value)
 
+const deviceInStore = computed(() => store.devices.find(d => d.id === props.deviceId))
+
+const deviceRoomName = computed(() => {
+  if (!deviceInStore.value?.roomId) return ''
+  return store.rooms.find(r => r.id === deviceInStore.value.roomId)?.name ?? ''
+})
+
 const roomOptions = computed<PillOption[]>(() =>
   store.rooms.map(r => ({ value: r.id, label: r.name }))
 )
@@ -65,19 +72,35 @@ function parseMode(m: unknown): string {
 }
 
 async function fetchState() {
-  const raw = await api.get<Record<string, unknown>>(`/devices/${props.deviceId}/state`)
+  const [raw, detail] = await Promise.all([
+    api.get<Record<string, unknown>>(`/devices/${props.deviceId}/state`),
+    api.get<Record<string, unknown>>(`/devices/${props.deviceId}`).catch(() => null),
+  ])
   vacuumStatus.value = parseStatus(raw.status)
   mode.value = parseMode(raw.mode)
 
-  const loc = raw.location as Record<string, unknown> | null | undefined
   const dock = raw.dockingStation as Record<string, unknown> | null | undefined
 
-  locationId.value = typeof loc === 'object' && loc
-    ? String(loc.id ?? loc.roomId ?? '')
-    : ''
-  locationName.value = typeof loc === 'object' && loc
-    ? String(loc.name ?? '')
-    : ''
+  const loc = (raw.location ?? detail?.location ?? detail?.state?.location) as
+    | Record<string, unknown>
+    | string
+    | null
+    | undefined
+  const resolvedLoc = typeof loc === 'object' && loc ? loc
+    : typeof loc === 'string' && loc ? { id: loc } as Record<string, unknown>
+    : null
+
+  if (resolvedLoc) {
+    locationId.value = String(resolvedLoc.id ?? resolvedLoc.roomId ?? '')
+    locationName.value = String(resolvedLoc.name ?? '')
+  } else if (deviceInStore.value?.roomId) {
+    locationId.value = deviceInStore.value.roomId
+    locationName.value = store.rooms.find(r => r.id === deviceInStore.value.roomId)?.name ?? ''
+  } else {
+    locationId.value = ''
+    locationName.value = ''
+  }
+
   dockId.value = typeof dock === 'object' && dock
     ? String(dock.id ?? dock.roomId ?? '')
     : ''
@@ -123,7 +146,20 @@ async function onModeChange(val: string) {
 async function onLocationChange(roomId: string) {
   locationId.value = roomId
   const name = store.rooms.find(r => r.id === roomId)?.name ?? roomId
-  await doAction('setLocation', { roomId }, `Ubicación: ${name}`)
+  locationName.value = name
+  if (actionPending.value) return
+  actionPending.value = true
+  try {
+    await api.patch(`/devices/${props.deviceId}/setLocation`, { roomId })
+    emit('powerToggled', vacuumStatus.value === 'active' || vacuumStatus.value === 'paused')
+    showToast(`Ubicación: ${name}`, 'success')
+  } catch (e) {
+    handleError(e)
+    locationId.value = deviceInStore.value?.roomId ?? ''
+    locationName.value = deviceRoomName.value
+  } finally {
+    actionPending.value = false
+  }
 }
 </script>
 
@@ -189,7 +225,7 @@ async function onLocationChange(roomId: string) {
               <PillButtons
                 :model-value="locationId"
                 :options="roomOptions"
-                size="small"
+                appearance="container"
                 @update:model-value="(v: string) => onLocationChange(v)"
               />
             </div>
@@ -212,8 +248,8 @@ async function onLocationChange(roomId: string) {
 
           <section class="vac-section">
             <p class="vac-label">Ubicación de la base</p>
-            <div v-if="dockName" class="vac-dock-info">
-              {{ dockName }}
+            <div v-if="deviceRoomName" class="vac-dock-info">
+              {{ deviceRoomName }}
             </div>
             <p v-else class="vac-hint">Vinculá el dispositivo a una habitación para configurar la base.</p>
           </section>
