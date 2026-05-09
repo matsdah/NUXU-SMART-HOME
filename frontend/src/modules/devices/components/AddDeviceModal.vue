@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
+import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { api, ApiError } from '@/services/api/client'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import type { DeviceType } from '@/app/stores/dashboard'
+import CustomSelect from '@/shared/components/CustomSelect.vue'
 
 const props = defineProps<{
   roomId: string
@@ -27,8 +28,6 @@ type ApiCreatedDevice = { id?: string }
 
 const selectedRoomId = ref('')
 const selectedRoomName = ref('')
-const isRoomMenuOpen = ref(false)
-const roomSelectorRef = ref<HTMLElement | null>(null)
 
 async function loadDeviceTypes(): Promise<DeviceType[]> {
   const types = await api.get<DeviceType[]>('/devicetypes')
@@ -38,28 +37,10 @@ async function loadDeviceTypes(): Promise<DeviceType[]> {
 onMounted(async () => {
   const backendTypes = await loadDeviceTypes()
   deviceTypes.value = backendTypes
-  selectedTypeId.value =
-    backendTypes.find(type => type.name.toLowerCase().includes('aire acondicionado'))?.id
-    ?? backendTypes[0]!.id
-
-  if (props.showRoomSelector) {
-    const first = store.rooms[0]
-    if (first) {
-      selectedRoomId.value = first.id
-      selectedRoomName.value = first.name
-    }
-  }
-
+  selectedTypeId.value = ''
   loadingTypes.value = false
   document.addEventListener('keydown', onKeyDown)
-  document.addEventListener('click', onDocumentClick)
 })
-
-function onDocumentClick(e: MouseEvent) {
-  if (roomSelectorRef.value && !roomSelectorRef.value.contains(e.target as Node)) {
-    isRoomMenuOpen.value = false
-  }
-}
 
 async function handleSubmit() {
   error.value = ''
@@ -68,7 +49,11 @@ async function handleSubmit() {
     return
   }
   if (!selectedTypeId.value) {
-    error.value = 'Seleccioná un tipo de dispositivo.'
+    error.value = 'Elegí un tipo de dispositivo.'
+    return
+  }
+  if (props.showRoomSelector && !selectedRoomId.value) {
+    error.value = 'Elegí un ambiente.'
     return
   }
   loading.value = true
@@ -118,7 +103,6 @@ async function handleSubmit() {
 function selectRoom(id: string, name: string) {
   selectedRoomId.value = id
   selectedRoomName.value = name
-  isRoomMenuOpen.value = false
 }
 
 function onOverlayClick(e: MouseEvent) {
@@ -126,15 +110,11 @@ function onOverlayClick(e: MouseEvent) {
 }
 
 function onKeyDown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    isRoomMenuOpen.value = false
-    emit('close')
-  }
+  if (e.key === 'Escape') emit('close')
 }
 
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeyDown)
-  document.removeEventListener('click', onDocumentClick)
 })
 </script>
 
@@ -168,54 +148,19 @@ onBeforeUnmount(() => {
             <label for="device-name" class="field__label">Nombre del dispositivo</label>
           </div>
 
-          <div class="field">
-            <select
-              v-model="selectedTypeId"
-              id="device-type"
-              class="field__select"
-              required
-            >
-              <option v-for="t in deviceTypes" :key="t.id" :value="t.id">
-                {{ t.name }}
-              </option>
-            </select>
-            <label for="device-type" class="field__label field__label--select">Tipo</label>
-          </div>
+          <CustomSelect
+            v-model="selectedTypeId"
+            :options="deviceTypes.map(t => ({ id: t.id, label: t.name }))"
+            placeholder="Elegí dispositivo"
+          />
 
-          <div v-if="showRoomSelector" class="room-selector" ref="roomSelectorRef">
-            <button
-              type="button"
-              class="room-selector__trigger"
-              :aria-expanded="isRoomMenuOpen"
-              @click="isRoomMenuOpen = !isRoomMenuOpen"
-            >
-              <span class="room-selector__icon">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M4 12l8-7 8 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                  <path d="M7 11v7h10v-7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </span>
-              <span class="room-selector__label">{{ selectedRoomName || 'Seleccionar habitación' }}</span>
-              <span class="room-selector__chev">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-                </svg>
-              </span>
-            </button>
-            <Transition name="fade-slide">
-              <div v-if="isRoomMenuOpen" class="room-dropdown">
-                <button
-                  v-for="room in store.rooms" :key="room.id"
-                  type="button"
-                  class="room-dropdown__item"
-                  :class="{ 'room-dropdown__item--active': room.id === selectedRoomId }"
-                  @click="selectRoom(room.id, room.name)"
-                >
-                  {{ room.name }}
-                </button>
-              </div>
-            </Transition>
-          </div>
+          <CustomSelect
+            v-if="showRoomSelector"
+            :model-value="selectedRoomId ?? ''"
+            :options="store.rooms.map(r => ({ id: r.id, label: r.name }))"
+            placeholder="Elegí ambiente"
+            @update:model-value="(id) => selectRoom(id, store.rooms.find(r => r.id === id)?.name ?? '')"
+          />
 
           <div class="modal__actions">
             <button type="button" class="modal__cancel" :disabled="loading" @click="emit('close')">
@@ -348,34 +293,9 @@ onBeforeUnmount(() => {
 
 .field__input:focus ~ .field__label,
 .field__input:not(:placeholder-shown) ~ .field__label {
-  top: 10px;
+  top: 16px;
   font-size: 0.72rem;
-  color: var(--color-brown);
-}
-
-.field__select {
-  width: 100%;
-  height: 54px;
-  padding: 22px 1rem 4px;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1.5px solid var(--color-sage);
-  border-radius: 12px;
-  font-size: 0.95rem;
-  font-family: var(--font-sans);
-  color: var(--color-text);
-  outline: none;
-  -webkit-appearance: none;
-  appearance: none;
-  cursor: pointer;
-  transition: border-color 0.2s;
-}
-
-.field__select:focus { border-color: var(--color-brown); }
-
-.field__label--select {
-  top: 10px;
-  font-size: 0.72rem;
-  color: var(--color-brown);
+  color: var(--color-black);
 }
 
 .modal__actions {
@@ -436,136 +356,4 @@ onBeforeUnmount(() => {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 .spinner { animation: spin 0.9s linear infinite; }
-
-/* ─── Room selector ──────────────────────────────────────── */
-.room-selector {
-  position: relative;
-}
-
-.room-selector__trigger {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-  padding: 0.7rem 0.8rem;
-  border-radius: 12px;
-  border: 1.5px solid var(--color-sage);
-  background: rgba(255, 255, 255, 0.6);
-  color: var(--color-text);
-  font-family: inherit;
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-}
-
-.room-selector__trigger:hover {
-  border-color: var(--color-brown);
-}
-
-.room-selector__trigger[aria-expanded="true"] {
-  border-color: var(--color-brown);
-}
-
-.room-selector__icon {
-  display: grid;
-  place-items: center;
-  width: 28px;
-  height: 28px;
-  flex-shrink: 0;
-}
-
-.room-selector__icon svg {
-  width: 18px;
-  height: 18px;
-  opacity: 0.6;
-}
-
-.room-selector__label {
-  flex: 1;
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.room-selector__chev {
-  display: grid;
-  place-items: center;
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-  opacity: 0.5;
-  transition: transform 0.2s ease;
-}
-
-.room-selector__trigger[aria-expanded="true"] .room-selector__chev {
-  transform: rotate(180deg);
-}
-
-.room-selector__chev svg {
-  width: 14px;
-  height: 14px;
-}
-
-.room-dropdown {
-  position: absolute;
-  top: calc(100% + 0.35rem);
-  left: 0;
-  right: 0;
-  min-width: 200px;
-  background: rgba(255, 255, 255, 0.95);
-  border: 1px solid rgba(42, 40, 37, 0.1);
-  border-radius: 14px;
-  padding: 0.4rem;
-  box-shadow: 0 10px 30px rgba(42, 40, 37, 0.15);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  z-index: 12;
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-}
-
-@supports not (backdrop-filter: blur(1px)) {
-  .room-dropdown {
-    background: rgba(42, 40, 37, 0.72);
-  }
-}
-
-.room-dropdown__item {
-  padding: 0.6rem 0.9rem;
-  border-radius: 10px;
-  border: none;
-  background: transparent;
-  text-align: left;
-  font-family: inherit;
-  font-weight: 500;
-  font-size: 0.85rem;
-  color: rgba(42, 40, 37, 0.8);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.room-dropdown__item:hover {
-  background: rgba(42, 40, 37, 0.05);
-}
-
-.room-dropdown__item--active {
-  background: rgba(63, 129, 102, 0.15);
-  color: rgba(42, 85, 67, 1);
-}
-
-.fade-slide-enter-active,
-.fade-slide-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
-}
-.fade-slide-enter-from,
-.fade-slide-leave-to {
-  opacity: 0;
-  transform: translateY(-6px);
-}
 </style>

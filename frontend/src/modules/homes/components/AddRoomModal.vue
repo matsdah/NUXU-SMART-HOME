@@ -175,8 +175,8 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
 
 .field__input {
   width: 100%;
-  height: 54px;
-  padding: 18px 1rem 4px;
+  height: 58px;
+  padding: 26px 1rem 8px;
   background: rgba(255, 255, 255, 0.6);
   border: 1.5px solid var(--color-sage);
   border-radius: 12px;
@@ -200,14 +200,13 @@ onBeforeUnmount(() => { document.removeEventListener('keydown', onKeyDown) })
   font-weight: 300;
   color: var(--color-text-muted);
   pointer-events: none;
-  transition: top 0.18s ease, font-size 0.18s ease, color 0.18s ease;
-}
+  transition: top 0.18s ease, font-size 0.18s ease, color 0.18s ease;}
 
 .field__input:focus ~ .field__label,
 .field__input:not(:placeholder-shown) ~ .field__label {
-  top: 10px;
+  top: 16px;
   font-size: 0.72rem;
-  color: var(--color-brown);
+  color: var(--color-black);
 }
 
 .modal__actions {

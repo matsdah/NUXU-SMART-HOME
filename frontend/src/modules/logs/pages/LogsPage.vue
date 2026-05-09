@@ -714,6 +714,33 @@ onMounted(() => {
     font: inherit;
 }
 
+/* Flecha custom para los <select>, separada del borde */
+.filters__field select {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 2.4rem;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='rgba(42,40,37,0.7)' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+    background-repeat: no-repeat;
+    background-position: right 0.9rem center;
+    background-size: 12px 12px;
+}
+
+.filters__field input[type="date"] {
+    padding-right: 0.6rem;
+}
+
+.filters__field input[type="date"]::-webkit-datetime-edit {
+    padding-right: 0.75rem;
+}
+
+.filters__field input[type="date"]::-webkit-calendar-picker-indicator {
+    margin-left: 0.25rem;
+    margin-right: 0.15rem;
+    cursor: pointer;
+    opacity: 0.7;
+}
+
 .filters__field select:focus,
 .filters__field input:focus {
     outline: 2px solid rgba(66, 105, 187, 0.35);
