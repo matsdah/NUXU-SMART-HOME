@@ -203,8 +203,8 @@ async function confirmRoutineEdition(payload: { name: string }) {
     try {
         await api.put(`/routines/${pendingEditRoutine.value.id}`, { name: payload.name })
         const idx = routines.value.findIndex(r => r.id === pendingEditRoutine.value?.id)
-        if (idx >= 0) {
-            routines.value[idx].name = payload.name
+        if (idx >= 0 && routines.value[idx]) {
+            routines.value[idx]!.name = payload.name  
         }
         dashboardStore.invalidateRoutines()
         showEditEntityModal.value = false
