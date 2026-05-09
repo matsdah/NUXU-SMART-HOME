@@ -951,15 +951,14 @@ onMounted(async () => {
 .switch input:disabled + .switch__track { background: #e0e0e0; }
 
 .device-card--new {
-  border: 1px dashed rgba(42, 40, 37, 0.45);
+  border: none;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(42, 40, 37, 0.07);
 }
 
 .device-card--new--editing {
   background: transparent !important;
-  border-color: rgba(42, 40, 37, 0.2);
 }
 
 .device-card--new:disabled {
@@ -970,15 +969,15 @@ onMounted(async () => {
 }
 
 .device-card__plus {
-  width: 40px;
-  height: 40px;
-  border-radius: 14px;
-  background: rgba(200, 200, 200, 0.7);
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
   display: grid;
   place-items: center;
-  font-size: 1.6rem;
+  font-size: 1.1rem;
   line-height: 1;
-  color: rgba(42, 40, 37, 0.6);
+  color: rgba(42, 40, 37, 0.8);
 }
 
 .devices-empty {

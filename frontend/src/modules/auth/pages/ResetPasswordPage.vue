@@ -23,8 +23,9 @@ const showConfirm = ref(false)
 
 // Si no hay sesión activa de recuperación, significa que el código ya fue usado o nunca se pidió uno
 const hasActiveSession = !!sessionStorage.getItem('recovery_session')
+const fromSettings = route.name === 'change-password'
 const step = ref<'email' | 'code' | 'password'>(
-  initialEmail && hasActiveSession ? 'code' : 'email'
+  fromSettings ? 'password' : initialEmail && hasActiveSession ? 'code' : 'email'
 )
 
 function handleEmailStep() {
@@ -89,7 +90,7 @@ async function handlePasswordStep() {
     sessionStorage.removeItem('recovery_code')
     sessionStorage.removeItem('recovery_session')
 
-    router.push({ name: 'login' })
+    router.push(fromSettings ? { name: 'settings', query: { passwordChanged: '1' } } : { name: 'login' })
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) {
       error.value = 'Contraseña actual incorrecta.'
@@ -250,7 +251,8 @@ async function handlePasswordStep() {
     </form>
 
     <p class="auth-footer">
-      <RouterLink to="/login">Volver al inicio de sesión</RouterLink>
+      <RouterLink v-if="fromSettings" to="/settings">Volver a Configuración</RouterLink>
+      <RouterLink v-else to="/login">Volver al inicio de sesión</RouterLink>
     </p>
 
   </AuthLayout>

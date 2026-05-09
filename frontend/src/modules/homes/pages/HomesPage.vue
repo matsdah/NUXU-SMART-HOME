@@ -858,22 +858,22 @@ watch(() => socketStore.deviceListVersion, () => {
 }
 
 .device-card--new {
-  border: 1px dashed rgba(42, 40, 37, 0.45);
+  border: none;
   align-items: center;
   justify-content: center;
-  background: rgba(255, 255, 255, 0.85);
+  background: rgba(42, 40, 37, 0.07);
 }
 
 .device-card__plus {
-  width: 40px;
-  height: 40px;
-  border-radius: 14px;
-  background: rgba(200, 200, 200, 0.7);
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
   display: grid;
   place-items: center;
-  font-size: 1.6rem;
+  font-size: 1.1rem;
   line-height: 1;
-  color: rgba(42, 40, 37, 0.6);
+  color: rgba(42, 40, 37, 0.8);
 }
 
 .routine-list {
@@ -970,8 +970,8 @@ watch(() => socketStore.deviceListVersion, () => {
   justify-content: center;
   gap: 0.6rem;
   padding: 0.9rem;
-  border: 1px dashed rgba(42, 40, 37, 0.45);
-  background: rgba(255, 255, 255, 0.85);
+  border: none;
+  background: rgba(42, 40, 37, 0.07);
   cursor: pointer;
   transition: transform 0.15s, box-shadow 0.15s;
 }
@@ -982,15 +982,15 @@ watch(() => socketStore.deviceListVersion, () => {
 }
 
 .routine-card__plus {
-  width: 44px;
-  height: 44px;
-  border-radius: 14px;
-  background: rgba(200, 200, 200, 0.7);
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.65);
   display: grid;
   place-items: center;
-  font-size: 1.6rem;
+  font-size: 1.1rem;
   line-height: 1;
-  color: rgba(42, 40, 37, 0.6);
+  color: rgba(42, 40, 37, 0.8);
 }
 
 @media (max-width: 1024px) {

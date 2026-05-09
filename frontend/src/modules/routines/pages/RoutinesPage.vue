@@ -222,74 +222,38 @@ async function confirmDelete() {
 
 <template>
     <section class="routines-page">
-        <!-- Page header (title already exists in the parent shell; this adds the action bar) -->
+
+        <!-- Header (matches DevicesPage / HomesPage header structure) -->
         <div class="routines-page__header">
             <div>
-                <p class="section-label">Rutinas</p>
-                <p class="section-subtitle">
-                    Automatizá tu hogar con rutinas programadas o manuales.
-                </p>
-            </div>
-            <button type="button" class="btn-new" @click="openCreateModal">
-                + Nueva Rutina
-            </button>
-        </div>
-
-        <!-- Error notice -->
-        <div v-if="pageError" class="notice notice--error" role="alert">
-            {{ pageError }}
-        </div>
-
-        <!-- Skeleton loader -->
-        <div v-else-if="loading" class="routine-list">
-            <div
-                v-for="i in 3"
-                :key="i"
-                class="routine-card routine-card--skeleton"
-            >
-                <div class="skeleton-circle" />
-                <div class="skeleton-lines">
-                    <div class="skeleton-line skeleton-line--title" />
-                    <div class="skeleton-line skeleton-line--sub" />
-                </div>
-                <div class="skeleton-actions">
-                    <div class="skeleton-btn" />
-                    <div class="skeleton-btn" />
-                    <div class="skeleton-btn" />
-                </div>
+                <header class="panel__header">
+                    <h2 class="panel__title">Rutinas</h2>
+                </header>
             </div>
         </div>
 
-        <!-- Empty state -->
-        <div v-else-if="routines.length === 0" class="empty-state">
-            <div class="empty-state__icon" aria-hidden="true">
-                <svg
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="1.5"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
+        <!-- Notices -->
+        <div v-if="pageError" class="notice notice--error" role="alert">{{ pageError }}</div>
+        <div v-else-if="loading" class="notice">Cargando rutinas...</div>
+
+        <!-- Main panel -->
+        <section v-else class="panel">
+            <header class="panel__header">
+                <h2 class="panel__title">Mis rutinas</h2>
+                <button type="button" class="panel__btn" @click="openCreateModal">+ Nueva rutina</button>
+            </header>
+
+            <!-- Routine list -->
+            <div class="routine-list">
+                <button type="button" class="routine-card routine-card--new" @click="openCreateModal">
+                    <span class="routine-card__plus">+</span>
+                    <span>Nueva rutina</span>
+                </button>
+                <article
+                    v-for="card in routines"
+                    :key="card.id"
+                    class="routine-card"
                 >
-                    <path d="M7 6h10M7 12h10M7 18h10" />
-                    <circle cx="4" cy="6" r="1.5" fill="currentColor" />
-                    <circle cx="4" cy="12" r="1.5" fill="currentColor" />
-                    <circle cx="4" cy="18" r="1.5" fill="currentColor" />
-                </svg>
-            </div>
-            <p class="empty-state__msg">Todavía no tenés ninguna rutina</p>
-            <button type="button" class="btn-new" @click="openCreateModal">
-                Crear mi primera rutina
-            </button>
-        </div>
-
-        <!-- Routine cards -->
-        <div v-else class="routine-list">
-            <article
-                v-for="card in routines"
-                :key="card.id"
-                class="routine-card"
-            >
                 <!-- Colored icon circle -->
                 <div
                     class="routine-card__icon"
@@ -448,7 +412,8 @@ async function confirmDelete() {
                     </button>
                 </div>
             </article>
-        </div>
+            </div>
+        </section>
 
         <!-- ── Create / Edit modal ──────────────────────────── -->
         <RoutineFormModal
@@ -553,41 +518,62 @@ async function confirmDelete() {
     display: flex;
     align-items: flex-end;
     justify-content: space-between;
-    gap: 1rem;
 }
 
-.section-label {
-    font-size: 1.05rem;
+/* ─── Panel (matches DevicesPage) ───────────────────────── */
+.panel {
+    background: rgba(244, 244, 244, 0.7);
+    border-radius: 24px;
+    padding: 1.5rem;
+    box-shadow: 0 20px 40px rgba(42, 40, 37, 0.08);
+}
+
+.panel__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.2rem;
+}
+
+.routines-page__header .panel__header {
+    margin-bottom: 0;
+}
+
+.panel__title {
+    font-family: var(--font-serif);
+    font-size: 1.4rem;
     font-weight: 600;
-    letter-spacing: 0.02em;
-    margin-bottom: 0.2rem;
+    color: var(--color-text);
 }
 
-.section-subtitle {
-    font-size: 0.875rem;
-    color: var(--color-text-muted);
-}
-
-/* ─── New routine button ─────────────────────────────────── */
-.btn-new {
-    padding: 0.55rem 1.2rem;
-    border-radius: 999px;
+.panel__btn {
     border: none;
-    background: rgba(42, 40, 37, 0.88);
-    color: #f7f3e7;
-    font-size: 0.88rem;
-    font-weight: 600;
-    font-family: var(--font-sans);
+    background: rgba(255, 255, 255, 0.7);
+    color: rgba(42, 40, 37, 0.85);
+    border-radius: 999px;
+    padding: 0.4rem 0.9rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    font-family: inherit;
     cursor: pointer;
-    white-space: nowrap;
-    transition: background 0.2s;
+    transition: all 0.2s ease;
 }
 
-.btn-new:hover {
-    background: rgba(42, 40, 37, 1);
+.panel__btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
 }
 
-/* ─── Error notice ───────────────────────────────────────── */
+/* ─── Notices ────────────────────────────────────────────── */
+.notice {
+    background: rgba(255, 255, 255, 0.7);
+    border-radius: 16px;
+    padding: 0.8rem 1rem;
+    font-weight: 600;
+    color: rgba(42, 40, 37, 0.7);
+    box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.08);
+}
+
 .notice--error {
     background: rgba(180, 60, 60, 0.12);
     border: 1px solid rgba(180, 60, 60, 0.22);
@@ -596,96 +582,7 @@ async function confirmDelete() {
     color: #8a2d2d;
     font-weight: 600;
     font-size: 0.9rem;
-}
-
-/* ─── Skeleton ───────────────────────────────────────────── */
-@keyframes pulse {
-    0%,
-    100% {
-        opacity: 1;
-    }
-    50% {
-        opacity: 0.4;
-    }
-}
-
-.routine-card--skeleton {
-    animation: pulse 1.5s ease-in-out infinite;
-    pointer-events: none;
-}
-
-.skeleton-circle {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: rgba(42, 40, 37, 0.1);
-    flex-shrink: 0;
-}
-
-.skeleton-lines {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-}
-
-.skeleton-line {
-    border-radius: 6px;
-    background: rgba(42, 40, 37, 0.1);
-}
-
-.skeleton-line--title {
-    height: 14px;
-    width: 45%;
-}
-.skeleton-line--sub {
-    height: 11px;
-    width: 25%;
-}
-
-.skeleton-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.skeleton-btn {
-    width: 90px;
-    height: 36px;
-    border-radius: 999px;
-    background: rgba(42, 40, 37, 0.08);
-}
-
-/* ─── Empty state ────────────────────────────────────────── */
-.empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 1rem;
-    padding: 4rem 2rem;
-    background: rgba(244, 244, 244, 0.6);
-    border-radius: 24px;
-    border: 1px solid rgba(42, 40, 37, 0.07);
-}
-
-.empty-state__icon {
-    width: 56px;
-    height: 56px;
-    border-radius: 16px;
-    background: rgba(42, 40, 37, 0.07);
-    display: grid;
-    place-items: center;
-    color: var(--color-text-muted);
-}
-
-.empty-state__icon svg {
-    width: 28px;
-    height: 28px;
-}
-
-.empty-state__msg {
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--color-text-muted);
+    box-shadow: none;
 }
 
 /* ─── Routine list & cards ───────────────────────────────── */
@@ -693,6 +590,30 @@ async function confirmDelete() {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
+}
+
+.routine-card--new {
+    border: none;
+    justify-content: center;
+    background: rgba(42, 40, 37, 0.07);
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: rgba(42, 40, 37, 0.8);
+    cursor: pointer;
+}
+
+.routine-card__plus {
+    width: 32px;
+    height: 32px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.65);
+    display: grid;
+    place-items: center;
+    font-size: 1.1rem;
+    line-height: 1;
+    color: rgba(42, 40, 37, 0.8);
+    flex-shrink: 0;
 }
 
 .routine-card {
@@ -1008,11 +929,6 @@ async function confirmDelete() {
 
 /* ─── Responsive ─────────────────────────────────────────── */
 @media (max-width: 600px) {
-    .routines-page__header {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-
     .routine-card {
         padding: 0.85rem 1rem;
     }

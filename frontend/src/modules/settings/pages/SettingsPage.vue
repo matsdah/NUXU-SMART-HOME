@@ -88,7 +88,7 @@ async function saveProfile() {
 }
 
 function goToRecoverPassword() {
-  router.push('/recover')
+  router.push({ name: 'change-password', query: { email: auth.user?.email ?? '' } })
 }
 
 //Home name
@@ -291,6 +291,15 @@ function canRemoveMember(email: string): boolean {
 }
 
 //Lifecycle
+watch(() => route.query.passwordChanged, (val) => {
+  if (val === '1') {
+    showToastMsg('Contraseña actualizada correctamente')
+    setTimeout(() => {
+      router.replace({ name: 'settings', query: { view: route.query.view } })
+    }, 100)
+  }
+}, { immediate: true })
+
 onMounted(async () => {
   initProfileData()
   await dashboard.loadHomes()
@@ -465,7 +474,6 @@ watch(() => dashboard.activeHomeId, async (newId) => {
                 <span class="action-card__name">Añadir miembro</span>
                 <span class="action-card__desc">Invitá a alguien a tu hogar</span>
               </div>
-              <span class="action-card__arrow">›</span>
             </button>
 
             <button
@@ -485,7 +493,6 @@ watch(() => dashboard.activeHomeId, async (newId) => {
                 <span class="action-card__name">Salir del hogar</span>
                 <span class="action-card__desc">Perdés el acceso a este hogar</span>
               </div>
-              <span class="action-card__arrow">›</span>
             </button>
 
             <button
@@ -506,7 +513,6 @@ watch(() => dashboard.activeHomeId, async (newId) => {
                 <span class="action-card__name">Eliminar hogar</span>
                 <span class="action-card__desc">{{ currentHome.name }} se eliminará permanentemente</span>
               </div>
-              <span class="action-card__arrow">›</span>
             </button>
 
             <p v-if="!isAdmin" class="action-note">
@@ -648,7 +654,6 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   min-height: calc(100vh - 80px);
   margin: -2rem -2.5rem -3rem;
   padding: 2rem 2.5rem;
-  background: var(--color-bg);
 }
 
 .settings__header {
