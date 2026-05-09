@@ -8,6 +8,7 @@ import PillButtons from '../shared/PillButtons.vue'
 import { useToast } from '@/shared/composables/useToast'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
+const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
 
 type TapStatus = 'opened' | 'closed'
 
@@ -72,6 +73,7 @@ async function onAccessChange(value: string) {
   try {
     await api.patch(`/devices/${props.deviceId}/${action}`, {})
     await fetchState()
+    emit('powerToggled', status.value === 'opened')
     showToast(action === 'open' ? 'Aspersor abierto' : 'Aspersor cerrado', 'success')
   } catch (e) {
     status.value = prev

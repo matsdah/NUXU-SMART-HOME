@@ -8,6 +8,7 @@ import PillButtons from '../shared/PillButtons.vue'
 import { useToast } from '@/shared/composables/useToast'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
+const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
 
 type PlaybackStatus = 'playing' | 'paused' | 'stopped'
 
@@ -94,6 +95,7 @@ async function doAction(action: string, body: Record<string, unknown> = {}, toas
   try {
     await api.patch(`/devices/${props.deviceId}/${action}`, body)
     await fetchState()
+    emit('powerToggled', playbackStatus.value === 'playing' || playbackStatus.value === 'paused')
     if (toast) showToast(toast, 'success')
   } catch (e) {
     handleError(e)

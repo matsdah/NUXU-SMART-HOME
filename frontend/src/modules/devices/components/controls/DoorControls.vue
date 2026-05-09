@@ -7,6 +7,7 @@ import PillButtons from '../shared/PillButtons.vue'
 import { useToast } from '@/shared/composables/useToast'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
+const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
 
 type DoorStatus = 'open' | 'closed'
 type LockStatus = 'locked' | 'unlocked'
@@ -58,6 +59,7 @@ function startAutoClose() {
     } catch {
       // Se mantiene cerrada visualmente aunque falle la API
     }
+    emit('powerToggled', state.value.status === 'open' || state.value.lock === 'unlocked')
     showToast('Puerta cerrada automáticamente', 'success')
   }, 1000)
 }
@@ -92,6 +94,7 @@ async function performAction(action: 'open' | 'close' | 'lock' | 'unlock') {
     const raw = await api.get<Record<string, unknown>>(`/devices/${props.deviceId}/state`)
     if (raw.status === 'open' || raw.status === 'closed') state.value.status = raw.status
     if (raw.lock === 'locked' || raw.lock === 'unlocked') state.value.lock = raw.lock
+    emit('powerToggled', state.value.status === 'open' || state.value.lock === 'unlocked')
 
     if (action === 'open') {
       showToast('Puerta abierta', 'success')

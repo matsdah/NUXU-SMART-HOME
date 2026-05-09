@@ -8,6 +8,7 @@ import TemperatureControl from '../shared/TemperatureControl.vue'
 import { useToast } from '@/shared/composables/useToast'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
+const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
 
 type BlindStatus = 'opened' | 'closed' | 'opening' | 'closing'
 
@@ -65,6 +66,7 @@ async function setLevel(newLevel: number, toastMsg?: string) {
   try {
     await api.patch(`/devices/${props.deviceId}/setLevel`, { level: newLevel })
     await fetchState()
+    emit('powerToggled', status.value === 'opened' || status.value === 'opening')
     showToast(toastMsg ?? `Posición: ${newLevel}%`, 'success')
   } catch (e) {
     status.value  = prevStatus

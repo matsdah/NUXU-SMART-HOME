@@ -143,13 +143,41 @@ const TYPE_NAME_MAP: Record<string, DeviceKind> = {
   timer: 'other',
 }
 
+const STATUS_TRANSLATIONS: Record<string, string> = {
+  on: 'Encendido',
+  off: 'Apagado',
+  open: 'Abierto',
+  closed: 'Cerrado',
+  opening: 'Abriendo',
+  closing: 'Cerrando',
+  active: 'Activo',
+  inactive: 'Inactivo',
+  playing: 'Reproduciendo',
+  paused: 'Pausado',
+  stopped: 'Detenido',
+  locked: 'Bloqueado',
+  unlocked: 'Desbloqueado',
+  docked: 'En base',
+  disarmed: 'Desactivada',
+  armedstay: 'Modo Casa',
+  armedaway: 'Modo Regular',
+  running: 'Activo',
+  cooling: 'Frío',
+  heating: 'Calor',
+  encendido: 'Encendido',
+  apagado: 'Apagado',
+  abierto: 'Abierto',
+  cerrado: 'Cerrado',
+}
+
 function formatStatus(state?: ApiDeviceState): string {
   if(!state){
     return 'Sin estado'
   }
 
   if (typeof state.status === 'string'){
-    return state.status
+    const lower = state.status.toLowerCase()
+    return STATUS_TRANSLATIONS[lower] ?? state.status
   }
 
   if (typeof state.on === 'boolean'){
@@ -164,7 +192,23 @@ function formatStatus(state?: ApiDeviceState): string {
     return `Brillo ${state.brightness}%`
   }
 
-  return 'Sin estado'   /* Fallback genérico. */
+  return 'Sin estado'
+}
+
+export function statusForKind(kind: string, isOn: boolean): string {
+  const map: Record<string, [string, string]> = {
+    door: ['Abierto', 'Cerrado'],
+    tap: ['Abierto', 'Cerrado'],
+    blind: ['Abierto', 'Cerrado'],
+    speaker: ['Reproduciendo', 'Detenido'],
+    vacuum: ['Activo', 'Inactivo'],
+    alarm: ['Activada', 'Desactivada'],
+    ac: ['Encendido', 'Apagado'],
+    oven: ['Encendido', 'Apagado'],
+    lamp: ['Encendido', 'Apagado'],
+    fridge: ['Encendido', 'Encendido'],
+  }
+  return map[kind]?.[isOn ? 0 : 1] ?? (isOn ? 'Encendido' : 'Apagado')
 }
 
 function resolveIsOn(state?: ApiDeviceState): boolean {
@@ -180,7 +224,7 @@ function resolveIsOn(state?: ApiDeviceState): boolean {
     const s = state.status.toLowerCase()
     return ['on', 'encendido', 'abierto', 'open', 'active',
             'running', 'playing', 'paused', 'opened', 'opening', 'cool', 'cooling',
-            'heat', 'heating', 'locked'].includes(s)
+            'heat', 'heating', 'locked', 'armedstay', 'armedaway'].includes(s)
   }
 
   return false

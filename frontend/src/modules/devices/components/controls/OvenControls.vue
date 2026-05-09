@@ -136,8 +136,27 @@ function togglePower() {
 async function saveChanges() {
   if (saving.value) return
   saving.value = true
+  const cur = state.value
+  const prev = savedState.value
   try {
-    localStorage.setItem(storageKey(), JSON.stringify(state.value))
+    if (prev) {
+      if (cur.isOn !== prev.isOn) {
+        try { await api.patch(`/devices/${props.deviceId}/${cur.isOn ? 'turnOn' : 'turnOff'}`, {}) } catch { /* skip */ }
+      }
+      if (cur.temperature !== prev.temperature) {
+        try { await api.patch(`/devices/${props.deviceId}/setTemperature`, { temperature: cur.temperature }) } catch { /* skip */ }
+      }
+      if (cur.heatSource !== prev.heatSource) {
+        try { await api.patch(`/devices/${props.deviceId}/setHeat`, { heat: cur.heatSource }) } catch { /* skip */ }
+      }
+      if (cur.powerLevel !== prev.powerLevel) {
+        try { await api.patch(`/devices/${props.deviceId}/setGrill`, { grill: cur.powerLevel }) } catch { /* skip */ }
+      }
+      if (cur.convectionMode !== prev.convectionMode) {
+        try { await api.patch(`/devices/${props.deviceId}/setConvection`, { convection: cur.convectionMode }) } catch { /* skip */ }
+      }
+    }
+    localStorage.setItem(storageKey(), JSON.stringify(cur))
     savedState.value = snapshotState()
     showToast('Datos guardados correctamente.', 'success')
   } catch {

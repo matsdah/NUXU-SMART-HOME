@@ -28,6 +28,7 @@ const MODE_ACTIONS: Record<AlarmMode, string> = {
   armedAway: 'armAway',
 }
 
+const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
 const { showToast } = useToast()
 
 const currentMode   = ref<AlarmMode>('disarmed')
@@ -84,6 +85,7 @@ async function applyMode(newMode: AlarmMode, code: string) {
     if (parsed) currentMode.value = parsed
     pendingMode.value = null
     securityCode.value = ''
+    emit('powerToggled', currentMode.value !== 'disarmed')
     showToast(`Alarma: ${MODE_LABELS[newMode]}`, 'success')
   } catch (e) {
     currentMode.value = previous

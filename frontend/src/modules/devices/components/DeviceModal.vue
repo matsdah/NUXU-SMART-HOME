@@ -66,16 +66,16 @@ function onOverlayClick(e: MouseEvent) {
         <div class="modal__right">
           <button type="button" class="modal__close" @click="emit('close')" aria-label="Cerrar">✕</button>
 
-          <VacuumControls  v-if="isVacuum"           :device-id="device.id" :device-name="device.name" />
+          <VacuumControls  v-if="isVacuum"           :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
           <AcControls      v-else-if="isAirConditioner" :device-id="device.id" :device-name="device.name" :initial-is-on="device.isOn" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
           <OvenControls    v-else-if="isOven"       :device-id="device.id" :device-name="device.name" :initial-is-on="device.isOn" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
-          <FridgeControls  v-else-if="isFridge"     :device-id="device.id" :device-name="device.name" />
+          <FridgeControls  v-else-if="isFridge"     :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
           <LampControls    v-else-if="isLamp"       :device-id="device.id" :device-name="device.name" :initial-is-on="device.isOn" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
-          <DoorControls    v-else-if="isDoor"       :device-id="device.id" :device-name="device.name" />
-          <AlarmControls   v-else-if="isAlarm"      :device-id="device.id" :device-name="device.name" />
-          <BlindControls   v-else-if="isBlind"      :device-id="device.id" :device-name="device.name" />
-          <SpeakerControls v-else-if="isSpeaker"    :device-id="device.id" :device-name="device.name" />
-          <TapControls     v-else-if="isTap"        :device-id="device.id" :device-name="device.name" />
+          <DoorControls    v-else-if="isDoor"       :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
+          <AlarmControls   v-else-if="isAlarm"      :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
+          <BlindControls   v-else-if="isBlind"      :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
+          <SpeakerControls v-else-if="isSpeaker"    :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
+          <TapControls     v-else-if="isTap"        :device-id="device.id" :device-name="device.name" @power-toggled="(isOn) => emit('deviceUpdated', device.id, isOn)" />
           <p v-else class="modal__no-controls">Sin controles disponibles para este dispositivo.</p>
         </div>
       </div>

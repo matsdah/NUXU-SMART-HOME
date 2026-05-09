@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useHomesDashboard } from '@/modules/homes/composables/useHomesDashboard'
-import { useDashboardStore } from '@/app/stores/dashboard'
+import { useDashboardStore, statusForKind } from '@/app/stores/dashboard'
 import { useSocketStore } from '@/app/stores/socket'
 import type { Device } from '@/app/stores/dashboard'
 import { api, ApiError } from '@/services/api/client'
@@ -52,6 +52,7 @@ function onDeviceUpdated(id: string, isOn: boolean) {
   if (d) {
     d.isOn = isOn
     d.tone = isOn ? 'sage' : 'neutral'
+    d.status = statusForKind(d.kind, isOn)
   }
 }
 
@@ -112,6 +113,7 @@ async function refreshHomeDevices(options: { silent?: boolean } = {}) {
     const nextDevices = await store.fetchHomeDevices(activeHomeId.value)
     if (hasDeviceListChanged(nextDevices)) {
       allDevices.value = nextDevices
+      store.devices.splice(0, store.devices.length, ...nextDevices)
     }
   } finally {
     refreshingDevices.value = false
@@ -171,6 +173,8 @@ async function executeRoutine(id: string) {
   runningRoutineId.value = id
   try {
     await api.patch(`/routines/${id}/execute`, {})
+    // Refresh device states to reflect any changes made by the routine execution
+    await refreshHomeDevices({ silent: true })
     showToast('Rutina ejecutada correctamente.', 'success')
   } catch (e) {
     const msg = e instanceof ApiError

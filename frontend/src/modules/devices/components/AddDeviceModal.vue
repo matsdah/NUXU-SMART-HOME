@@ -83,6 +83,7 @@ async function handleSubmit() {
       return
     }
     store.seedDeviceInitialPowerState(deviceId, selectedTypeId.value)
+    try { await api.patch(`/devices/${deviceId}/turnOn`, {}) } catch { /* skip */ }
 
     emit('created', {
       deviceId,

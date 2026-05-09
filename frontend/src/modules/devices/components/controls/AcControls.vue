@@ -155,8 +155,30 @@ function togglePower() {
 async function saveChanges() {
   if (saving.value) return
   saving.value = true
+  const cur = state.value
+  const prev = savedState.value
   try {
-    localStorage.setItem(storageKey(), JSON.stringify(state.value))
+    if (prev) {
+      if (cur.isOn !== prev.isOn) {
+        try { await api.patch(`/devices/${props.deviceId}/${cur.isOn ? 'turnOn' : 'turnOff'}`, {}) } catch { /* skip */ }
+      }
+      if (cur.mode !== prev.mode) {
+        try { await api.patch(`/devices/${props.deviceId}/setMode`, { mode: cur.mode }) } catch { /* skip */ }
+      }
+      if (cur.temperature !== prev.temperature) {
+        try { await api.patch(`/devices/${props.deviceId}/setTemperature`, { temperature: cur.temperature }) } catch { /* skip */ }
+      }
+      if (cur.verticalSwing !== prev.verticalSwing) {
+        try { await api.patch(`/devices/${props.deviceId}/setVerticalSwing`, { verticalSwing: cur.verticalSwing }) } catch { /* skip */ }
+      }
+      if (cur.horizontalSwing !== prev.horizontalSwing) {
+        try { await api.patch(`/devices/${props.deviceId}/setHorizontalSwing`, { horizontalSwing: cur.horizontalSwing }) } catch { /* skip */ }
+      }
+      if (cur.fanSpeed !== prev.fanSpeed) {
+        try { await api.patch(`/devices/${props.deviceId}/setFanSpeed`, { fanSpeed: cur.fanSpeed }) } catch { /* skip */ }
+      }
+    }
+    localStorage.setItem(storageKey(), JSON.stringify(cur))
     savedState.value = snapshotState()
     showToast('Datos guardados correctamente.', 'success')
   } catch {

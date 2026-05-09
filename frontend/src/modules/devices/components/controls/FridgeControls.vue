@@ -8,6 +8,7 @@ import PillButtons from '../shared/PillButtons.vue'
 import { useToast } from '@/shared/composables/useToast'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
+const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
 
 type FridgeState = {
   mode: 'default' | 'party' | 'vacation'
@@ -110,9 +111,23 @@ watch(state, async () => {
 async function saveChanges() {
   if (saving.value) return
   saving.value = true
+  const cur = state.value
+  const prev = savedState.value
   try {
-    localStorage.setItem(storageKey(), JSON.stringify(state.value))
+    if (prev) {
+      if (cur.mode !== prev.mode) {
+        try { await api.patch(`/devices/${props.deviceId}/setMode`, { mode: cur.mode }) } catch { /* skip */ }
+      }
+      if (cur.fridgeTemp !== prev.fridgeTemp) {
+        try { await api.patch(`/devices/${props.deviceId}/setTemperature`, { temperature: cur.fridgeTemp }) } catch { /* skip */ }
+      }
+      if (cur.freezerTemp !== prev.freezerTemp) {
+        try { await api.patch(`/devices/${props.deviceId}/setFreezerTemperature`, { freezerTemperature: cur.freezerTemp }) } catch { /* skip */ }
+      }
+    }
+    localStorage.setItem(storageKey(), JSON.stringify(cur))
     savedState.value = snapshotState()
+    emit('powerToggled', true)
     showToast('Datos guardados correctamente.', 'success')
   } catch {
     showToast('No se pudo guardar. Volvé a intentarlo.', 'error')

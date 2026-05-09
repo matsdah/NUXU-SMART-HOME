@@ -2,7 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { api, ApiError } from '@/services/api/client'
-import { useDashboardStore } from '@/app/stores/dashboard'
+import { useDashboardStore, statusForKind } from '@/app/stores/dashboard'
 import { useSocketStore } from '@/app/stores/socket'
 import type { Device } from '@/app/stores/dashboard'
 import { useToast } from '@/shared/composables/useToast'
@@ -76,6 +76,7 @@ function onDeviceUpdated(id: string, isOn: boolean) {
   if (d) {
     d.isOn = isOn
     d.tone = isOn ? 'sage' : 'neutral'
+    d.status = statusForKind(d.kind, isOn)
   }
 }
 
@@ -238,6 +239,7 @@ async function refreshHomeDevices(options: { silent?: boolean } = {}) {
     const nextDevices = await store.fetchHomeDevices(activeHomeId.value)
     if (hasDeviceListChanged(nextDevices)) {
       allDevices.value = nextDevices
+      store.devices.splice(0, store.devices.length, ...nextDevices)
     }
   } finally {
     refreshingDevices.value = false
