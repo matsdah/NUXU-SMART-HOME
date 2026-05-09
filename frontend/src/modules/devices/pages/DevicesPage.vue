@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { storeToRefs } from 'pinia'
 import { api, ApiError } from '@/services/api/client'
 import { useDashboardStore, statusForKind } from '@/app/stores/dashboard'
@@ -16,7 +16,7 @@ import EditRoomModal from '@/modules/homes/components/EditRoomModal.vue'
 
 const store = useDashboardStore()
 const socketStore = useSocketStore()
-const { showToast } = useToast()
+const { showToast, showPersistentToast, hidePersistentToast } = useToast()
 const { rooms, activeHomeId, loading, error, pendingActions } = storeToRefs(store)
 
 const allDevices = ref<Device[]>([])
@@ -84,13 +84,22 @@ function onDeviceUpdated(id: string, isOn: boolean) {
   })
 }
 
+const ADMIN_HINT = 'Modo Administrador activo: tocá un dispositivo para renombrarlo o eliminarlo.'
+
 function toggleDeviceEditMode() {
   isDeviceEditMode.value = !isDeviceEditMode.value
   if (isDeviceEditMode.value) {
     closeModal()
     closeEditDeviceModal()
+    showPersistentToast(ADMIN_HINT)
+  } else {
+    hidePersistentToast(ADMIN_HINT)
   }
 }
+
+onBeforeUnmount(() => {
+  hidePersistentToast(ADMIN_HINT)
+})
 
 function onDeviceCardClick(device: Device) {
   if (isDeviceEditMode.value) {
@@ -504,10 +513,6 @@ onMounted(async () => {
         </button>
       </header>
 
-      <p v-if="isDeviceEditMode" class="panel__edit-hint">
-        Modo Administrador activo: tocá un dispositivo para renombrarlo o eliminarlo.
-      </p>
-
       <div class="device-grid">
         <button
           class="device-card device-card--new"
@@ -768,16 +773,6 @@ onMounted(async () => {
 .panel__title {
   font-family: var(--font-serif);
   font-size: 1.4rem;
-  font-weight: 600;
-}
-
-.panel__edit-hint {
-  margin: -0.4rem 0 1rem;
-  padding: 0.55rem 0.8rem;
-  border-radius: 10px;
-  background: rgba(42, 40, 37, 0.95);
-  color: #f7f3e7;
-  font-size: 0.8rem;
   font-weight: 600;
 }
 

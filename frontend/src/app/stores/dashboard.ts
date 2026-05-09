@@ -728,10 +728,14 @@ export const useDashboardStore = defineStore('dashboard', () => {
         action => !action.device?.id || !idsToRemove.has(action.device.id),
       )
 
-      await api.put(`/routines/${routine.id}`, {
-        name: routine.name,
-        actions: nextActions,
-      })
+      if (nextActions.length === 0) {
+        await api.delete(`/routines/${routine.id}`)
+      } else {
+        await api.put(`/routines/${routine.id}`, {
+          name: routine.name,
+          actions: nextActions,
+        })
+      }
     }))
 
     const rejected = syncResults.filter(result => result.status === 'rejected')

@@ -9,6 +9,7 @@ interface Toast {
 }
 
 const toasts = ref<Toast[]>([])
+const persistentToasts = ref<string[]>([])
 let nextId = 0
 
 export function useToast() {
@@ -20,5 +21,15 @@ export function useToast() {
     }, 3500)
   }
 
-  return { toasts, showToast }
+  function showPersistentToast(message: string) {
+    if (!persistentToasts.value.includes(message)) {
+      persistentToasts.value.push(message)
+    }
+  }
+
+  function hidePersistentToast(message: string) {
+    persistentToasts.value = persistentToasts.value.filter(m => m !== message)
+  }
+
+  return { toasts, showToast, persistentToasts, showPersistentToast, hidePersistentToast }
 }

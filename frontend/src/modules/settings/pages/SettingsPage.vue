@@ -16,7 +16,7 @@ const pageTitle = computed(() => activeView.value === 'hogar' ? 'Mi hogar' : 'Co
 
 //Toast
 
-const { toasts, showToast: showToastMsg } = useToast()
+const { showToast: showToastMsg } = useToast()
 
 //Helpers
 
@@ -623,16 +623,6 @@ watch(() => dashboard.activeHomeId, async (newId) => {
         </div>
       </div>
 
-      <TransitionGroup name="toast" tag="div" class="toast-stack">
-        <div
-          v-for="t in toasts" :key="t.id"
-          class="toast" :class="t.type === 'success' ? 'toast--success' : 'toast--error'"
-          role="status"
-        >
-          <span class="toast__dot" aria-hidden="true" />
-          {{ t.message }}
-        </div>
-      </TransitionGroup>
     </Teleport>
   </div>
 </template>
@@ -1440,69 +1430,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   margin-bottom: 0.25rem;
 }
 
-.toast-stack {
-  position: fixed;
-  bottom: 1.75rem;
-  right: 1.75rem;
-  z-index: 400;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  pointer-events: none;
-}
 
-.toast {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.7rem 1.1rem;
-  border-radius: 14px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  box-shadow: 0 8px 24px rgba(42, 40, 37, 0.18);
-  pointer-events: auto;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-}
-
-.toast--success {
-  background: rgba(255, 255, 255, 0.95);
-  color: #2a4d3a;
-  border: 1px solid rgba(82, 196, 125, 0.35);
-}
-
-.toast--error {
-  background: rgba(255, 255, 255, 0.95);
-  color: #7a1f1f;
-  border: 1px solid rgba(180, 60, 60, 0.3);
-}
-
-.toast__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.toast--success .toast__dot {
-  background: #52c47d;
-}
-.toast--error .toast__dot {
-  background: #e05252;
-}
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.3s ease;
-}
-.toast-enter-from {
-  opacity: 0;
-  transform: translateX(24px);
-}
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(24px);
-}
 
 @media (max-width: 768px) {
   .settings {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from "vue";
+import { ref, onBeforeUnmount, onMounted, watch } from "vue";
 import { api, ApiError } from "@/services/api/client";
 import { useDashboardStore } from "@/app/stores/dashboard";
 import { useSocketStore } from "@/app/stores/socket";
@@ -23,11 +23,24 @@ type ApiRoutineAction = {
     device?: { id?: string };
 };
 
-const { toasts, showToast } = useToast();
+const { showToast, showPersistentToast, hidePersistentToast } = useToast();
 
 const dashboardStore = useDashboardStore();
 const socketStore = useSocketStore();
-const { isEditMode, toggleEditMode } = useEditMode();
+const ADMIN_HINT = 'Modo Administrador activo: tocá una rutina para renombrarla o eliminarla.'
+const { isEditMode, toggleEditMode: _toggleEditMode } = useEditMode();
+function toggleEditMode() {
+  _toggleEditMode()
+  if (isEditMode.value) {
+    showPersistentToast(ADMIN_HINT)
+  } else {
+    hidePersistentToast(ADMIN_HINT)
+  }
+}
+
+onBeforeUnmount(() => {
+  hidePersistentToast(ADMIN_HINT)
+})
 
 const routines = ref<RoutineCard[]>([]);
 const loading = ref(true);
@@ -238,10 +251,6 @@ async function confirmDeletion() {
                 </button>
             </header>
 
-            <p v-if="isEditMode" class="panel__edit-hint">
-                Modo Administrador activo: tocá una rutina para renombrarla o eliminarla.
-            </p>
-
             <div class="routine-grid">
                 <button
                     class="device-card device-card--new"
@@ -384,22 +393,6 @@ async function confirmDeletion() {
             @confirm="confirmDeletion"
         />
 
-        <Teleport to="body">
-            <TransitionGroup name="toast" tag="div" class="toast-stack">
-                <div
-                    v-for="t in toasts"
-                    :key="t.id"
-                    class="toast"
-                    :class="
-                        t.type === 'success' ? 'toast--success' : 'toast--error'
-                    "
-                    role="status"
-                >
-                    <span class="toast__dot" aria-hidden="true" />
-                    {{ t.message }}
-                </div>
-            </TransitionGroup>
-        </Teleport>
     </section>
 </template>
 
@@ -463,16 +456,6 @@ async function confirmDeletion() {
     background: rgba(42, 40, 37, 0.95);
     color: #f7f3e7;
     box-shadow: 0 0 0 1px rgba(42, 40, 37, 0.45);
-}
-
-.panel__edit-hint {
-    margin: -0.4rem 0 1rem;
-    padding: 0.55rem 0.8rem;
-    border-radius: 10px;
-    background: rgba(42, 40, 37, 0.95);
-    color: #f7f3e7;
-    font-size: 0.8rem;
-    font-weight: 600;
 }
 
 .notice {
@@ -605,6 +588,7 @@ async function confirmDeletion() {
 .routine-card__body {
     flex: 1;
     min-width: 0;
+    padding-right: 3.5rem;
 }
 
 .routine-card__name {
@@ -667,55 +651,7 @@ async function confirmDeletion() {
     cursor: not-allowed;
 }
 
-.toast-stack {
-    position: fixed;
-    bottom: 1.75rem;
-    right: 1.75rem;
-    z-index: 400;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    pointer-events: none;
-}
 
-.toast {
-    display: flex;
-    align-items: center;
-    gap: 0.6rem;
-    padding: 0.7rem 1.1rem;
-    border-radius: 14px;
-    font-size: 0.875rem;
-    font-weight: 600;
-    box-shadow: 0 8px 24px rgba(42, 40, 37, 0.18);
-    pointer-events: auto;
-    backdrop-filter: blur(8px);
-}
-
-.toast--success {
-    background: rgba(255, 255, 255, 0.95);
-    color: #2a4d3a;
-    border: 1px solid rgba(82, 196, 125, 0.35);
-}
-
-.toast--error {
-    background: rgba(255, 255, 255, 0.95);
-    color: #7a1f1f;
-    border: 1px solid rgba(180, 60, 60, 0.3);
-}
-
-.toast__dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-}
-
-.toast--success .toast__dot {
-    background: #52c47d;
-}
-.toast--error .toast__dot {
-    background: #e05252;
-}
 
 .toast-enter-active,
 .toast-leave-active {

@@ -36,7 +36,7 @@ const renamingRoom = ref(false)
 const showCreateRoutine = ref(false)
 const runningRoutineId = ref<string | null>(null)
 
-const { toasts, showToast } = useToast()
+const { showToast } = useToast()
 
 function openDeviceModal(device: Device) {
   selectedDevice.value = device
@@ -570,19 +570,6 @@ watch(() => socketStore.deviceListVersion, () => {
       @updated="confirmRoomRename"
     />
 
-    <Teleport to="body">
-      <TransitionGroup name="toast" tag="div" class="toast-stack">
-        <div
-          v-for="t in toasts" :key="t.id"
-          class="toast" :class="t.type === 'success' ? 'toast--success' : 'toast--error'"
-          role="status"
-        >
-          <span class="toast__dot" aria-hidden="true" />
-          {{ t.message }}
-        </div>
-      </TransitionGroup>
-    </Teleport>
-
   </section>
 </template>
 
@@ -1005,51 +992,6 @@ watch(() => socketStore.deviceListVersion, () => {
   width: 18px;
   height: 18px;
   animation: spin 0.9s linear infinite;
-}
-
-/* ─── Toast notifications ────────────────────────────────── */
-.toast-stack {
-  position: fixed;
-  bottom: 1.75rem;
-  right: 1.75rem;
-  z-index: 400;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  pointer-events: none;
-}
-
-.toast {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding: 0.7rem 1.1rem;
-  border-radius: 14px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  box-shadow: 0 8px 24px rgba(42, 40, 37, 0.18);
-  pointer-events: auto;
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-}
-
-.toast--success {
-  background: rgba(255, 255, 255, 0.95);
-  color: #2a4d3a;
-  border: 1px solid rgba(82, 196, 125, 0.35);
-}
-
-.toast--error {
-  background: rgba(255, 255, 255, 0.95);
-  color: #7a1f1f;
-  border: 1px solid rgba(180, 60, 60, 0.3);
-}
-
-.toast__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
 }
 
 .toast--success .toast__dot {
