@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { api, ApiError, TOKEN_KEY } from '@/services/api/client'
+import { sendVerificationEmail } from '@/services/email'
 import AuthLayout from '../components/AuthLayout.vue'
 import { useToast } from '@/shared/composables/useToast'
 
@@ -30,12 +31,40 @@ const step = ref<'email' | 'code' | 'password'>(
   fromSettings ? 'password' : initialEmail && hasActiveSession ? 'code' : 'email'
 )
 
-function handleEmailStep() {
-  if (!email.value.trim()) {
+async function handleEmailStep() {
+  const normalizedEmail = email.value.trim()
+  if (!normalizedEmail) {
     showToast('Ingresá tu email para continuar.', 'error')
     return
   }
-  step.value = 'code'
+
+  if (fromSettings) {
+    step.value = 'password'
+    return
+  }
+
+  loading.value = true
+  try {
+    const { code: recoveryCode } = await api.post<{ code: string }>('/users/forgot-password', {
+      email: normalizedEmail,
+    })
+
+    sessionStorage.setItem('recovery_code', recoveryCode)
+    sessionStorage.setItem('recovery_session', crypto.randomUUID())
+    await sendVerificationEmail(normalizedEmail, recoveryCode)
+    step.value = 'code'
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 404) {
+      showToast('No existe una cuenta con ese email.', 'error')
+    } else if (e instanceof ApiError) {
+      const msg = (e.body as { error?: { description?: string } })?.error?.description
+      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
+    } else {
+      showToast('No se pudo enviar el código. Intentá de nuevo.', 'error')
+    }
+  } finally {
+    loading.value = false
+  }
 }
 
 function handleCodeInput(event: Event) {
@@ -66,23 +95,37 @@ async function handlePasswordStep() {
 
   loading.value = true
   try {
-    // 1. Iniciamos sesión con la contraseña actual para obtener el token
-    const { token } = await api.post<{ token: string }>('/users/login', {
-      email: email.value.trim(),
-      password: currentPassword.value,
-    })
+    if (fromSettings) {
+      // 1. Iniciamos sesión con la contraseña actual para obtener el token
+      const { token } = await api.post<{ token: string }>('/users/login', {
+        email: email.value.trim(),
+        password: currentPassword.value,
+      })
 
-    // 2. Guardamos el token temporalmente para que el cliente lo use en la siguiente llamada
-    localStorage.setItem(TOKEN_KEY, token)
+      // 2. Guardamos el token temporalmente para que el cliente lo use en la siguiente llamada
+      localStorage.setItem(TOKEN_KEY, token)
 
-    // 3. Cambiamos la contraseña
-    await api.post('/users/change-password', {
-      oldPassword: currentPassword.value,
-      newPassword: password.value,
-    })
+      // 3. Cambiamos la contraseña
+      await api.post('/users/change-password', {
+        oldPassword: currentPassword.value,
+        newPassword: password.value,
+      })
 
-    // 4. Borramos el token (el usuario deberá iniciar sesión con la nueva contraseña)
-    localStorage.removeItem(TOKEN_KEY)
+      // 4. Borramos el token (el usuario deberá iniciar sesión con la nueva contraseña)
+      localStorage.removeItem(TOKEN_KEY)
+    } else {
+      const recoveryCode = sessionStorage.getItem('recovery_code')
+      if (!recoveryCode) {
+        showToast('No encontramos un código de recuperación válido. Pedí uno nuevo.', 'error')
+        return
+      }
+
+      await api.post('/users/reset-password', {
+        email: email.value.trim(),
+        code: recoveryCode,
+        newPassword: password.value,
+      })
+    }
 
     sessionStorage.removeItem('recovery_code')
     sessionStorage.removeItem('recovery_session')
@@ -108,10 +151,10 @@ async function handlePasswordStep() {
 
     <div class="reset__header">
       <h1 class="reset__title">
-        {{ step === 'email' ? 'Cambiar contraseña' : step === 'code' ? 'Verificar identidad' : 'Nueva contraseña' }}
+        {{ step === 'email' ? 'Cambiar contraseña' : step === 'code' ? 'Verificar identidad' : fromSettings ? 'Nueva contraseña' : 'Restablecer contraseña' }}
       </h1>
       <p class="reset__subtitle">
-        {{ step === 'email' ? 'Ingresá tu email para continuar' : step === 'code' ? `Ingresá el código enviado a ${email}` : 'Ingresá tu contraseña actual y la nueva' }}
+        {{ step === 'email' ? 'Ingresá tu email para continuar' : step === 'code' ? `Ingresá el código enviado a ${email}` : fromSettings ? 'Ingresá tu contraseña actual y la nueva' : 'Elegí una nueva contraseña' }}
       </p>
     </div>
 
@@ -168,7 +211,7 @@ async function handlePasswordStep() {
 
     <form v-else class="reset__form" @submit.prevent="handlePasswordStep" novalidate>
 
-      <div class="field">
+      <div v-if="fromSettings" class="field">
         <span class="field__icon" aria-hidden="true">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>

@@ -20,14 +20,18 @@ async function handleSubmit() {
 
   loading.value = true
   try {
-    // Verificar que el mail exista en el sistema antes de enviar nada
-    await api.post('/users/forgot-password', { email: normalizedEmail })
+    const recoveryResponse = await api.post<{ code?: string; verification_code?: string }>(
+      '/users/forgot-password',
+      { email: normalizedEmail },
+    )
+    const recoveryCode = recoveryResponse.code ?? recoveryResponse.verification_code ?? generateVerificationCode()
 
-    // Generar código propio y enviarlo por EmailJS
-    const code = generateVerificationCode()
-    sessionStorage.setItem('recovery_code', code)
+    console.log('forgot-password response:', recoveryResponse)
+    console.log('recovery code sent to EmailJS:', recoveryCode)
+
+    sessionStorage.setItem('recovery_code', recoveryCode)
     sessionStorage.setItem('recovery_session', crypto.randomUUID())
-    await sendVerificationEmail(normalizedEmail, code)
+    await sendVerificationEmail(normalizedEmail, recoveryCode)
 
     router.push({ name: 'reset-password', query: { email: normalizedEmail } })
   } catch (e) {
