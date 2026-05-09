@@ -22,32 +22,6 @@ type ApiRoutineAction = {
     device?: { id?: string };
 };
 
-const META_KEY = "nuxu_routine_meta";
-type RoutineMeta = { color: string; icon: RoutineIcon };
-type RoutineMetaMap = Record<string, RoutineMeta>;
-
-const FALLBACK_COLORS = ["#e05252", "#5285e0", "#52c47d", "#e0bf45", "#9052e0"];
-
-function loadMetaMap(): RoutineMetaMap {
-    try {
-        return JSON.parse(localStorage.getItem(META_KEY) ?? "{}");
-    } catch {
-        return {};
-    }
-}
-
-function saveRoutineMeta(id: string, meta: RoutineMeta) {
-    const map = loadMetaMap();
-    map[id] = meta;
-    localStorage.setItem(META_KEY, JSON.stringify(map));
-}
-
-function deleteRoutineMeta(id: string) {
-    const map = loadMetaMap();
-    delete map[id];
-    localStorage.setItem(META_KEY, JSON.stringify(map));
-}
-
 type Toast = { id: number; message: string; type: "success" | "error" };
 const toasts = ref<Toast[]>([]);
 let _toastId = 0;
@@ -90,9 +64,8 @@ async function loadRoutines() {
 
     try {
         const data = await api.get<ApiRoutineRaw[]>("/routines");
-        const metaMap = loadMetaMap();
 
-        routines.value = data.map((r: ApiRoutineRaw, idx: number) => {
+        routines.value = data.map((r: ApiRoutineRaw) => {
             const deviceIds = (r.actions ?? [])
                 .map((a: ApiRoutineAction) => a.device?.id)
                 .filter(
@@ -100,20 +73,12 @@ async function loadRoutines() {
                         typeof id === "string",
                 );
 
-            const fallbackColor =
-                FALLBACK_COLORS[idx % FALLBACK_COLORS.length] ?? "#e05252";
-            const meta: RoutineMeta = {
-                color: metaMap[r.id]?.color ?? fallbackColor,
-                icon: metaMap[r.id]?.icon ?? ("bolt" as RoutineIcon),
-            };
-
             return {
                 id: r.id,
                 name: r.name,
                 deviceIds,
                 actionsCount: r.actions?.length ?? 0,
-                color: meta.color,
-                icon: meta.icon,
+                icon: "bolt" as RoutineIcon,
             };
         });
     } catch (e: unknown) {
@@ -157,7 +122,6 @@ function openCreateModal() {
 }
 
 function onRoutineCreated(card: RoutineCard) {
-    saveRoutineMeta(card.id, { color: card.color, icon: card.icon });
     routines.value.unshift(card);
     dashboardStore.invalidateRoutines();
     showFormModal.value = false;
@@ -165,7 +129,6 @@ function onRoutineCreated(card: RoutineCard) {
 }
 
 function onRoutineUpdated(card: RoutineCard) {
-    saveRoutineMeta(card.id, { color: card.color, icon: card.icon });
     const idx = routines.value.findIndex((r) => r.id === card.id);
     if (idx >= 0) routines.value[idx] = card;
     dashboardStore.invalidateRoutines();
@@ -177,7 +140,10 @@ function onRoutineCardClick(card: RoutineCard) {
     if (isEditMode.value) {
         requestRoutineEdition(card)
     } else {
-        executeRoutine(card.id)
+        formMode.value = "edit"
+        editingCard.value = card
+        formInitialStep.value = 3
+        showFormModal.value = true
     }
 }
 
@@ -204,7 +170,7 @@ async function confirmRoutineEdition(payload: { name: string }) {
         await api.put(`/routines/${pendingEditRoutine.value.id}`, { name: payload.name })
         const idx = routines.value.findIndex(r => r.id === pendingEditRoutine.value?.id)
         if (idx >= 0 && routines.value[idx]) {
-            routines.value[idx]!.name = payload.name  
+            routines.value[idx]!.name = payload.name
         }
         dashboardStore.invalidateRoutines()
         showEditEntityModal.value = false
@@ -243,7 +209,6 @@ async function confirmDeletion() {
 
     try {
         await api.delete(`/routines/${target.id}`)
-        deleteRoutineMeta(target.id)
         routines.value = routines.value.filter((r) => r.id !== target.id)
         dashboardStore.invalidateRoutines()
         showDeleteConfirm.value = false
@@ -284,24 +249,24 @@ async function confirmDeletion() {
                     :class="{ 'panel__edit-toggle--active': isEditMode }"
                     @click="toggleEditMode"
                 >
-                    {{ isEditMode ? 'Salir edición' : 'Modo edición' }}
+                    {{ isEditMode ? 'Salir de Modo Administrador' : 'Modo Administrador' }}
                 </button>
             </header>
 
             <p v-if="isEditMode" class="panel__edit-hint">
-                Modo edición activo: tocá una rutina para editarla o eliminarla.
+                Modo Administrador activo: tocá una rutina para renombrarla o eliminarla.
             </p>
 
             <div class="routine-grid">
                 <button
-                    class="routine-card routine-card--new"
-                    :class="{ 'routine-card--new--editing': isEditMode }"
+                    class="device-card device-card--new"
+                    :class="{ 'device-card--new--editing': isEditMode }"
                     type="button"
                     aria-label="Agregar rutina"
                     :disabled="isEditMode"
                     @click="openCreateModal"
                 >
-                    <span class="routine-card__plus">+</span>
+                    <span class="device-card__plus">+</span>
                     <span>Nueva</span>
                 </button>
 
@@ -314,13 +279,12 @@ async function confirmDeletion() {
                 >
                     <div
                         class="routine-card__icon"
-                        :style="{ background: card.color }"
                         aria-hidden="true"
                     >
                         <svg
                             viewBox="0 0 24 24"
                             fill="none"
-                            stroke="white"
+                            stroke="rgba(42, 40, 37, 0.8)"
                             stroke-width="2"
                             stroke-linecap="round"
                             stroke-linejoin="round"
@@ -549,11 +513,60 @@ async function confirmDeletion() {
 
 .routine-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 1rem;
 }
 
+.device-card--new {
+    border: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(42, 40, 37, 0.07);
+    min-height: 160px;
+    padding: 1rem;
+    font-family: inherit;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: rgba(42, 40, 37, 0.8);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    border-radius: 18px;
+    transition: transform 0.15s, box-shadow 0.15s;
+
+}
+
+.device-card--new--editing {
+    background: transparent !important;
+}
+
+.device-card--new:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+.device-card__plus {
+    width: 40px;
+    height: 40px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.65);
+    display: grid;
+    place-items: center;
+    font-size: 1.3rem;
+    line-height: 1;
+    color: rgba(42, 40, 37, 0.8);
+    flex-shrink: 0;
+}
+
+.device-card--new:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
+}
 .routine-card--new {
+    border-radius: 18px;
     border: none;
     justify-content: center;
     align-items: center;
@@ -567,31 +580,12 @@ async function confirmDeletion() {
     cursor: pointer;
     display: flex;
     flex-direction: column;
+    transition: transform 0.15s, box-shadow 0.15s;    
     gap: 0.75rem;
 }
-
-.routine-card--new--editing {
-    background: transparent !important;
-}
-
-.routine-card--new:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-    transform: none !important;
-    box-shadow: none !important;
-}
-
-.routine-card__plus {
-    width: 40px;
-    height: 40px;
-    border-radius: 999px;
-    background: rgba(255, 255, 255, 0.65);
-    display: grid;
-    place-items: center;
-    font-size: 1.3rem;
-    line-height: 1;
-    color: rgba(42, 40, 37, 0.8);
-    flex-shrink: 0;
+.routine-card--new:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
 }
 
 .routine-card {
@@ -602,7 +596,6 @@ async function confirmDeletion() {
     flex-direction: column;
     justify-content: space-between;
     gap: 1rem;
-    min-height: 180px;
     box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
     cursor: pointer;
     transition: transform 0.15s, box-shadow 0.15s;
@@ -628,6 +621,7 @@ async function confirmDeletion() {
     display: grid;
     place-items: center;
     flex-shrink: 0;
+    background: rgba(190, 190, 166, 0.45);
 }
 
 .routine-card__icon svg {
@@ -670,7 +664,7 @@ async function confirmDeletion() {
 
 .routine-card__run {
     position: absolute;
-    bottom: 1rem;
+    bottom: 2rem;
     right: 1rem;
     width: 40px;
     height: 40px;

@@ -511,12 +511,12 @@ onMounted(async () => {
           :class="{ 'panel__edit-toggle--active': isDeviceEditMode }"
           @click="toggleDeviceEditMode"
         >
-          {{ isDeviceEditMode ? 'Salir edición' : 'Modo edición' }}
+          {{ isDeviceEditMode ? 'Salir de Modo Administrador' : 'Modo Administrador' }}
         </button>
       </header>
 
       <p v-if="isDeviceEditMode" class="panel__edit-hint">
-        Modo edición activo: tocá un dispositivo para editarlo o eliminarlo.
+        Modo Administrador activo: tocá un dispositivo para renombrarlo o eliminarlo.
       </p>
 
       <div class="device-grid">

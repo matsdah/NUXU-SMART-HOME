@@ -529,7 +529,7 @@ watch(() => socketStore.deviceListVersion, () => {
 
           <button class="routine-card routine-card--new" type="button" aria-label="Crear rutina" @click="showCreateRoutine = true">
             <span class="routine-card__plus">+</span>
-            <span>Nuevo</span>
+            <span>Nueva</span>
           </button>
         </div>
       </aside>
@@ -936,8 +936,8 @@ watch(() => socketStore.deviceListVersion, () => {
 }
 
 .routine-card__play {
-  width: 44px;
-  height: 44px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   border: none;
   background: rgba(42, 40, 37, 0.88);

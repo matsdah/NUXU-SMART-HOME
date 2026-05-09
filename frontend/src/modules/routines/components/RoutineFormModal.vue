@@ -32,7 +32,6 @@ export type RoutineCard = {
     name: string;
     deviceIds: string[];
     actionsCount: number;
-    color: string;
     icon: RoutineIcon;
 };
 
@@ -68,16 +67,6 @@ const emit = defineEmits<{
 
 /* ─── Constants ──────────────────────────────────────────── */
 
-const PRESET_COLORS = [
-    { label: "Rojo", value: "#e05252" },
-    { label: "Azul", value: "#5285e0" },
-    { label: "Verde", value: "#52c47d" },
-    { label: "Amarillo", value: "#e0bf45" },
-    { label: "Morado", value: "#9052e0" },
-];
-
-const DEFAULT_COLOR = PRESET_COLORS[0]?.value ?? "#e05252";
-
 const ICONS: RoutineIcon[] = ["bolt", "sun", "moon", "home", "star", "clock"];
 
 /* ─── Store ──────────────────────────────────────────────── */
@@ -87,9 +76,7 @@ const store = useDashboardStore();
 /* ─── Reactive state ─────────────────────────────────────── */
 
 const routineName = ref(props.routine?.name ?? "");
-const selectedColor = ref(props.routine?.color ?? DEFAULT_COLOR);
 const selectedIcon = ref<RoutineIcon>(props.routine?.icon ?? "bolt");
-const hue = ref(0);
 
 const activeStep = ref<1 | 2 | 3>(
     props.initialStep ?? (props.mode === "edit" ? 3 : 1),
@@ -377,18 +364,10 @@ onMounted(async () => {
 
 /* ─── Methods ────────────────────────────────────────────── */
 
-function pickPreset(color: string) {
-    selectedColor.value = color;
-}
-
 function onNameInput() {
     if (routineName.value.trim() !== "") {
         attemptedContinue.value = false;
     }
-}
-
-function onHueInput() {
-    selectedColor.value = `hsl(${hue.value}, 65%, 58%)`;
 }
 
 function toggleDevice(id: string) {
@@ -546,7 +525,6 @@ async function handleSubmit() {
                 name: body.name,
                 deviceIds: selectedDeviceIds.value.slice(),
                 actionsCount: actions.length,
-                color: selectedColor.value,
                 icon: selectedIcon.value,
             };
             emit("created", card);
@@ -561,7 +539,6 @@ async function handleSubmit() {
                 name: body.name,
                 deviceIds: selectedDeviceIds.value.slice(),
                 actionsCount: actions.length,
-                color: selectedColor.value,
                 icon: selectedIcon.value,
             };
             emit("updated", card);
@@ -617,172 +594,44 @@ function onOverlayClick(e: MouseEvent) {
 
                 <div
                     class="modal__body"
-                    :class="{ 'modal__body--single': isStep1 || isStep3 }"
+                    :class="{ 'modal__body--single': isStep1 || isStep2 || isStep3 }"
                 >
                     <div v-if="isStep1" class="panel-left panel-left--full">
-                        <div class="field">
-                            <input
-                                v-model="routineName"
-                                type="text"
-                                placeholder="Nombre de la Rutina"
-                                class="field__input"
-                                :class="{ 'field__input--error': nameError }"
-                                autocomplete="off"
-                                maxlength="25"
-                                @input="onNameInput"
-                            />
-                            <span v-if="nameError" class="field__error-text">
-                                Completar un nombre
-                            </span>
-                            <span class="field__icon" aria-hidden="true">
-                                <svg viewBox="0 0 24 24" fill="none">
-                                    <path
-                                        d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                                        fill="currentColor"
-                                    />
-                                </svg>
-                            </span>
-                        </div>
-
-                        <div class="preview">
-                            <div
-                                class="preview__circle"
-                                :style="{ background: selectedColor }"
-                            >
-                                <svg
-                                    class="preview__svg"
-                                    viewBox="0 0 24 24"
-                                    fill="none"
-                                    stroke="white"
-                                    stroke-width="2"
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                >
-                                    <template v-if="selectedIcon === 'bolt'">
+                        <div class="step1-body">
+                            <div class="field">
+                                <input
+                                    v-model="routineName"
+                                    type="text"
+                                    placeholder="Nombre de la Rutina"
+                                    class="field__input"
+                                    :class="{ 'field__input--error': nameError }"
+                                    autocomplete="off"
+                                    maxlength="25"
+                                    @input="onNameInput"
+                                />
+                                <span v-if="nameError" class="field__error-text">
+                                    Completar un nombre
+                                </span>
+                                <span class="field__icon" aria-hidden="true">
+                                    <svg viewBox="0 0 24 24" fill="none">
                                         <path
-                                            d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
+                                            d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                                            fill="currentColor"
                                         />
-                                    </template>
-                                    <template
-                                        v-else-if="selectedIcon === 'sun'"
-                                    >
-                                        <circle cx="12" cy="12" r="5" />
-                                        <path
-                                            d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
-                                        />
-                                    </template>
-                                    <template
-                                        v-else-if="selectedIcon === 'moon'"
-                                    >
-                                        <path
-                                            d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
-                                        />
-                                    </template>
-                                    <template
-                                        v-else-if="selectedIcon === 'home'"
-                                    >
-                                        <path d="M4 12l8-7 8 7" />
-                                        <path d="M7 11v7h10v-7" />
-                                    </template>
-                                    <template
-                                        v-else-if="selectedIcon === 'star'"
-                                    >
-                                        <polygon
-                                            points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
-                                        />
-                                    </template>
-                                    <template
-                                        v-else-if="selectedIcon === 'clock'"
-                                    >
-                                        <circle cx="12" cy="12" r="10" />
-                                        <path d="M12 6v6l4 2" />
-                                    </template>
-                                </svg>
-                            </div>
-                        </div>
-
-                        <div class="icon-section">
-                            <p class="section-hint">Ícono</p>
-                            <div class="icon-grid">
-                                <button
-                                    v-for="ico in ICONS"
-                                    :key="ico"
-                                    type="button"
-                                    class="icon-btn"
-                                    :class="{
-                                        'icon-btn--active':
-                                            selectedIcon === ico,
-                                    }"
-                                    :aria-label="ico"
-                                    @click="selectedIcon = ico"
-                                >
-                                    <svg
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <template v-if="ico === 'bolt'">
-                                            <path
-                                                d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
-                                            />
-                                        </template>
-                                        <template v-else-if="ico === 'sun'">
-                                            <circle cx="12" cy="12" r="5" />
-                                            <path
-                                                d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
-                                            />
-                                        </template>
-                                        <template v-else-if="ico === 'moon'">
-                                            <path
-                                                d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
-                                            />
-                                        </template>
-                                        <template v-else-if="ico === 'home'">
-                                            <path d="M4 12l8-7 8 7" />
-                                            <path d="M7 11v7h10v-7" />
-                                        </template>
-                                        <template v-else-if="ico === 'star'">
-                                            <polygon
-                                                points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
-                                            />
-                                        </template>
-                                        <template v-else-if="ico === 'clock'">
-                                            <circle cx="12" cy="12" r="10" />
-                                            <path d="M12 6v6l4 2" />
-                                        </template>
                                     </svg>
-                                </button>
+                                </span>
                             </div>
-                        </div>
 
-                        <div class="panel-left__footer">
-                            <button
-                                type="button"
-                                class="btn-continue"
-                                @click="continueFromDetails"
-                            >
-                                Continuar
-                            </button>
-                        </div>
-                    </div>
-
-                    <template v-else>
-                        <div
-                            v-if="isStep2"
-                            class="panel-left panel-left--summary"
-                        >
-                            <div class="summary-card">
+                            <div class="preview">
                                 <div
-                                    class="summary-card__icon"
-                                    :style="{ background: selectedColor }"
+                                    class="preview__circle"
+                                    :style="{ background: 'rgba(190, 190, 166, 0.45)' }"
                                 >
                                     <svg
+                                        class="preview__svg"
                                         viewBox="0 0 24 24"
                                         fill="none"
-                                        stroke="white"
+                                        stroke="rgba(42, 40, 37, 0.8)"
                                         stroke-width="2"
                                         stroke-linecap="round"
                                         stroke-linejoin="round"
@@ -828,27 +677,84 @@ function onOverlayClick(e: MouseEvent) {
                                         </template>
                                     </svg>
                                 </div>
-                                <h3 class="summary-card__name">
-                                    {{ routineName || "Sin nombre" }}
-                                </h3>
-                                <p class="summary-card__hint">
-                                    Paso 1 completado
-                                </p>
-                                <button
-                                    type="button"
-                                    class="btn-back"
-                                    @click="backToDetails"
-                                >
-                                    Editar detalles
-                                </button>
+                            </div>
+
+                            <div class="icon-section">
+                                <p class="section-hint">Ícono</p>
+                                <div class="icon-grid">
+                                    <button
+                                        v-for="ico in ICONS"
+                                        :key="ico"
+                                        type="button"
+                                        class="icon-btn"
+                                        :class="{
+                                            'icon-btn--active':
+                                                selectedIcon === ico,
+                                        }"
+                                        :aria-label="ico"
+                                        @click="selectedIcon = ico"
+                                    >
+                                        <svg
+                                            viewBox="0 0 24 24"
+                                            fill="none"
+                                            stroke="currentColor"
+                                            stroke-width="2"
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                        >
+                                            <template v-if="ico === 'bolt'">
+                                                <path
+                                                    d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
+                                                />
+                                            </template>
+                                            <template v-else-if="ico === 'sun'">
+                                                <circle cx="12" cy="12" r="5" />
+                                                <path
+                                                    d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
+                                                />
+                                            </template>
+                                            <template v-else-if="ico === 'moon'">
+                                                <path
+                                                    d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
+                                                />
+                                            </template>
+                                            <template v-else-if="ico === 'home'">
+                                                <path d="M4 12l8-7 8 7" />
+                                                <path d="M7 11v7h10v-7" />
+                                            </template>
+                                            <template v-else-if="ico === 'star'">
+                                                <polygon
+                                                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
+                                                />
+                                            </template>
+                                            <template v-else-if="ico === 'clock'">
+                                                <circle cx="12" cy="12" r="10" />
+                                                <path d="M12 6v6l4 2" />
+                                            </template>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
                         </div>
+                        <div class="panel-left__footer">
+                            <button
+                                type="button"
+                                class="btn-continue"
+                                @click="continueFromDetails"
+                            >
+                                Continuar
+                            </button>
+                        </div>
+                    </div>
+
+                    <template v-else>
 
                         <div class="panel-right">
                             <div class="stepper">
-                                <span class="stepper__label"
-                                    >Paso {{ activeStep }} de 3</span
-                                >
+                                <div class="stepper__top-row">
+                                    <span class="stepper__label">Paso {{ activeStep }} de 3</span>
+                                    <button type="button" class="btn-back-small" @click="isStep2 ? backToDetails() : backToDevices()">← Volver</button>
+                                </div>
                                 <h3 class="panel-right__title">
                                     {{ stepTitle }}
                                 </h3>
@@ -1095,13 +1001,6 @@ function onOverlayClick(e: MouseEvent) {
                                 <h3 class="panel-right__title">
                                     Acciones por dispositivo
                                 </h3>
-                                <button
-                                    type="button"
-                                    class="btn-add-device"
-                                    @click="backToDevices"
-                                >
-                                    + Agregar dispositivo
-                                </button>
                             </div>
 
                             <div
@@ -1477,7 +1376,9 @@ function onOverlayClick(e: MouseEvent) {
     border-radius: 28px;
     width: 100%;
     max-width: 880px;
-    max-height: 90vh;
+    height: 82vh;
+    max-height: 680px;
+    min-height: 480px;
     overflow: hidden;
     display: flex;
     flex-direction: column;
@@ -1553,6 +1454,7 @@ function onOverlayClick(e: MouseEvent) {
     border-radius: 0;
     gap: 0.75rem;
     padding: 1rem 1.25rem 1.25rem;
+    align-items: center;
 }
 
 .panel-left--summary {
@@ -1562,9 +1464,14 @@ function onOverlayClick(e: MouseEvent) {
 .panel-left__footer {
     margin-top: auto;
     display: flex;
-    justify-content: flex-end;
+    justify-content: center;
+    width: 100%;
 }
-
+.stepper__top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
 .summary-card {
     background: rgba(255, 255, 255, 0.75);
     border: 1.5px solid rgba(42, 40, 37, 0.12);
@@ -1602,19 +1509,32 @@ function onOverlayClick(e: MouseEvent) {
     font-size: 0.8rem;
     color: rgba(52, 47, 41, 0.55);
 }
+.step1-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    width: 100%;
+}
 
 .field {
     position: relative;
+    display: flex;
+    justify-content: center;
 }
 
 .field__input {
     width: 100%;
-    height: 46px;
-    padding: 0 2.5rem 0 0.9rem;
+    max-width: 240px;
+    height: 40px;
+    padding: 0 0.9rem;
+    text-align: center;
     background: rgba(255, 255, 255, 0.85);
     border: 1.5px solid rgba(52, 47, 41, 0.15);
     border-radius: 12px;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-family: var(--font-sans);
     color: rgba(52, 47, 41, 0.88);
     outline: none;
@@ -1645,6 +1565,7 @@ function onOverlayClick(e: MouseEvent) {
 .preview {
     display: flex;
     justify-content: center;
+    align-items: center;
 }
 
 .preview__circle {
@@ -1667,6 +1588,7 @@ function onOverlayClick(e: MouseEvent) {
     letter-spacing: 0.16em;
     color: rgba(52, 47, 41, 0.42);
     margin-bottom: 0.3rem;
+    text-align: center;
 }
 
 .color-swatches {
@@ -1687,48 +1609,37 @@ function onOverlayClick(e: MouseEvent) {
     border-color: rgba(42, 40, 37, 0.6);
 }
 
-.hue-slider {
-    -webkit-appearance: none;
-    appearance: none;
+.icon-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
     width: 100%;
-    height: 8px;
-    border-radius: 5px;
-    cursor: pointer;
-    background: linear-gradient(
-        to right,
-        hsl(0, 65%, 58%),
-        hsl(30, 65%, 58%),
-        hsl(60, 65%, 58%),
-        hsl(120, 65%, 58%),
-        hsl(180, 65%, 58%),
-        hsl(240, 65%, 58%),
-        hsl(300, 65%, 58%),
-        hsl(360, 65%, 58%)
-    );
 }
 
 .icon-grid {
     display: grid;
-    grid-template-columns: repeat(5, minmax(48px, 1fr));
-    gap: 0.35rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.55rem;
+    width: 100%;
+    max-width: 240px;
 }
 
 .icon-btn {
     width: 100%;
-    height: 62px;
-    aspect-ratio: 1;
-    border-radius: 10px;
+    height: 64px;
+    border-radius: 14px;
     border: 1.5px solid rgba(42, 40, 37, 0.1);
     background: rgba(255, 255, 255, 0.7);
     color: rgba(42, 40, 37, 0.6);
     display: grid;
     place-items: center;
     cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
 }
 
 .icon-btn svg {
-    width: 16px;
-    height: 16px;
+    width: 24px;
+    height: 24px;
 }
 
 .icon-btn--active {
@@ -1740,8 +1651,8 @@ function onOverlayClick(e: MouseEvent) {
 .panel-right {
     display: flex;
     flex-direction: column;
-    gap: 1rem;
-    padding: 1.25rem 1.5rem 1.5rem;
+    gap: 0.75rem;
+    padding: 1.25rem 1.5rem 1.25rem;
     overflow-y: auto;
     min-height: 0;
     background: #f7f5f0;
@@ -1810,6 +1721,9 @@ function onOverlayClick(e: MouseEvent) {
     grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 0.65rem;
     flex: 1;
+    align-content: start;
+    overflow-y: auto;
+    min-height: 0;
 }
 
 .device-tile {
@@ -2089,15 +2003,16 @@ function onOverlayClick(e: MouseEvent) {
 
 .panel-right__footer {
     margin-top: auto;
-    padding-top: 0.5rem;
+    padding-top: 0.75rem;
     display: flex;
     align-items: center;
-    justify-content: space-between;
+    justify-content: center;
     gap: 0.8rem;
 }
 
 .btn-continue {
-    flex: 1;
+    width: 100%;
+    max-width: 240px;
     height: 48px;
     border-radius: 14px;
     border: none;
@@ -2129,6 +2044,24 @@ function onOverlayClick(e: MouseEvent) {
     font-family: var(--font-sans);
     cursor: pointer;
     white-space: nowrap;
+}
+
+.step2-header {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+}
+
+.btn-back-small {
+    border: none;
+    background: rgba(42, 40, 37, 0.08);
+    color: rgba(42, 40, 37, 0.7);
+    padding: 0.4rem 0.8rem;
+    border-radius: 8px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    cursor: pointer;
 }
 
 @keyframes spin {
