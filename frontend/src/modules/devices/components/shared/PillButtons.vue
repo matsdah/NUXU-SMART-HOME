@@ -14,7 +14,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  'update:modelValue': (value: string) => void
+  (e: 'update:modelValue', value: string): void
 }>()
 </script>
 

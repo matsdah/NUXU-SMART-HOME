@@ -38,9 +38,7 @@ export type RoutineCard = {
 
 /* ─── Internal types ─────────────────────────────────────── */
 
-type ApiCreatedRoutine = {
-    id?: string;
-};
+type ApiCreatedRoutine = { id?: string };
 type ApiRoutineDetail = {
     id?: string;
     name?: string;
@@ -57,7 +55,7 @@ type ApiRoutineAction = {
 const props = defineProps<{
     mode: "create" | "edit";
     routine?: RoutineCard;
-    initialStep?: 1 | 2 | 3;
+    initialStep?: 1 | 2;
 }>();
 
 const emit = defineEmits<{
@@ -80,8 +78,9 @@ const { showToast } = useToast();
 const routineName = ref(props.routine?.name ?? "");
 const selectedIcon = ref<RoutineIcon>(props.routine?.icon ?? "bolt");
 
-const activeStep = ref<1 | 2 | 3>(
-    props.initialStep ?? (props.mode === "edit" ? 3 : 1),
+// Step 1 = details + devices, Step 2 = actions
+const activeStep = ref<1 | 2>(
+    props.initialStep ?? (props.mode === "edit" ? 2 : 1),
 );
 const selectedRoomId = ref("all");
 const selectedDeviceIds = ref<string[]>([...(props.routine?.deviceIds ?? [])]);
@@ -92,9 +91,7 @@ const deviceTypesWithActions = ref<DeviceTypeWithActions[]>([]);
 const loadingDeviceTypes = ref(true);
 
 const actionsByDevice = ref<Record<string, ActionItem[]>>({});
-const validationErrorsByDeviceAction = ref<
-    Record<string, ActionRowError[]>
->({});
+const validationErrorsByDeviceAction = ref<Record<string, ActionRowError[]>>({});
 
 const submitting = ref(false);
 const routineActionsLoaded = ref(false);
@@ -107,9 +104,7 @@ const rooms = computed(() => store.rooms);
 const deviceTypeNameById = computed(() => {
     const map: Record<string, string> = {};
     for (const deviceType of deviceTypesWithActions.value) {
-        if (deviceType.id && deviceType.name) {
-            map[deviceType.id] = deviceType.name;
-        }
+        if (deviceType.id && deviceType.name) map[deviceType.id] = deviceType.name;
     }
     return map;
 });
@@ -130,9 +125,7 @@ const actionSchemaMap = computed(() =>
 
 const filteredDevices = computed(() => {
     if (selectedRoomId.value === "all") return allDevices.value;
-    return allDevices.value.filter(
-        (d: Device) => d.roomId === selectedRoomId.value,
-    );
+    return allDevices.value.filter((d: Device) => d.roomId === selectedRoomId.value);
 });
 
 const selectedDevicesInfo = computed(() =>
@@ -141,38 +134,35 @@ const selectedDevicesInfo = computed(() =>
         .filter((d): d is Device => Boolean(d)),
 );
 
-const canContinue = computed(() => selectedDeviceIds.value.length > 0);
+const isStep1 = computed(() => activeStep.value === 1);
+const isStep2 = computed(() => activeStep.value === 2);
+
+// Step 1 requires both a name and at least one device selected
+const canContinueStep1 = computed(
+    () => routineName.value.trim() !== "" && selectedDeviceIds.value.length > 0,
+);
 
 const canSubmit = computed(
     () => routineName.value.trim() !== "" && selectedDeviceIds.value.length > 0,
 );
 
-const isStep1 = computed(() => activeStep.value === 1);
-const isStep2 = computed(() => activeStep.value === 2);
-const isStep3 = computed(() => activeStep.value === 3);
+const stepTitle = computed(() =>
+    isStep1.value ? "Dispositivos" : "Acciones",
+);
 
-const stepTitle = computed(() => {
-    if (activeStep.value === 1) return "Detalles";
-    if (activeStep.value === 2) return "Dispositivos";
-    return "Acciones";
-});
+const stepSubtitle = computed(() =>
+    isStep1.value
+        ? "Seleccioná los dispositivos de la rutina."
+        : "Configura acciones para cada dispositivo.",
+);
 
-const stepSubtitle = computed(() => {
-    if (activeStep.value === 1)
-        return "Definí el nombre, color e icono.";
-    if (activeStep.value === 2)
-        return "Seleccioná los dispositivos de la rutina.";
-    return "Configura acciones para cada dispositivo.";
-});
+/* ─── Helpers ────────────────────────────────────────────── */
 
 function getDeviceTypeName(deviceId: string): string | undefined {
     return deviceTypeNameByDeviceId.value[deviceId];
 }
 
-function getActionSchema(
-    deviceId: string,
-    actionName: string,
-): ActionParamSchema[] {
+function getActionSchema(deviceId: string, actionName: string): ActionParamSchema[] {
     return getParamSchemaForAction(
         getDeviceTypeName(deviceId),
         actionName,
@@ -194,19 +184,15 @@ function buildActionOptionsForRow(deviceId: string, index: number) {
     const current = list[index]?.actionName;
     const used = new Set(
         list
-            .map((item, itemIndex) => itemIndex === index ? "" : item.actionName)
+            .map((item, itemIndex) => (itemIndex === index ? "" : item.actionName))
             .filter((name) => name),
     );
-
     const excluded = new Set(used);
     for (const usedAction of used) {
         for (const group of EXCLUSIVE_ACTION_GROUPS) {
-            if (group.includes(usedAction)) {
-                group.forEach((a) => excluded.add(a));
-            }
+            if (group.includes(usedAction)) group.forEach((a) => excluded.add(a));
         }
     }
-
     return options.filter(
         (option) => !excluded.has(option.actionName) || option.actionName === current,
     );
@@ -238,7 +224,6 @@ function updateDeviceValidation(deviceId: string): void {
         (actionName) => getActionSchema(deviceId, actionName),
         { disallowDuplicateActions: true },
     );
-
     if (errors.length > 0) {
         validationErrorsByDeviceAction.value[deviceId] = errors;
     } else {
@@ -252,16 +237,6 @@ function getRowErrors(deviceId: string, index: number): ActionRowError[] {
     );
 }
 
-function getFieldError(
-    deviceId: string,
-    index: number,
-    field: string,
-): string | null {
-    const rowErrors = getRowErrors(deviceId, index);
-    const found = rowErrors.find((error) => error.field === field);
-    return found?.message ?? null;
-}
-
 async function loadDeviceTypes(): Promise<DeviceTypeWithActions[]> {
     try {
         const data = await api.get<DeviceTypeWithActions[]>("/devicetypes");
@@ -271,10 +246,7 @@ async function loadDeviceTypes(): Promise<DeviceTypeWithActions[]> {
     }
 }
 
-function hydrateActionItem(
-    deviceId: string,
-    action: ApiRoutineAction,
-): ActionItem | null {
+function hydrateActionItem(deviceId: string, action: ApiRoutineAction): ActionItem | null {
     if (!action.actionName) return null;
     const schema = getActionSchema(deviceId, action.actionName);
     const params = mapParamsFromApi(action.params, schema);
@@ -284,7 +256,6 @@ function hydrateActionItem(
 function applyRoutineActions(actions: ApiRoutineAction[]): void {
     const nextActionsByDevice: Record<string, ActionItem[]> = {};
     const nextDeviceIds: string[] = [];
-
     actions.forEach((action) => {
         const deviceId = action.device?.id;
         if (!deviceId) return;
@@ -293,15 +264,9 @@ function applyRoutineActions(actions: ApiRoutineAction[]): void {
             nextDeviceIds.push(deviceId);
         }
         const item = hydrateActionItem(deviceId, action);
-        if (item) {
-            nextActionsByDevice[deviceId].push(item);
-        }
+        if (item) nextActionsByDevice[deviceId].push(item);
     });
-
-    if (nextDeviceIds.length > 0) {
-        selectedDeviceIds.value = nextDeviceIds;
-    }
-
+    if (nextDeviceIds.length > 0) selectedDeviceIds.value = nextDeviceIds;
     actionsByDevice.value = nextActionsByDevice;
     ensureActionsForSelectedDevices(selectedDeviceIds.value);
     selectedDeviceIds.value.forEach((id) => updateDeviceValidation(id));
@@ -309,12 +274,8 @@ function applyRoutineActions(actions: ApiRoutineAction[]): void {
 
 async function loadRoutineActions(routineId: string): Promise<void> {
     try {
-        const detail = await api.get<ApiRoutineDetail>(
-            `/routines/${routineId}`,
-        );
-        if (detail?.name && routineName.value.trim() === "") {
-            routineName.value = detail.name;
-        }
+        const detail = await api.get<ApiRoutineDetail>(`/routines/${routineId}`);
+        if (detail?.name && routineName.value.trim() === "") routineName.value = detail.name;
         if (Array.isArray(detail?.actions)) {
             applyRoutineActions(detail.actions);
         } else {
@@ -334,17 +295,13 @@ onMounted(async () => {
         store.fetchHomeDevices(store.activeHomeId),
         loadDeviceTypes(),
     ]);
-
     if (devicesResult.status === "fulfilled") {
         allDevices.value = devicesResult.value;
     } else {
         allDevices.value = store.devices.slice();
     }
     loadingDevices.value = false;
-
-    if (typesResult.status === "fulfilled") {
-        deviceTypesWithActions.value = typesResult.value;
-    }
+    if (typesResult.status === "fulfilled") deviceTypesWithActions.value = typesResult.value;
     initializeAllowedActionsOnce(deviceTypesWithActions.value);
     loadingDeviceTypes.value = false;
 
@@ -359,10 +316,6 @@ onMounted(async () => {
 
 /* ─── Methods ────────────────────────────────────────────── */
 
-function onNameInput() {
-    // input handler kept for potential future use
-}
-
 function toggleDevice(id: string) {
     const idx = selectedDeviceIds.value.indexOf(id);
     if (idx >= 0) {
@@ -375,30 +328,21 @@ function toggleDevice(id: string) {
     }
 }
 
-function continueFromDetails() {
+function continueToActions() {
     if (routineName.value.trim() === "") {
-        showToast("Completar un nombre para la rutina.", "error");
+        showToast("Completá un nombre para la rutina.", "error");
         return;
     }
-    showActionErrors.value = false;
-    activeStep.value = 2;
-}
-
-function continueFromDevices() {
     if (selectedDeviceIds.value.length === 0) return;
     ensureActionsForSelectedDevices(selectedDeviceIds.value);
     selectedDeviceIds.value.forEach((id) => updateDeviceValidation(id));
     showActionErrors.value = false;
-    activeStep.value = 3;
-}
-
-function backToDetails() {
-    activeStep.value = 1;
-}
-
-function backToDevices() {
-    showActionErrors.value = false;
     activeStep.value = 2;
+}
+
+function backToStep1() {
+    showActionErrors.value = false;
+    activeStep.value = 1;
 }
 
 function isDeviceSelected(id: string) {
@@ -417,9 +361,7 @@ function removeActionRow(deviceId: string, index: number) {
     const list = actionsByDevice.value[deviceId];
     if (!list) return;
     list.splice(index, 1);
-    if (list.length === 0) {
-        list.push(createEmptyActionItem());
-    }
+    if (list.length === 0) list.push(createEmptyActionItem());
     updateDeviceValidation(deviceId);
 }
 
@@ -427,10 +369,7 @@ function updateActionName(deviceId: string, index: number, value: string) {
     const list = actionsByDevice.value[deviceId];
     if (!list) return;
     const schema = getActionSchema(deviceId, value);
-    list[index] = {
-        actionName: value,
-        params: buildDefaultParams(schema),
-    };
+    list[index] = { actionName: value, params: buildDefaultParams(schema) };
     updateDeviceValidation(deviceId);
 }
 
@@ -438,22 +377,17 @@ function coerceParamValue(
     raw: string | number | boolean,
     schema: ActionParamSchema,
 ): unknown {
-    if (schema.type === "boolean") {
-        return Boolean(raw);
-    }
-
+    if (schema.type === "boolean") return Boolean(raw);
     if (schema.type === "integer") {
         if (raw === "") return "";
         const parsed = Number.parseInt(String(raw), 10);
         return Number.isNaN(parsed) ? "" : parsed;
     }
-
     if (schema.type === "number") {
         if (raw === "") return "";
         const parsed = Number(String(raw));
         return Number.isNaN(parsed) ? "" : parsed;
     }
-
     return raw;
 }
 
@@ -464,8 +398,7 @@ function updateParamValue(
     raw: string | number | boolean,
 ) {
     const list = actionsByDevice.value[deviceId];
-    if (!list) return;
-    if (!list[index]) return;
+    if (!list || !list[index]) return;
     const params = list[index].params ?? {};
     params[schema.name] = coerceParamValue(raw, schema);
     list[index].params = { ...params };
@@ -473,11 +406,9 @@ function updateParamValue(
 }
 
 async function handleSubmit() {
-    if (!canSubmit.value || submitting.value || !routineActionsLoaded.value)
-        return;
+    if (!canSubmit.value || submitting.value || !routineActionsLoaded.value) return;
     submitting.value = true;
     showActionErrors.value = true;
-
     try {
         const errorsByDevice = validateRoutineActions(
             selectedDeviceIds.value,
@@ -490,7 +421,6 @@ async function handleSubmit() {
             showToast("Corregí los errores antes de guardar.", "error");
             return;
         }
-
         const actions = selectedDeviceIds.value.flatMap((deviceId) => {
             const list = actionsByDevice.value[deviceId] ?? [];
             return list
@@ -504,12 +434,7 @@ async function handleSubmit() {
                     };
                 });
         });
-
-        const body = {
-            name: routineName.value.trim(),
-            actions,
-        };
-
+        const body = { name: routineName.value.trim(), actions };
         if (props.mode === "create") {
             const result = await api.post<ApiCreatedRoutine>("/routines", body);
             const card: RoutineCard = {
@@ -522,10 +447,7 @@ async function handleSubmit() {
             emit("created", card);
         } else {
             if (!props.routine) return;
-            await api.put<ApiCreatedRoutine>(
-                `/routines/${props.routine.id}`,
-                body,
-            );
+            await api.put<ApiCreatedRoutine>(`/routines/${props.routine.id}`, body);
             const card: RoutineCard = {
                 ...props.routine,
                 name: body.name,
@@ -537,8 +459,7 @@ async function handleSubmit() {
         }
     } catch (e: unknown) {
         if (e instanceof ApiError) {
-            const msg = (e.body as { error?: { description?: string } })?.error
-                ?.description;
+            const msg = (e.body as { error?: { description?: string } })?.error?.description;
             showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, "error");
         } else {
             showToast("Error inesperado. Intentá de nuevo.", "error");
@@ -559,42 +480,33 @@ function onOverlayClick(e: MouseEvent) {
             <div
                 class="modal"
                 role="dialog"
-                :aria-label="
-                    mode === 'create' ? 'Crear Rutina' : 'Editar Rutina'
-                "
+                :aria-label="mode === 'create' ? 'Crear Rutina' : 'Editar Rutina'"
             >
-                <div class="modal__header">
-                    <h2 class="modal__title">
-                        {{
-                            mode === "create" ? "Crear Rutina" : "Editar Rutina"
-                        }}
-                    </h2>
-                    <button
-                        class="modal__close"
-                        type="button"
-                        :disabled="submitting"
-                        aria-label="Cerrar"
-                        @click="emit('close')"
-                    >
-                        ✕
-                    </button>
-                </div>
+                <!-- ── Close button (floating) ── -->
+                <button
+                    class="modal__close"
+                    type="button"
+                    :disabled="submitting"
+                    aria-label="Cerrar"
+                    @click="emit('close')"
+                >✕</button>
 
-                <div
-                    class="modal__body"
-                    :class="{ 'modal__body--single': isStep1 || isStep2 || isStep3 }"
-                >
-                    <div v-if="isStep1" class="panel-left panel-left--full">
-                        <div class="step1-body">
+                <!-- ── Body: always two-column ── -->
+                <div class="modal__body">
+
+                    <!-- ══ LEFT PANEL ══ -->
+                    <div class="panel-left">
+
+                        <!-- Step 1: name + icon editor -->
+                        <div v-if="isStep1" class="step1-body">
+                            <p class="field__label">Nombre de la Rutina</p>
                             <div class="field">
                                 <input
                                     v-model="routineName"
                                     type="text"
-                                    placeholder="Nombre de la Rutina"
                                     class="field__input"
                                     autocomplete="off"
                                     maxlength="25"
-                                    @input="onNameInput"
                                 />
                                 <span class="field__icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none">
@@ -607,58 +519,14 @@ function onOverlayClick(e: MouseEvent) {
                             </div>
 
                             <div class="preview">
-                                <div
-                                    class="preview__circle"
-                                    :style="{ background: 'rgba(190, 190, 166, 0.45)' }"
-                                >
-                                    <svg
-                                        class="preview__svg"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        stroke="rgba(42, 40, 37, 0.8)"
-                                        stroke-width="2"
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                    >
-                                        <template v-if="selectedIcon === 'bolt'">
-                                            <path
-                                                d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
-                                            />
-                                        </template>
-                                        <template
-                                            v-else-if="selectedIcon === 'sun'"
-                                        >
-                                            <circle cx="12" cy="12" r="5" />
-                                            <path
-                                                d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
-                                            />
-                                        </template>
-                                        <template
-                                            v-else-if="selectedIcon === 'moon'"
-                                        >
-                                            <path
-                                                d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
-                                            />
-                                        </template>
-                                        <template
-                                            v-else-if="selectedIcon === 'home'"
-                                        >
-                                            <path d="M4 12l8-7 8 7" />
-                                            <path d="M7 11v7h10v-7" />
-                                        </template>
-                                        <template
-                                            v-else-if="selectedIcon === 'star'"
-                                        >
-                                            <polygon
-                                                points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
-                                            />
-                                        </template>
-                                        <template
-                                            v-else-if="selectedIcon === 'clock'"
-                                        >
-                                            <circle cx="12" cy="12" r="10" />
-                                            <path d="M12 6v6l4 2" />
-                                        </template>
+                                <div class="preview__circle" :style="{ background: 'rgba(190, 190, 166, 0.45)' }">
+                                    <svg class="preview__svg" viewBox="0 0 24 24" fill="none" stroke="rgba(42, 40, 37, 0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <template v-if="selectedIcon === 'bolt'"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></template>
+                                        <template v-else-if="selectedIcon === 'sun'"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></template>
+                                        <template v-else-if="selectedIcon === 'moon'"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></template>
+                                        <template v-else-if="selectedIcon === 'home'"><path d="M4 12l8-7 8 7" /><path d="M7 11v7h10v-7" /></template>
+                                        <template v-else-if="selectedIcon === 'star'"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></template>
+                                        <template v-else-if="selectedIcon === 'clock'"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></template>
                                     </svg>
                                 </div>
                             </div>
@@ -671,122 +539,78 @@ function onOverlayClick(e: MouseEvent) {
                                         :key="ico"
                                         type="button"
                                         class="icon-btn"
-                                        :class="{
-                                            'icon-btn--active':
-                                                selectedIcon === ico,
-                                        }"
+                                        :class="{ 'icon-btn--active': selectedIcon === ico }"
                                         :aria-label="ico"
                                         @click="selectedIcon = ico"
                                     >
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                        >
-                                            <template v-if="ico === 'bolt'">
-                                                <path
-                                                    d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"
-                                                />
-                                            </template>
-                                            <template v-else-if="ico === 'sun'">
-                                                <circle cx="12" cy="12" r="5" />
-                                                <path
-                                                    d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
-                                                />
-                                            </template>
-                                            <template v-else-if="ico === 'moon'">
-                                                <path
-                                                    d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
-                                                />
-                                            </template>
-                                            <template v-else-if="ico === 'home'">
-                                                <path d="M4 12l8-7 8 7" />
-                                                <path d="M7 11v7h10v-7" />
-                                            </template>
-                                            <template v-else-if="ico === 'star'">
-                                                <polygon
-                                                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
-                                                />
-                                            </template>
-                                            <template v-else-if="ico === 'clock'">
-                                                <circle cx="12" cy="12" r="10" />
-                                                <path d="M12 6v6l4 2" />
-                                            </template>
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <template v-if="ico === 'bolt'"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></template>
+                                            <template v-else-if="ico === 'sun'"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></template>
+                                            <template v-else-if="ico === 'moon'"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></template>
+                                            <template v-else-if="ico === 'home'"><path d="M4 12l8-7 8 7" /><path d="M7 11v7h10v-7" /></template>
+                                            <template v-else-if="ico === 'star'"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></template>
+                                            <template v-else-if="ico === 'clock'"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></template>
                                         </svg>
                                     </button>
                                 </div>
                             </div>
                         </div>
-                        <div class="panel-left__footer">
-                            <button
-                                type="button"
-                                class="btn-continue"
-                                @click="continueFromDetails"
-                            >
-                                Continuar
-                            </button>
+
+                        <!-- Step 2: summary card (like AC modal left panel) -->
+                        <div v-else class="summary-body">
+                            <p class="field__label">RUTINA</p>
+                            <div class="summary-circle" :style="{ background: 'rgba(190, 190, 166, 0.45)' }">
+                                <svg class="summary-svg" viewBox="0 0 24 24" fill="none" stroke="rgba(42, 40, 37, 0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <template v-if="selectedIcon === 'bolt'"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></template>
+                                    <template v-else-if="selectedIcon === 'sun'"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></template>
+                                    <template v-else-if="selectedIcon === 'moon'"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></template>
+                                    <template v-else-if="selectedIcon === 'home'"><path d="M4 12l8-7 8 7" /><path d="M7 11v7h10v-7" /></template>
+                                    <template v-else-if="selectedIcon === 'star'"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></template>
+                                    <template v-else-if="selectedIcon === 'clock'"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></template>
+                                </svg>
+                            </div>
+                            <p class="summary-name">{{ routineName || "Rutina" }}</p>
+                            <p class="summary-devices">
+                                {{ selectedDeviceIds.length }}
+                                dispositivo{{ selectedDeviceIds.length !== 1 ? "s" : "" }}
+                            </p>
                         </div>
+
                     </div>
 
-                    <template v-else>
+                    <!-- ══ RIGHT PANEL ══ -->
+                    <div class="panel-right">
 
-                        <div class="panel-right">
-                            <div class="stepper">
-                                <div class="stepper__top-row">
-                                    <span class="stepper__label">Paso {{ activeStep }} de 3</span>
-                                    <button type="button" class="btn-back-small" @click="isStep2 ? backToDetails() : backToDevices()">← Volver</button>
-                                </div>
-                                <h3 class="panel-right__title">
-                                    {{ stepTitle }}
-                                </h3>
-                                <p class="panel-right__subtitle">
-                                    {{ stepSubtitle }}
-                                </p>
-                            </div>
+                        <!-- Step header -->
+                        <div class="stepper">
+                            <h3 class="panel-right__title">{{ stepTitle }}</h3>
+                            <p class="panel-right__subtitle">{{ stepSubtitle }}</p>
+                        </div>
 
-                            <template v-if="isStep2">
-                                <div class="room-tabs">
+                        <!-- ── Step 1: device selection ── -->
+                        <template v-if="isStep1">
+                            <div class="room-tabs">
                                 <button
                                     class="room-tab"
-                                    :class="{
-                                        'room-tab--active':
-                                            selectedRoomId === 'all',
-                                    }"
+                                    :class="{ 'room-tab--active': selectedRoomId === 'all' }"
                                     type="button"
                                     @click="selectedRoomId = 'all'"
-                                >
-                                    Todos
-                                </button>
+                                >Todos</button>
                                 <button
                                     v-for="room in rooms"
                                     :key="room.id"
                                     class="room-tab"
-                                    :class="{
-                                        'room-tab--active':
-                                            selectedRoomId === room.id,
-                                    }"
+                                    :class="{ 'room-tab--active': selectedRoomId === room.id }"
                                     type="button"
                                     @click="selectedRoomId = room.id"
-                                >
-                                    {{ room.name }}
-                                </button>
+                                >{{ room.name }}</button>
                             </div>
 
                             <div v-if="loadingDevices" class="device-grid">
-                                <div
-                                    v-for="i in 6"
-                                    :key="i"
-                                    class="device-tile device-tile--skeleton"
-                                />
+                                <div v-for="i in 6" :key="i" class="device-tile device-tile--skeleton" />
                             </div>
 
-                            <div
-                                v-else-if="filteredDevices.length === 0"
-                                class="empty-devices"
-                            >
+                            <div v-else-if="filteredDevices.length === 0" class="empty-devices">
                                 No hay dispositivos en esta habitación.
                             </div>
 
@@ -796,175 +620,24 @@ function onOverlayClick(e: MouseEvent) {
                                     :key="device.id"
                                     type="button"
                                     class="device-tile"
-                                    :class="{
-                                        'device-tile--selected':
-                                            isDeviceSelected(device.id),
-                                    }"
+                                    :class="{ 'device-tile--selected': isDeviceSelected(device.id) }"
                                     @click="toggleDevice(device.id)"
                                 >
-                                    <span
-                                        class="device-tile__icon"
-                                        aria-hidden="true"
-                                    >
-                                        <svg
-                                            viewBox="0 0 24 24"
-                                            fill="none"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                        >
-                                            <template
-                                                v-if="device.kind === 'vacuum'"
-                                            >
-                                                <rect
-                                                    x="6"
-                                                    y="3"
-                                                    width="12"
-                                                    height="10"
-                                                    rx="3"
-                                                />
-                                                <path d="M12 13v8" />
-                                            </template>
-                                            <template
-                                                v-else-if="
-                                                    device.kind === 'speaker'
-                                                "
-                                            >
-                                                <rect
-                                                    x="7"
-                                                    y="3"
-                                                    width="10"
-                                                    height="18"
-                                                    rx="2"
-                                                />
-                                                <circle
-                                                    cx="12"
-                                                    cy="9"
-                                                    r="2"
-                                                    fill="currentColor"
-                                                />
-                                                <circle cx="12" cy="15" r="3" />
-                                            </template>
-                                            <template
-                                                v-else-if="
-                                                    device.kind === 'tap'
-                                                "
-                                            >
-                                                <path d="M6 8h12" />
-                                                <path
-                                                    d="M9 8v5a3 3 0 0 0 6 0V8"
-                                                />
-                                                <circle
-                                                    cx="12"
-                                                    cy="18"
-                                                    r="1"
-                                                    fill="currentColor"
-                                                />
-                                            </template>
-                                            <template
-                                                v-else-if="
-                                                    device.kind === 'blind'
-                                                "
-                                            >
-                                                <rect
-                                                    x="6"
-                                                    y="4"
-                                                    width="12"
-                                                    height="16"
-                                                    rx="2"
-                                                />
-                                                <path d="M6 9h12M6 13h12" />
-                                            </template>
-                                            <template
-                                                v-else-if="
-                                                    device.kind === 'lamp'
-                                                "
-                                            >
-                                                <path
-                                                    d="M8 10a4 4 0 0 1 8 0c0 2-2 3-2 5H10c0-2-2-3-2-5z"
-                                                />
-                                                <path d="M10 18h4" />
-                                            </template>
-                                            <template
-                                                v-else-if="
-                                                    device.kind === 'oven'
-                                                "
-                                            >
-                                                <rect
-                                                    x="5"
-                                                    y="4"
-                                                    width="14"
-                                                    height="16"
-                                                    rx="2"
-                                                />
-                                                <rect
-                                                    x="8"
-                                                    y="9"
-                                                    width="8"
-                                                    height="6"
-                                                    rx="1"
-                                                />
-                                                <circle
-                                                    cx="8"
-                                                    cy="6.5"
-                                                    r="1"
-                                                    fill="currentColor"
-                                                />
-                                                <circle
-                                                    cx="12"
-                                                    cy="6.5"
-                                                    r="1"
-                                                    fill="currentColor"
-                                                />
-                                            </template>
-                                            <template
-                                                v-else-if="device.kind === 'ac'"
-                                            >
-                                                <path
-                                                    d="M6 7h12M7 11h10M9 15h6"
-                                                />
-                                            </template>
-                                            <template
-                                                v-else-if="
-                                                    device.kind === 'door'
-                                                "
-                                            >
-                                                <rect
-                                                    x="7"
-                                                    y="4"
-                                                    width="10"
-                                                    height="16"
-                                                    rx="2"
-                                                />
-                                                <circle
-                                                    cx="14"
-                                                    cy="12"
-                                                    r="1"
-                                                    fill="currentColor"
-                                                />
-                                            </template>
-                                            <template v-else>
-                                                <rect
-                                                    x="6"
-                                                    y="4"
-                                                    width="12"
-                                                    height="16"
-                                                    rx="2"
-                                                />
-                                                <path d="M6 10h12" />
-                                            </template>
+                                    <span class="device-tile__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <template v-if="device.kind === 'vacuum'"><rect x="6" y="3" width="12" height="10" rx="3" /><path d="M12 13v8" /></template>
+                                            <template v-else-if="device.kind === 'speaker'"><rect x="7" y="3" width="10" height="18" rx="2" /><circle cx="12" cy="9" r="2" fill="currentColor" /><circle cx="12" cy="15" r="3" /></template>
+                                            <template v-else-if="device.kind === 'tap'"><path d="M6 8h12" /><path d="M9 8v5a3 3 0 0 0 6 0V8" /><circle cx="12" cy="18" r="1" fill="currentColor" /></template>
+                                            <template v-else-if="device.kind === 'blind'"><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M6 9h12M6 13h12" /></template>
+                                            <template v-else-if="device.kind === 'lamp'"><path d="M8 10a4 4 0 0 1 8 0c0 2-2 3-2 5H10c0-2-2-3-2-5z" /><path d="M10 18h4" /></template>
+                                            <template v-else-if="device.kind === 'oven'"><rect x="5" y="4" width="14" height="16" rx="2" /><rect x="8" y="9" width="8" height="6" rx="1" /><circle cx="8" cy="6.5" r="1" fill="currentColor" /><circle cx="12" cy="6.5" r="1" fill="currentColor" /></template>
+                                            <template v-else-if="device.kind === 'ac'"><path d="M6 7h12M7 11h10M9 15h6" /></template>
+                                            <template v-else-if="device.kind === 'door'"><rect x="7" y="4" width="10" height="16" rx="2" /><circle cx="14" cy="12" r="1" fill="currentColor" /></template>
+                                            <template v-else><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M6 10h12" /></template>
                                         </svg>
                                     </span>
-                                    <span class="device-tile__name">{{
-                                        device.name
-                                    }}</span>
-                                    <span
-                                        v-if="isDeviceSelected(device.id)"
-                                        class="device-tile__check"
-                                        aria-hidden="true"
-                                        >✓</span
-                                    >
+                                    <span class="device-tile__name">{{ device.name }}</span>
+                                    <span v-if="isDeviceSelected(device.id)" class="device-tile__check" aria-hidden="true">✓</span>
                                 </button>
                             </div>
 
@@ -972,25 +645,17 @@ function onOverlayClick(e: MouseEvent) {
                                 <button
                                     type="button"
                                     class="btn-continue"
-                                    :disabled="!canContinue"
-                                    @click="continueFromDevices"
+                                    :disabled="!canContinueStep1"
+                                    @click="continueToActions"
                                 >
                                     Continuar a acciones
                                 </button>
                             </div>
-                            </template>
+                        </template>
 
-                            <template v-else>
-                                <div class="panel-right__list-header">
-                                <h3 class="panel-right__title">
-                                    Acciones por dispositivo
-                                </h3>
-                            </div>
-
-                            <div
-                                v-if="selectedDevicesInfo.length === 0"
-                                class="empty-devices"
-                            >
+                        <!-- ── Step 2: actions per device ── -->
+                        <template v-else>
+                            <div v-if="selectedDevicesInfo.length === 0" class="empty-devices">
                                 No hay dispositivos seleccionados.
                             </div>
 
@@ -1000,295 +665,107 @@ function onOverlayClick(e: MouseEvent) {
                                     :key="device.id"
                                     class="device-action-block"
                                 >
-                                    <div
-                                        class="device-action-block__header"
-                                    >
+                                    <div class="device-action-block__header">
                                         <div>
-                                            <h4
-                                                class="device-action-block__title"
-                                            >
-                                                {{ device.name }}
-                                            </h4>
-                                            <p
-                                                class="device-action-block__subtitle"
-                                            >
-                                                {{
-                                                    getDeviceTypeName(device.id) ??
-                                                    "Tipo desconocido"
-                                                }}
+                                            <h4 class="device-action-block__title">{{ device.name }}</h4>
+                                            <p class="device-action-block__subtitle">
+                                                {{ getDeviceTypeName(device.id) ?? "Tipo desconocido" }}
                                             </p>
                                         </div>
-                                        <button
-                                            type="button"
-                                            class="btn-add-action"
-                                            @click="addActionRow(device.id)"
-                                        >
+                                        <button type="button" class="btn-add-action" @click="addActionRow(device.id)">
                                             + Agregar accion
                                         </button>
                                     </div>
 
                                     <div class="action-rows">
                                         <div
-                                            v-for="(action, index) in
-                                                actionsByDevice[device.id] ??
-                                                    []"
+                                            v-for="(action, index) in actionsByDevice[device.id] ?? []"
                                             :key="`${device.id}-${index}`"
                                             class="action-row"
-                                            :class="{
-                                                'action-row--error':
-                                                    showActionErrors &&
-                                                    getRowErrors(
-                                                        device.id,
-                                                        index,
-                                                    ).length > 0,
-                                            }"
+                                            :class="{ 'action-row--error': showActionErrors && getRowErrors(device.id, index).length > 0 }"
                                         >
                                             <div class="action-row__top">
                                                 <select
                                                     class="action-row__select"
                                                     :value="action.actionName"
-                                                    @change="
-                                                        updateActionName(
-                                                            device.id,
-                                                            index,
-                                                            (
-                                                                $event.target as HTMLSelectElement
-                                                            ).value,
-                                                        )
-                                                    "
+                                                    @change="updateActionName(device.id, index, ($event.target as HTMLSelectElement).value)"
                                                 >
-                                                    <option value="">
-                                                        Selecciona una accion
-                                                    </option>
+                                                    <option value="">Selecciona una accion</option>
                                                     <option
-                                                        v-for="option in buildActionOptionsForRow(
-                                                            device.id,
-                                                            index,
-                                                        )"
+                                                        v-for="option in buildActionOptionsForRow(device.id, index)"
                                                         :key="option.actionName"
-                                                        :value="
-                                                            option.actionName
-                                                        "
-                                                    >
-                                                        {{ option.label }}
-                                                    </option>
+                                                        :value="option.actionName"
+                                                    >{{ option.label }}</option>
                                                 </select>
 
                                                 <div
-                                                    v-if="
-                                                        getActionSchema(
-                                                            device.id,
-                                                            action.actionName,
-                                                        ).length > 0
-                                                    "
+                                                    v-if="getActionSchema(device.id, action.actionName).length > 0"
                                                     class="action-row__params-inline"
                                                 >
                                                     <div
-                                                        v-for="param in getActionSchema(
-                                                            device.id,
-                                                            action.actionName,
-                                                        )"
+                                                        v-for="param in getActionSchema(device.id, action.actionName)"
                                                         :key="param.name"
                                                         class="param-inline"
                                                     >
-                                                        <template
-                                                            v-if="
-                                                                param.enum &&
-                                                                param.enum
-                                                                    .length
-                                                            "
-                                                        >
+                                                        <template v-if="param.enum && param.enum.length">
                                                             <select
                                                                 class="param-inline__input"
-                                                                :value="
-                                                                    String(
-                                                                        action
-                                                                            .params[
-                                                                            param
-                                                                                .name
-                                                                        ] ??
-                                                                            '',
-                                                                    )
-                                                                "
-                                                                @change="
-                                                                    updateParamValue(
-                                                                        device.id,
-                                                                        index,
-                                                                        param,
-                                                                        (
-                                                                            $event.target as HTMLSelectElement
-                                                                        ).value,
-                                                                    )
-                                                                "
+                                                                :value="String(action.params[param.name] ?? '')"
+                                                                @change="updateParamValue(device.id, index, param, ($event.target as HTMLSelectElement).value)"
                                                             >
-                                                                <option
-                                                                    v-for="
-                                                                        option in
-                                                                            param.enum
-                                                                    "
-                                                                    :key="option"
-                                                                    :value="
-                                                                        option
-                                                                    "
-                                                                >
-                                                                    {{
-                                                                        option
-                                                                    }}
-                                                                </option>
+                                                                <option v-for="option in param.enum" :key="option" :value="option">{{ option }}</option>
                                                             </select>
                                                         </template>
-
-                                                        <template
-                                                            v-else-if="
-                                                                param.type ===
-                                                                'boolean'
-                                                            "
-                                                        >
+                                                        <template v-else-if="param.type === 'boolean'">
                                                             <select
                                                                 class="param-inline__input"
-                                                                :value="
-                                                                    String(
-                                                                        action
-                                                                            .params[
-                                                                            param
-                                                                                .name
-                                                                        ] ??
-                                                                            false,
-                                                                    )
-                                                                "
-                                                                @change="
-                                                                    updateParamValue(
-                                                                        device.id,
-                                                                        index,
-                                                                        param,
-                                                                        (
-                                                                            $event.target as HTMLSelectElement
-                                                                        ).value ===
-                                                                            'true',
-                                                                    )
-                                                                "
+                                                                :value="String(action.params[param.name] ?? false)"
+                                                                @change="updateParamValue(device.id, index, param, ($event.target as HTMLSelectElement).value === 'true')"
                                                             >
-                                                                <option
-                                                                    value="true"
-                                                                >
-                                                                    Si
-                                                                </option>
-                                                                <option
-                                                                    value="false"
-                                                                >
-                                                                    No
-                                                                </option>
+                                                                <option value="true">Si</option>
+                                                                <option value="false">No</option>
                                                             </select>
                                                         </template>
-
-                                                        <template
-                                                            v-else-if="
-                                                                param.type ===
-                                                                    'integer' ||
-                                                                param.type ===
-                                                                    'number'
-                                                            "
-                                                        >
+                                                        <template v-else-if="param.type === 'integer' || param.type === 'number'">
                                                             <input
                                                                 class="param-inline__input"
                                                                 type="number"
                                                                 inputmode="numeric"
                                                                 :min="param.min"
                                                                 :max="param.max"
-                                                                :step="
-                                                                    param.step ??
-                                                                    (param.type ===
-                                                                    'integer'
-                                                                        ? 1
-                                                                        : 'any')
-                                                                "
-                                                                :value="
-                                                                    action
-                                                                        .params[
-                                                                        param
-                                                                            .name
-                                                                    ] ??
-                                                                        ''
-                                                                "
-                                                                @input="
-                                                                    updateParamValue(
-                                                                        device.id,
-                                                                        index,
-                                                                        param,
-                                                                        (
-                                                                            $event.target as HTMLInputElement
-                                                                        ).value,
-                                                                    )
-                                                                "
+                                                                :step="param.step ?? (param.type === 'integer' ? 1 : 'any')"
+                                                                :value="action.params[param.name] ?? ''"
+                                                                @input="updateParamValue(device.id, index, param, ($event.target as HTMLInputElement).value)"
                                                             />
                                                         </template>
-
                                                         <template v-else>
                                                             <input
                                                                 class="param-inline__input"
                                                                 type="text"
-                                                                :value="
-                                                                    String(
-                                                                        action
-                                                                            .params[
-                                                                            param
-                                                                                .name
-                                                                        ] ??
-                                                                            '',
-                                                                    )
-                                                                "
-                                                                @input="
-                                                                    updateParamValue(
-                                                                        device.id,
-                                                                        index,
-                                                                        param,
-                                                                        (
-                                                                            $event.target as HTMLInputElement
-                                                                        ).value,
-                                                                    )
-                                                                "
+                                                                :value="String(action.params[param.name] ?? '')"
+                                                                @input="updateParamValue(device.id, index, param, ($event.target as HTMLInputElement).value)"
                                                             />
                                                         </template>
                                                     </div>
                                                 </div>
+
                                                 <button
+                                                    v-if="(actionsByDevice[device.id] ?? []).length > 1"
                                                     type="button"
                                                     class="action-row__remove"
-                                                    @click="
-                                                        removeActionRow(
-                                                            device.id,
-                                                            index,
-                                                        )
-                                                    "
-                                                >
-                                                    Eliminar
-                                                </button>
+                                                    @click="removeActionRow(device.id, index)"
+                                                >Eliminar</button>
                                             </div>
 
                                             <div
-                                                v-if="
-                                                    showActionErrors &&
-                                                    getRowErrors(
-                                                        device.id,
-                                                        index,
-                                                    ).length > 0
-                                                "
+                                                v-if="showActionErrors && getRowErrors(device.id, index).length > 0"
                                                 class="action-row__errors"
                                             >
                                                 <p
-                                                    v-for="
-                                                        (error, errorIndex) in getRowErrors(
-                                                            device.id,
-                                                            index,
-                                                        )
-                                                    "
-                                                    :key="
-                                                        `${error.field ?? 'row'}-${errorIndex}`
-                                                    "
+                                                    v-for="(error, errorIndex) in getRowErrors(device.id, index)"
+                                                    :key="`${error.field ?? 'row'}-${errorIndex}`"
                                                     class="action-row__error"
-                                                >
-                                                    {{ error.message }}
-                                                </p>
+                                                >{{ error.message }}</p>
                                             </div>
                                         </div>
                                     </div>
@@ -1298,44 +775,25 @@ function onOverlayClick(e: MouseEvent) {
                             <div class="panel-right__footer">
                                 <button
                                     type="button"
+                                    class="btn-back"
+                                    :disabled="submitting"
+                                    @click="backToStep1"
+                                >Volver</button>
+                                <button
+                                    type="button"
                                     class="btn-continue"
-                                    :disabled="
-                                        !canSubmit ||
-                                        submitting ||
-                                        !routineActionsLoaded ||
-                                        loadingDeviceTypes
-                                    "
+                                    :disabled="!canSubmit || submitting || !routineActionsLoaded || loadingDeviceTypes"
                                     @click="handleSubmit"
                                 >
-                                    <svg
-                                        v-if="submitting"
-                                        class="spinner"
-                                        viewBox="0 0 24 24"
-                                        fill="none"
-                                        aria-hidden="true"
-                                    >
-                                        <circle
-                                            cx="12"
-                                            cy="12"
-                                            r="10"
-                                            stroke="currentColor"
-                                            stroke-width="2"
-                                            stroke-dasharray="60"
-                                            stroke-dashoffset="20"
-                                        />
+                                    <svg v-if="submitting" class="spinner" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                                        <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="2" stroke-dasharray="60" stroke-dashoffset="20" />
                                     </svg>
-                                    <span v-else>
-                                        {{
-                                            mode === "create"
-                                                ? "Crear Rutina"
-                                                : "Guardar Cambios"
-                                        }}
-                                    </span>
+                                    <span v-else>{{ mode === "create" ? "Crear Rutina" : "Guardar Cambios" }}</span>
                                 </button>
                             </div>
-                            </template>
+                        </template>
+
                     </div>
-                    </template>
                 </div>
             </div>
         </div>
@@ -1367,24 +825,14 @@ function onOverlayClick(e: MouseEvent) {
     display: flex;
     flex-direction: column;
     box-shadow: 0 32px 80px rgba(42, 40, 37, 0.28);
-}
-
-.modal__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1.5rem 1.75rem 1rem;
-    background: #f7f5f0;
-    flex-shrink: 0;
-}
-
-.modal__title {
-    font-size: 1.35rem;
-    font-weight: 400;
-    color: rgba(52, 47, 41, 0.88);
+    position: relative;
 }
 
 .modal__close {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    z-index: 10;
     width: 34px;
     height: 34px;
     border-radius: 50%;
@@ -1402,6 +850,7 @@ function onOverlayClick(e: MouseEvent) {
     cursor: not-allowed;
 }
 
+/* Always two-column */
 .modal__body {
     display: grid;
     grid-template-columns: 260px 1fr;
@@ -1409,86 +858,33 @@ function onOverlayClick(e: MouseEvent) {
     flex: 1;
     min-height: 0;
 }
-
-.modal__body--single {
-    grid-template-columns: 1fr;
+.field__label {
+    font-size: 0.82rem;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(52, 47, 41, 0.42);
+    margin: 0 0 0.5rem 0;
+    text-align: center;
+    width: 100%;
+    max-width: 200px;
 }
 
+/* ── Left panel ── */
 .panel-left {
     display: flex;
     flex-direction: column;
-    gap: 1.1rem;
-    padding: 1.25rem 1.5rem 1.5rem;
     background: linear-gradient(180deg, #e7dcc0 0%, #e2d4b5 100%);
     overflow-y: auto;
 }
 
-.panel-left--full {
-    border-radius: 0;
-    gap: 0.75rem;
-    padding: 1rem 1.25rem 1.25rem;
-    align-items: center;
-}
-
-.panel-left--summary {
-    gap: 1rem;
-}
-
-.panel-left__footer {
-    margin-top: auto;
-    display: flex;
-    justify-content: center;
-    width: 100%;
-}
-.stepper__top-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-}
-.summary-card {
-    background: rgba(255, 255, 255, 0.75);
-    border: 1.5px solid rgba(42, 40, 37, 0.12);
-    border-radius: 18px;
-    padding: 1.2rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    align-items: flex-start;
-}
-
-.summary-card__icon {
-    width: 52px;
-    height: 52px;
-    border-radius: 16px;
-    display: grid;
-    place-items: center;
-    box-shadow: 0 10px 18px rgba(42, 40, 37, 0.18);
-}
-
-.summary-card__icon svg {
-    width: 24px;
-    height: 24px;
-}
-
-.summary-card__name {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 700;
-    color: rgba(52, 47, 41, 0.9);
-}
-
-.summary-card__hint {
-    margin: 0;
-    font-size: 0.8rem;
-    color: rgba(52, 47, 41, 0.55);
-}
+/* Step 1: editor centered */
 .step1-body {
     flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 1rem;
+    gap: 3.5rem;
+    padding: 3.2rem 2.2rem 2.2rem;
     width: 100%;
 }
 
@@ -1496,11 +892,12 @@ function onOverlayClick(e: MouseEvent) {
     position: relative;
     display: flex;
     justify-content: center;
+    width: 100%;
 }
 
 .field__input {
     width: 100%;
-    max-width: 240px;
+    max-width: 200px;
     height: 40px;
     padding: 0 0.9rem;
     text-align: center;
@@ -1515,7 +912,7 @@ function onOverlayClick(e: MouseEvent) {
 
 .field__icon {
     position: absolute;
-    right: 0.75rem;
+    right: calc(50% - 100px + 0.75rem);
     top: 50%;
     transform: translateY(-50%);
     width: 16px;
@@ -1552,24 +949,6 @@ function onOverlayClick(e: MouseEvent) {
     text-align: center;
 }
 
-.color-swatches {
-    display: flex;
-    gap: 0.35rem;
-    margin-bottom: 0.4rem;
-}
-
-.swatch {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    border: 2px solid transparent;
-    cursor: pointer;
-}
-
-.swatch--active {
-    border-color: rgba(42, 40, 37, 0.6);
-}
-
 .icon-section {
     display: flex;
     flex-direction: column;
@@ -1582,12 +961,12 @@ function onOverlayClick(e: MouseEvent) {
     grid-template-columns: repeat(3, 1fr);
     gap: 0.55rem;
     width: 100%;
-    max-width: 240px;
+    max-width: 200px;
 }
 
 .icon-btn {
     width: 100%;
-    height: 64px;
+    height: 56px;
     border-radius: 14px;
     border: 1.5px solid rgba(42, 40, 37, 0.1);
     background: rgba(255, 255, 255, 0.7);
@@ -1599,8 +978,8 @@ function onOverlayClick(e: MouseEvent) {
 }
 
 .icon-btn svg {
-    width: 24px;
-    height: 24px;
+    width: 22px;
+    height: 22px;
 }
 
 .icon-btn--active {
@@ -1609,11 +988,68 @@ function onOverlayClick(e: MouseEvent) {
     color: #f7f3e7;
 }
 
+/* Step 2: summary (like AC modal left panel) */
+.summary-body {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    padding: 1.5rem 1.25rem;
+    text-align: center;
+}
+
+.summary-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: rgba(52, 47, 41, 0.4);
+    margin: 0;
+}
+
+.summary-circle {
+    width: 72px;
+    height: 72px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
+}
+
+.summary-svg {
+    width: 32px;
+    height: 32px;
+}
+
+.summary-name {
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: rgba(52, 47, 41, 0.92);
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    line-height: 1.2;
+}
+
+.summary-devices {
+    margin: 0;
+    font-size: 0.8rem;
+    color: rgba(52, 47, 41, 0.55);
+    background: rgba(42, 40, 37, 0.08);
+    padding: 0.3rem 0.85rem;
+    border-radius: 999px;
+}
+
+/* ── Right panel ── */
 .panel-right {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    padding: 1.25rem 1.5rem 1.25rem;
+    padding: 2.6rem 2.2rem 2.2rem;    
     overflow-y: auto;
     min-height: 0;
     background: #f7f5f0;
@@ -1623,6 +1059,13 @@ function onOverlayClick(e: MouseEvent) {
     display: flex;
     flex-direction: column;
     gap: 0.3rem;
+    flex-shrink: 0;
+}
+
+.stepper__top-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .stepper__label {
@@ -1637,6 +1080,7 @@ function onOverlayClick(e: MouseEvent) {
     font-size: 1rem;
     font-weight: 600;
     color: rgba(52, 47, 41, 0.88);
+    margin: 0;
 }
 
 .panel-right__subtitle {
@@ -1646,18 +1090,20 @@ function onOverlayClick(e: MouseEvent) {
 }
 
 .room-tabs {
+    
     display: flex;
     flex-wrap: nowrap;
     gap: 0.5rem;
     overflow-x: auto;
     scrollbar-width: none;
-    background: var(--color-sage);
     border-radius: 999px;
     padding: 0.4rem 0.6rem;
+    flex-shrink: 0;
 }
 
 .room-tab {
     border: none;
+    border: 1.5px solid rgba(42, 40, 37, 0.1);
     background: rgba(255, 255, 255, 0.6);
     color: rgba(42, 40, 37, 0.8);
     font-size: 0.82rem;
@@ -1679,12 +1125,12 @@ function onOverlayClick(e: MouseEvent) {
 
 .device-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
     gap: 0.65rem;
-    flex: 1;
     align-content: start;
     overflow-y: auto;
     min-height: 0;
+    flex: 1;
 }
 
 .device-tile {
@@ -1702,15 +1148,64 @@ function onOverlayClick(e: MouseEvent) {
 }
 
 .device-tile--selected {
-    background: rgba(42, 40, 37, 0.88);
+    
+    background: rgba(0, 0, 0, 0.8);
     border-color: transparent;
     color: #f7f3e7;
 }
 
+.device-tile--skeleton {
+    background: rgba(42, 40, 37, 0.06);
+    border: none;
+    height: 90px;
+}
+
+.device-tile__icon {
+    width: 28px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+}
+
+.device-tile__icon svg {
+    width: 22px;
+    height: 22px;
+}
+
+.device-tile__name {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+}
+
+.device-tile__check {
+    position: absolute;
+    top: 0.35rem;
+    right: 0.45rem;
+    font-size: 0.7rem;
+    opacity: 0.85;
+}
+
+.empty-devices {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    text-align: center;
+    padding: 2rem 0;
+}
+
+/* Actions */
 .device-action-blocks {
     display: flex;
     flex-direction: column;
     gap: 1rem;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
 }
 
 .device-action-block {
@@ -1721,6 +1216,7 @@ function onOverlayClick(e: MouseEvent) {
     display: flex;
     flex-direction: column;
     gap: 0.85rem;
+    flex-shrink: 0;
 }
 
 .device-action-block__header {
@@ -1808,12 +1304,6 @@ function onOverlayClick(e: MouseEvent) {
     gap: 0.35rem;
 }
 
-.param-inline__label {
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: rgba(52, 47, 41, 0.7);
-}
-
 .param-inline__input {
     height: 34px;
     padding: 0 0.5rem;
@@ -1837,11 +1327,6 @@ function onOverlayClick(e: MouseEvent) {
     margin-left: auto;
 }
 
-.action-row__hint-inline {
-    font-size: 0.75rem;
-    color: rgba(52, 47, 41, 0.55);
-}
-
 .action-row__errors {
     margin-top: 0.45rem;
     display: flex;
@@ -1855,127 +1340,44 @@ function onOverlayClick(e: MouseEvent) {
     color: #c44;
 }
 
-.device-tile--skeleton {
-    background: rgba(42, 40, 37, 0.06);
-    border: none;
-    height: 90px;
-}
-
-.device-tile__icon {
-    width: 28px;
-    height: 28px;
-    display: grid;
-    place-items: center;
-}
-
-.device-tile__icon svg {
-    width: 22px;
-    height: 22px;
-}
-
-.device-tile__name {
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-align: center;
-    line-height: 1.2;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 100%;
-}
-
-.device-tile__check {
-    position: absolute;
-    top: 0.35rem;
-    right: 0.45rem;
-    font-size: 0.7rem;
-    opacity: 0.85;
-}
-
-.empty-devices {
-    font-size: 0.875rem;
-    color: var(--color-text-muted);
-    text-align: center;
-    padding: 2rem 0;
-}
-
-.panel-right__list-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
-    flex-wrap: wrap;
-}
-
-.btn-add-device {
-    font-size: 0.82rem;
-    font-weight: 600;
-    color: var(--color-brown);
-    background: none;
-    border: 1.5px solid rgba(103, 69, 49, 0.3);
-    border-radius: 999px;
-    padding: 0.3rem 0.85rem;
-    cursor: pointer;
-}
-
-.device-list {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    flex: 1;
-    overflow-y: auto;
-}
-
-.device-list__item {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.7rem 0.9rem;
-    background: rgba(244, 244, 244, 0.8);
-    border-radius: 12px;
-    border: 1px solid rgba(42, 40, 37, 0.07);
-}
-
-.device-list__icon {
-    width: 32px;
-    height: 32px;
-    background: rgba(42, 40, 37, 0.08);
-    border-radius: 8px;
-    display: grid;
-    place-items: center;
-    flex-shrink: 0;
-    color: var(--color-text);
-}
-
-.device-list__icon svg {
-    width: 18px;
-    height: 18px;
-}
-
-.device-list__name {
-    font-size: 0.875rem;
-    font-weight: 600;
-    color: var(--color-text);
-    flex: 1;
-}
-
+/* Footer */
 .panel-right__footer {
     margin-top: auto;
     padding-top: 0.75rem;
+    flex-shrink: 0;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.8rem;
+    gap: 0.6rem;
+}
+
+.btn-back {
+    width: 100%;
+    max-width: 120px;
+    height: 48px;
+    padding: 0 1.1rem;
+    border-radius: 999px;
+    border: 1.5px solid rgba(42, 40, 37, 0.18);
+    background: rgba(255, 255, 255, 0.8);
+    color: rgba(42, 40, 37, 0.75);
+    font-size: 0.9rem;
+    font-weight: 600;
+    font-family: var(--font-sans);
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.btn-back:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
 
 .btn-continue {
     width: 100%;
     max-width: 240px;
     height: 48px;
-    border-radius: 14px;
+    border-radius: 999px;
     border: none;
     background: var(--color-brown);
     color: #fff;
@@ -1993,69 +1395,13 @@ function onOverlayClick(e: MouseEvent) {
     cursor: not-allowed;
 }
 
-.btn-back {
-    height: 48px;
-    padding: 0 1rem;
-    border-radius: 14px;
-    border: 1.5px solid rgba(42, 40, 37, 0.2);
-    background: rgba(255, 255, 255, 0.8);
-    color: rgba(42, 40, 37, 0.75);
-    font-size: 0.9rem;
-    font-weight: 600;
-    font-family: var(--font-sans);
-    cursor: pointer;
-    white-space: nowrap;
-}
-
-.step2-header {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-}
-
-.btn-back-small {
-    border: none;
-    background: rgba(42, 40, 37, 0.08);
-    color: rgba(42, 40, 37, 0.7);
-    padding: 0.4rem 0.8rem;
-    border-radius: 8px;
-    font-size: 0.8rem;
-    font-weight: 600;
-    font-family: var(--font-sans);
-    cursor: pointer;
-}
-
 @keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
+    to { transform: rotate(360deg); }
 }
 
 .spinner {
     width: 20px;
     height: 20px;
     animation: spin 0.9s linear infinite;
-}
-
-@media (max-width: 640px) {
-    .modal__body {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto 1fr;
-    }
-
-    .panel-left {
-        border-right: none;
-        border-bottom: 1px solid rgba(42, 40, 37, 0.07);
-        padding-bottom: 1rem;
-        gap: 0.75rem;
-    }
-
-    .preview {
-        display: none;
-    }
-
-    .device-grid {
-        grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-    }
 }
 </style>

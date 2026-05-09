@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { LockClosedIcon, UserIcon } from '@heroicons/vue/24/outline'
+
 import { api, ApiError, TOKEN_KEY } from '@/services/api/client'
 import AuthLayout from '../components/AuthLayout.vue'
 import { useToast } from '@/shared/composables/useToast'
@@ -119,7 +119,10 @@ async function handlePasswordStep() {
 
       <div class="field">
         <span class="field__icon" aria-hidden="true">
-          <UserIcon />
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
         </span>
         <input
           v-model="email"
@@ -167,7 +170,10 @@ async function handlePasswordStep() {
 
       <div class="field">
         <span class="field__icon" aria-hidden="true">
-          <LockClosedIcon />
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
         </span>
         <input v-model="currentPassword" :type="showCurrentPass ? 'text' : 'password'"
           id="reset-current" placeholder=" " autocomplete="current-password"
@@ -190,7 +196,10 @@ async function handlePasswordStep() {
 
       <div class="field">
         <span class="field__icon" aria-hidden="true">
-          <LockClosedIcon />
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
         </span>
         <input v-model="password" :type="showPass ? 'text' : 'password'"
           id="reset-password" placeholder=" " autocomplete="new-password"
@@ -213,7 +222,10 @@ async function handlePasswordStep() {
 
       <div class="field">
         <span class="field__icon" aria-hidden="true">
-          <LockClosedIcon />
+          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"></rect>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+          </svg>
         </span>
         <input v-model="confirm" :type="showConfirm ? 'text' : 'password'"
           id="reset-confirm" placeholder=" " autocomplete="new-password"

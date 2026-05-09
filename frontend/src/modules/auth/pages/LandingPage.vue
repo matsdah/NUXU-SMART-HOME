@@ -7,7 +7,7 @@
     <!-- Ripples al hacer click -->
     <div
       v-for="r in ripples" :key="r.id"
-      :ref="(el) => registerRippleEl(r.id, el)"
+      :ref="(el) => registerRippleEl(r.id, el as Element)"
       class="ripple"
     ></div>
 

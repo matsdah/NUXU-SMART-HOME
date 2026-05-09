@@ -37,7 +37,7 @@ const runningId = ref<string | null>(null);
 const showFormModal = ref(false);
 const formMode = ref<"create" | "edit">("create");
 const editingCard = ref<RoutineCard | undefined>(undefined);
-const formInitialStep = ref<1 | 2 | 3>(1);
+const formInitialStep = ref<1 | 2>(1);
 
 const showEditEntityModal = ref(false);
 const pendingEditRoutine = ref<{ id: string; name: string } | null>(null);
@@ -131,7 +131,7 @@ function onRoutineCardClick(card: RoutineCard) {
     } else {
         formMode.value = "edit"
         editingCard.value = card
-        formInitialStep.value = 3
+        formInitialStep.value = 2
         showFormModal.value = true
     }
 }
