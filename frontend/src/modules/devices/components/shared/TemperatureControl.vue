@@ -1,20 +1,51 @@
 <script setup lang="ts">
-withDefaults(defineProps<{
+import { ref, nextTick } from 'vue'
+
+const props = withDefaults(defineProps<{
   modelValue: number
   min: number
   max: number
   unit?: string
   step?: number
   label?: string
+  editable?: boolean
 }>(), {
   unit: '°C',
   step: 1,
   label: 'valor',
+  editable: false,
 })
 
-defineEmits<{
+const emit = defineEmits<{
   'update:modelValue': [value: number]
 }>()
+
+const inputRef = ref<HTMLInputElement>()
+const editing = ref(false)
+const draft = ref(props.modelValue)
+
+function startEdit() {
+  if (!props.editable) return
+  draft.value = props.modelValue
+  editing.value = true
+  nextTick(() => inputRef.value?.select())
+}
+
+function commit() {
+  editing.value = false
+  const clamped = Math.max(props.min, Math.min(props.max, draft.value))
+  if (clamped !== props.modelValue) {
+    emit('update:modelValue', clamped)
+  }
+}
+
+function onKeydown(e: KeyboardEvent) {
+  if (e.key === 'Enter') {
+    ;(e.target as HTMLInputElement).blur()
+  } else if (e.key === 'Escape') {
+    editing.value = false
+  }
+}
 </script>
 
 <template>
@@ -23,13 +54,24 @@ defineEmits<{
       class="temp-control__btn"
       type="button"
       :aria-label="`Disminuir ${label}`"
-      @click="$emit('update:modelValue', Math.max(min, modelValue - step))"
+      @click="emit('update:modelValue', Math.max(min, modelValue - step))"
       :disabled="modelValue <= min"
     >
       −
     </button>
-    <div class="temp-control__display">
-      <span class="temp-control__value">{{ modelValue }}</span>
+    <div class="temp-control__display" @dblclick="startEdit">
+      <input
+        v-if="editing"
+        ref="inputRef"
+        v-model.number="draft"
+        type="number"
+        class="temp-control__input"
+        :min="min"
+        :max="max"
+        @blur="commit"
+        @keydown="onKeydown"
+      />
+      <span v-else class="temp-control__value" :class="{ 'temp-control__value--editable': editable }" @click="startEdit">{{ modelValue }}</span>
       <span class="temp-control__unit">{{ unit }}</span>
       <span class="temp-control__range">{{ min }}{{ unit }} - {{ max }}{{ unit }}</span>
     </div>
@@ -37,7 +79,7 @@ defineEmits<{
       class="temp-control__btn"
       type="button"
       :aria-label="`Aumentar ${label}`"
-      @click="$emit('update:modelValue', Math.min(max, modelValue + step))"
+      @click="emit('update:modelValue', Math.min(max, modelValue + step))"
       :disabled="modelValue >= max"
     >
       +
@@ -94,6 +136,41 @@ defineEmits<{
   font-weight: 600;
   letter-spacing: -0.06em;
   color: rgba(52, 47, 41, 0.92);
+}
+
+.temp-control__value--editable {
+  cursor: text;
+  border-bottom: 2px dotted rgba(52, 47, 41, 0.25);
+  transition: border-color 0.15s;
+}
+
+.temp-control__value--editable:hover {
+  border-color: rgba(52, 47, 41, 0.5);
+}
+
+.temp-control__input {
+  width: 4rem;
+  font-size: 2.5rem;
+  font-weight: 600;
+  letter-spacing: -0.06em;
+  color: rgba(52, 47, 41, 0.92);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid rgba(52, 47, 41, 0.35);
+  outline: none;
+  text-align: center;
+  font-family: var(--font-sans);
+  -moz-appearance: textfield;
+}
+
+.temp-control__input::-webkit-inner-spin-button,
+.temp-control__input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.temp-control__input:focus {
+  border-bottom-color: rgba(52, 47, 41, 0.75);
 }
 
 .temp-control__unit {

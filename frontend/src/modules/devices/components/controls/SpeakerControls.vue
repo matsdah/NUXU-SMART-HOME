@@ -209,6 +209,7 @@ function formatDuration(secs?: number): string {
               unit=""
               :step="1"
               label="volumen"
+              editable
               @update:model-value="onVolumeChange"
             />
           </div>
