@@ -24,7 +24,10 @@ export async function sendVerificationEmail(toEmail: string, code: string): Prom
   await emailjs.send(
     config.serviceId,
     config.templateId,
-    { to_email: toEmail, verification_code: code },
+    {
+      to_email: toEmail,
+      verification_code: code,
+    },
     { publicKey: config.publicKey },
   )
 }
