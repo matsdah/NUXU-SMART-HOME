@@ -308,28 +308,21 @@ function onLogoutOverlayClick(event: MouseEvent) {
 }
 
 .brand {
-  height: 3.5rem;
   display: flex;
   align-items: center;
-  gap: 0.1rem;
-  text-decoration: none;
-  background-color: #9E9B8E;
-  padding: 0.0rem 0.8rem 1.5rem 0.5rem;
-  border-radius: 16px;
+  gap: 0.45rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
 }
 
 .brand__logo {
-  width: 38px;
-  height: 65px;
+  width: 36px;
+  height: 40px;
   object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.10));
 }
 
 .brand__name {
-  font-size: 1.3rem;
-  font-weight: 500;
-  letter-spacing: 0.08em;
-  margin-bottom: -1.5rem;
+  font-size: 0.95rem;
 }
 
 .home-selector {
