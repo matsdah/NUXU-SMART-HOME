@@ -595,12 +595,15 @@ async function confirmDelete() {
 .routine-card--new {
     border: none;
     justify-content: center;
+    height: 56px;
+    padding: 0 1rem;
     background: rgba(42, 40, 37, 0.07);
     font-family: inherit;
     font-size: 0.95rem;
     font-weight: 600;
     color: rgba(42, 40, 37, 0.8);
     cursor: pointer;
+    flex-wrap: nowrap;
 }
 
 .routine-card__plus {
@@ -619,15 +622,13 @@ async function confirmDelete() {
 .routine-card {
     display: flex;
     align-items: center;
-    gap: 1rem;
-    padding: 1rem 1.25rem;
-    background: rgba(244, 244, 244, 0.75);
-    border-radius: 20px;
-    border: 1px solid rgba(42, 40, 37, 0.07);
-    box-shadow: 0 4px 14px rgba(42, 40, 37, 0.05);
-    transition:
-        box-shadow 0.2s,
-        transform 0.2s;
+    gap: 0.85rem;
+    padding: 0.65rem 1rem;
+    background: rgba(255, 255, 255, 0.82);
+    border-radius: 18px;
+    border: none;
+    box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
+    transition: box-shadow 0.2s, transform 0.2s;
     flex-wrap: wrap;
 }
 
@@ -636,20 +637,19 @@ async function confirmDelete() {
     transform: translateY(-1px);
 }
 
-/* Icon circle */
+/* Icon — rounded square like the screenshot */
 .routine-card__icon {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
     display: grid;
     place-items: center;
     flex-shrink: 0;
-    box-shadow: 0 4px 12px rgba(42, 40, 37, 0.15);
 }
 
 .routine-card__icon svg {
-    width: 22px;
-    height: 22px;
+    width: 20px;
+    height: 20px;
 }
 
 /* Body */
