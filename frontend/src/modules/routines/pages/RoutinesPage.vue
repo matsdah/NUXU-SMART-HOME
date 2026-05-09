@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, watch } from "vue";
 import { api, ApiError } from "@/services/api/client";
 import { useDashboardStore } from "@/app/stores/dashboard";
+import { useSocketStore } from "@/app/stores/socket";
 import RoutineFormModal from "../components/RoutineFormModal.vue";
 import type {
     RoutineCard,
@@ -63,6 +64,7 @@ function showToast(message: string, type: "success" | "error") {
 }
 
 const dashboardStore = useDashboardStore();
+const socketStore = useSocketStore();
 
 /* ─── Page state ─────────────────────────────────────────── */
 
@@ -129,6 +131,10 @@ async function loadRoutines() {
 }
 
 onMounted(loadRoutines);
+
+watch(() => socketStore.deviceListVersion, () => {
+    void loadRoutines();
+});
 
 /* ─── Execute routine ────────────────────────────────────── */
 

@@ -36,6 +36,16 @@ type ApiRoutine = {
   schedule?: { time?: string }
 }
 
+type ApiRoutineActionRef = {
+  device?: { id?: string }
+} & Record<string, unknown>
+
+type ApiRoutineSync = {
+  id: string
+  name: string
+  actions?: ApiRoutineActionRef[]
+}
+
 type ApiDeviceState = {
   status?: string
   on?: boolean
@@ -653,6 +663,41 @@ export const useDashboardStore = defineStore('dashboard', () => {
     routinesLoaded.value = true
   }
 
+  async function pruneDeletedDevicesFromRoutines(deviceIds: string[]): Promise<void> {
+    const idsToRemove = new Set(deviceIds.filter(Boolean))
+    if (idsToRemove.size === 0) {
+      return
+    }
+
+    const routineList = await api.get<ApiRoutineSync[]>('/routines')
+    const affectedRoutines = routineList.filter(routine =>
+      (routine.actions ?? []).some(action => action.device?.id && idsToRemove.has(action.device.id)),
+    )
+
+    if (affectedRoutines.length === 0) {
+      return
+    }
+
+    const syncResults = await Promise.allSettled(affectedRoutines.map(async (routine) => {
+      const nextActions = (routine.actions ?? []).filter(
+        action => !action.device?.id || !idsToRemove.has(action.device.id),
+      )
+
+      await api.put(`/routines/${routine.id}`, {
+        name: routine.name,
+        actions: nextActions,
+      })
+    }))
+
+    const rejected = syncResults.filter(result => result.status === 'rejected')
+    if (rejected.length > 0) {
+      console.error('No se pudieron actualizar algunas rutinas tras borrar dispositivos.', rejected)
+    }
+
+    routinesLoaded.value = false
+    void loadRoutines()
+  }
+
   async function loadMembers(homeId: string): Promise<void> {
     if (!homeId) {
       members.value = []
@@ -1224,17 +1269,23 @@ export const useDashboardStore = defineStore('dashboard', () => {
       throw err
     }
 
+    const deletedDeviceIds = new Set<string>()
+
     await Promise.all(roomDevices.map(async (device) => {
       try {
         await api.delete(`/devices/${device.id}`)
         removePersistedControlStates(device.id)
+        deletedDeviceIds.add(device.id)
       } catch (err) {
         if (!(err instanceof ApiError) || err.status !== 404) {
           throw err
         }
         removePersistedControlStates(device.id)
+        deletedDeviceIds.add(device.id)
       }
     }))
+
+    void pruneDeletedDevicesFromRoutines(Array.from(deletedDeviceIds))
   }
 
   async function deleteRoomRequest(roomId: string, homeId = activeHomeId.value): Promise<void> {
@@ -1572,6 +1623,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
     createRoom,
     deleteHome,
     deleteRoom,
+    pruneDeletedDevicesFromRoutines,
     toggleDevice,
     fetchDeviceState,
     initialStateForNewDevice,

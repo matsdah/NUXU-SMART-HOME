@@ -3,13 +3,12 @@
 
 <template>
   <div class="auth-layout">
-
-    <img src="@/assets/forma1.png" class="deco-left"          alt="" aria-hidden="true" />
-    <img src="@/assets/forma2.png" class="deco-right"         alt="" aria-hidden="true" />
-    <img src="@/assets/forma3.png" class="deco-top-right"     alt="" aria-hidden="true" />
-    <img src="@/assets/forma4.png" class="deco-bottom-left"   alt="" aria-hidden="true" />
-    <img src="@/assets/forma5.png" class="deco-bottom-center" alt="" aria-hidden="true" />
-    <img src="@/assets/forma6.png" class="deco-bottom-right"  alt="" aria-hidden="true" />
+    <img src="@/assets/forma1.png" class="deco deco-left" alt="" aria-hidden="true" />
+    <img src="@/assets/forma2.png" class="deco deco-right" alt="" aria-hidden="true" />
+    <img src="@/assets/forma3.png" class="deco deco-top-right" alt="" aria-hidden="true" />
+    <img src="@/assets/forma4.png" class="deco deco-bottom-left" alt="" aria-hidden="true" />
+    <img src="@/assets/forma5.png" class="deco deco-bottom-center" alt="" aria-hidden="true" />
+    <img src="@/assets/forma6.png" class="deco deco-bottom-right" alt="" aria-hidden="true" />
 
     <RouterLink to="/" class="logo" aria-label="Ir al inicio">
       <img src="@/assets/lamp.webp" alt="Lámpara NUXU" class="logo__lamp" />
@@ -29,79 +28,70 @@
   position: relative;
   width: 100%;
   min-height: 100vh;
+  min-height: 100svh;
   background-color: var(--color-bg);
   display: flex;
   align-items: center;
   justify-content: center;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   font-family: var(--font-sans);
+  padding: 6.5rem 1.25rem 2rem;
 }
 
-/* — Decoraciones — */
-.deco-left {
+.deco {
   position: absolute;
+  pointer-events: none;
+  -webkit-user-select: none;
+  user-select: none;
+  z-index: 1;
+}
+
+.deco-left {
   left: 0;
   top: 50%;
-  transform: translateY(-63%);
-  height: 55vh;
   width: auto;
-  pointer-events: none;
-  z-index: 1;
+  height: clamp(22rem, 55vh, 42rem);
+  transform: translateY(-63%);
 }
 
 .deco-right {
-  position: absolute;
   right: 0;
   top: 50%;
-  transform: translateY(-65%);
-  width: 25vh;
+  width: clamp(6.5rem, 25vh, 10rem);
   height: auto;
-  pointer-events: none;
-  z-index: 1;
+  transform: translateY(-65%);
 }
 
 .deco-top-right {
-  position: absolute;
   right: 0;
   top: 0;
-  height: 25vh;
   width: auto;
-  pointer-events: none;
-  z-index: 1;
+  height: clamp(7rem, 25vh, 12rem);
 }
 
 .deco-bottom-left {
-  position: absolute;
   left: 1rem;
   bottom: 0;
-  height: 28vh;
   width: auto;
-  pointer-events: none;
-  z-index: 1;
+  height: clamp(8rem, 28vh, 17rem);
 }
 
 .deco-bottom-center {
-  position: absolute;
   left: 50%;
   bottom: 0;
-  transform: translateX(-50%);
-  height: 18vh;
   width: auto;
-  pointer-events: none;
-  z-index: 1;
+  height: clamp(4rem, 18vh, 7rem);
+  transform: translateX(-50%);
 }
 
 .deco-bottom-right {
-  position: absolute;
   right: 0;
   bottom: 0;
-  height: 35vh;
   width: auto;
-  pointer-events: none;
-  z-index: 1;
+  height: clamp(10rem, 35vh, 22rem);
 }
 
-/* — Logo — */
 .logo {
   position: absolute;
   top: 0.8rem;
@@ -136,7 +126,6 @@
   margin-bottom: -1.5rem;
 }
 
-/* — Card compartida — */
 .auth-card {
   position: relative;
   z-index: 10;
@@ -156,6 +145,81 @@
 @supports not (backdrop-filter: blur(1px)) {
   .auth-card {
     background: rgba(255, 255, 255, 0.92);
+  }
+}
+
+@media (max-width: 760px) {
+  .auth-layout {
+    align-items: flex-start;
+    padding: 5.25rem 1rem 1.5rem;
+  }
+
+  .deco-left {
+    left: -7.5rem;
+    height: min(24rem, 58vh);
+    opacity: 0.78;
+  }
+
+  .deco-right {
+    right: -4rem;
+    top: 35%;
+    width: 7rem;
+    opacity: 0.78;
+  }
+
+  .deco-top-right {
+    right: -13rem;
+    height: 6.5rem;
+    opacity: 0.82;
+  }
+
+  .deco-bottom-left {
+    left: -3.5rem;
+    height: 8.5rem;
+    opacity: 0.82;
+  }
+
+  .deco-bottom-center {
+    height: 4rem;
+    opacity: 0.8;
+  }
+
+  .deco-bottom-right {
+    right: -4.5rem;
+    height: 11rem;
+    opacity: 0.82;
+  }
+
+  .logo {
+    top: 0.6rem;
+    left: 1rem;
+    height: 3rem;
+    padding: 0 0.65rem 1.25rem 0.4rem;
+    border-radius: 14px;
+  }
+
+  .logo__lamp {
+    width: 32px;
+    height: 56px;
+  }
+
+  .logo__name {
+    font-size: 1.08rem;
+  }
+
+  .auth-card {
+    width: min(100%, 360px);
+    padding: 1.5rem 1.25rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .auth-layout {
+    padding-inline: 0.85rem;
+  }
+
+  .auth-card {
+    border-radius: 20px;
   }
 }
 </style>

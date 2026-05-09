@@ -181,12 +181,14 @@ async function confirmDeviceDeletion() {
   deletingDevice.value = true
   try {
     await api.delete(`/devices/${pendingDeviceDeletion.value.id}`)
+    await store.pruneDeletedDevicesFromRoutines([pendingDeviceDeletion.value.id])
     if (selectedDevice.value?.id === pendingDeviceDeletion.value.id) {
       closeModal()
     }
     showDeleteDeviceConfirm.value = false
     pendingDeviceDeletion.value = null
     await refreshHomeDevices({ silent: true })
+    socketStore.deviceListVersion++
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
@@ -376,6 +378,7 @@ async function confirmRoomDeletion() {
     showDeleteRoomConfirm.value = false
     pendingRoomDeletion.value = null
     await refreshHomeDevices({ silent: true })
+    socketStore.deviceListVersion++
   } catch (e) {
     if (e instanceof ApiError) {
       const msg = (e.body as { error?: { description?: string } })?.error?.description
@@ -882,6 +885,7 @@ onMounted(async () => {
   display: flex;
   flex-direction: column;
   min-height: 68px;
+  min-width: 0;
 }
 
 .device-card__room {
@@ -893,10 +897,6 @@ onMounted(async () => {
   margin-top: auto;
   align-self: flex-end;
   text-align: right;
-}
-
-.device-card__body {
-  min-width: 0;
 }
 
 .device-card__body h3 {
