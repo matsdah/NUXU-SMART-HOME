@@ -27,7 +27,7 @@ const { showToast, showPersistentToast, hidePersistentToast } = useToast();
 
 const dashboardStore = useDashboardStore();
 const socketStore = useSocketStore();
-const ADMIN_HINT = 'Modo Administrador activo: tocá una rutina para renombrarla o eliminarla.'
+const ADMIN_HINT = 'Modo edición activo: tocá una rutina para renombrarla o eliminarla.'
 const { isEditMode, toggleEditMode: _toggleEditMode } = useEditMode();
 function toggleEditMode() {
   _toggleEditMode()
@@ -247,7 +247,7 @@ async function confirmDeletion() {
                     :class="{ 'panel__edit-toggle--active': isEditMode }"
                     @click="toggleEditMode"
                 >
-                    {{ isEditMode ? 'Salir de Modo Administrador' : 'Modo Administrador' }}
+                    {{ isEditMode ? 'Salir de Modo edición' : 'Modo edición' }}
                 </button>
             </header>
 

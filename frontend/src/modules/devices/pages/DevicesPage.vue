@@ -84,7 +84,7 @@ function onDeviceUpdated(id: string, isOn: boolean) {
   })
 }
 
-const ADMIN_HINT = 'Modo Administrador activo: tocá un dispositivo para renombrarlo o eliminarlo.'
+const ADMIN_HINT = 'Modo edición activo: tocá un dispositivo para renombrarlo o eliminarlo.'
 
 function toggleDeviceEditMode() {
   isDeviceEditMode.value = !isDeviceEditMode.value
@@ -509,7 +509,7 @@ onMounted(async () => {
           :class="{ 'panel__edit-toggle--active': isDeviceEditMode }"
           @click="toggleDeviceEditMode"
         >
-          {{ isDeviceEditMode ? 'Salir de Modo Administrador' : 'Modo Administrador' }}
+          {{ isDeviceEditMode ? 'Salir de Modo edición' : 'Modo edición' }}
         </button>
       </header>
 

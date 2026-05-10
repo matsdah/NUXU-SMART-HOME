@@ -189,12 +189,6 @@ function onLogoutOverlayClick(event: MouseEvent) {
       </nav>
 
       <div class="topbar__actions">
-        <button class="icon-btn" type="button" aria-label="Notificaciones">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M6 17h12l-1-2v-4a5 5 0 0 0-10 0v4l-1 2z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-            <path d="M9.5 17a2.5 2.5 0 0 0 5 0" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-          </svg>
-        </button>
         <div class="user-selector" ref="userChipRef">
           <button
             class="user-chip"
@@ -316,6 +310,8 @@ function onLogoutOverlayClick(event: MouseEvent) {
   background-color: #9E9B8E;
   padding: 0.0rem 0.8rem 1.5rem 0.5rem;
   border-radius: 16px;
+  width: 150px;
+  flex-shrink: 0;
 }
 
 .brand__logo {

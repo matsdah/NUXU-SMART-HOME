@@ -9,6 +9,7 @@ export type ActionParamSchema = {
     step?: number;
     enum?: string[];
     label?: string;
+    maxLength?: number;
 };
 
 export type ActionSchema = {
@@ -116,13 +117,13 @@ const ACTION_PARAM_OVERRIDES: Record<string, Array<Partial<ActionParamSchema>>> 
         { name: "newSecurityCode", type: "string", label: "Codigo nuevo" },
     ],
     armStay: [
-        { name: "securityCode", type: "string", label: "Codigo de seguridad" },
+        { name: "securityCode", type: "string", label: "Codigo de seguridad", maxLength: 4 },
     ],
     armAway: [
-        { name: "securityCode", type: "string", label: "Codigo de seguridad" },
+        { name: "securityCode", type: "string", label: "Codigo de seguridad", maxLength: 4 },
     ],
     disarm: [
-        { name: "securityCode", type: "string", label: "Codigo de seguridad" },
+        { name: "securityCode", type: "string", label: "Codigo de seguridad", maxLength: 4 },
     ],
     setLocation: [
         { name: "roomId", type: "string", label: "Habitacion" },
@@ -468,6 +469,23 @@ export function validateActionItem(
                 message: `${label} debe ser una opcion valida.`,
             });
             continue;
+        }
+
+        if (typeof value === "string") {
+            if (param.maxLength && value.length > param.maxLength) {
+                errors.push({
+                    field: param.name,
+                    message: `${label} debe tener maximo ${param.maxLength} caracteres.`,
+                });
+                continue;
+            }
+            if (param.name === "securityCode" && !/^\d{1,6}$/.test(value)) {
+                errors.push({
+                    field: param.name,
+                    message: `El codigo de seguridad debe ser numerico.`,
+                });
+                continue;
+            }
         }
 
         if (isRequired && String(value).trim() === "") {

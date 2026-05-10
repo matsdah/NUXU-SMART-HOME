@@ -56,7 +56,7 @@ const deviceRoomName = computed(() => {
 })
 
 const roomOptions = computed<PillOption[]>(() =>
-  store.rooms.map(r => ({ value: r.id, label: r.name }))
+  store.rooms.map(r => ({ value: r.id, label: r.name.length > 8 ? r.name.slice(0, 7) + '...' : r.name }))
 )
 
 function parseStatus(s: unknown): VacuumStatus {
@@ -399,6 +399,23 @@ async function onLocationChange(roomId: string) {
   font-size: 0.85rem;
   color: #2a4f80;
   font-weight: 500;
+}
+
+.vac-controls .pill-buttons--container .pill-button {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.vac-controls .pill-buttons--container .pill-button {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0.65rem 0.75rem;
 }
 
 @media (max-width: 900px) {

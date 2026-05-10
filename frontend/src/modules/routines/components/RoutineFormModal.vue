@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 import { api, ApiError } from "@/services/api/client";
 import { useDashboardStore, labelForTypeId } from "@/app/stores/dashboard";
 import { useToast } from "@/shared/composables/useToast";
-import type { Device } from "@/app/stores/dashboard";
+import type { Device, DeviceKind } from "@/app/stores/dashboard";
 import {
     getActionLabel,
     getAllowedActionsForType,
@@ -68,6 +68,15 @@ const emit = defineEmits<{
 
 const ICONS: RoutineIcon[] = ["bolt", "sun", "moon", "home", "star", "clock"];
 
+const PRESET_COLORS = [
+  { label: 'Blanco cálido', value: '#FFD580' },
+  { label: 'Blanco frío',   value: '#E8F4FF' },
+  { label: 'Rojo',           value: '#FF4D4D' },
+  { label: 'Verde',          value: '#4DFF91' },
+  { label: 'Azul',           value: '#4D9FFF' },
+  { label: 'Violeta',        value: '#A64DFF' },
+];
+
 /* ─── Store ──────────────────────────────────────────────── */
 
 const store = useDashboardStore();
@@ -96,6 +105,37 @@ const validationErrorsByDeviceAction = ref<Record<string, ActionRowError[]>>({})
 const submitting = ref(false);
 const routineActionsLoaded = ref(false);
 const showActionErrors = ref(false);
+const openDropdowns = ref<Set<string>>(new Set());
+
+function dropdownKey(deviceId: string, index: number): string {
+    return `${deviceId}--${index}`;
+}
+
+function isDropdownOpen(key: string): boolean {
+    return openDropdowns.value.has(key);
+}
+
+function toggleDropdown(key: string) {
+    const next = new Set(openDropdowns.value);
+    if (next.has(key)) {
+        next.delete(key);
+    } else {
+        next.clear();
+        next.add(key);
+    }
+    openDropdowns.value = next;
+}
+
+function closeAllDropdowns() {
+    openDropdowns.value = new Set();
+}
+
+function getSelectedActionLabel(deviceId: string, index: number): string {
+    const actions = actionsByDevice.value[deviceId] ?? [];
+    const action = actions[index];
+    if (!action || !action.actionName) return "";
+    return getActionLabel(getDeviceTypeName(deviceId), action.actionName);
+}
 
 /* ─── Computed ───────────────────────────────────────────── */
 
@@ -230,6 +270,20 @@ function ensureActionsForSelectedDevices(deviceIds: string[]): void {
     deviceIds.forEach((id) => ensureDeviceActionList(id));
 }
 
+function getDeviceKind(deviceId: string): DeviceKind | undefined {
+    return allDevices.value.find((d: Device) => d.id === deviceId)?.kind;
+}
+
+function getInputPlaceholder(paramName: string): string | undefined {
+    if (paramName === "securityCode") return "Ingresa el codigo";
+    return undefined;
+}
+
+function getRoomName(roomId: string): string {
+    const room = rooms.value.find((r) => r.id === roomId);
+    return room ? room.name : "";
+}
+
 function updateDeviceValidation(deviceId: string): void {
     const actions = actionsByDevice.value[deviceId] ?? [];
     const errors = validateActionsForDevice(
@@ -303,7 +357,12 @@ async function loadRoutineActions(routineId: string): Promise<void> {
 
 /* ─── Lifecycle ──────────────────────────────────────────── */
 
+function onDocClick() {
+    closeAllDropdowns();
+}
+
 onMounted(async () => {
+    document.addEventListener("click", onDocClick);
     const [devicesResult, typesResult] = await Promise.allSettled([
         store.fetchHomeDevices(store.activeHomeId),
         loadDeviceTypes(),
@@ -325,6 +384,10 @@ onMounted(async () => {
         selectedDeviceIds.value.forEach((id) => updateDeviceValidation(id));
         routineActionsLoaded.value = true;
     }
+});
+
+onBeforeUnmount(() => {
+    document.removeEventListener("click", onDocClick);
 });
 
 /* ─── Methods ────────────────────────────────────────────── */
@@ -572,21 +635,23 @@ function onOverlayClick(e: MouseEvent) {
                         <!-- Step 2: summary card (like AC modal left panel) -->
                         <div v-else class="summary-body">
                             <p class="field__label">RUTINA</p>
-                            <div class="summary-circle" :style="{ background: 'rgba(190, 190, 166, 0.45)' }">
-                                <svg class="summary-svg" viewBox="0 0 24 24" fill="none" stroke="rgba(42, 40, 37, 0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                    <template v-if="selectedIcon === 'bolt'"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></template>
-                                    <template v-else-if="selectedIcon === 'sun'"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></template>
-                                    <template v-else-if="selectedIcon === 'moon'"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></template>
-                                    <template v-else-if="selectedIcon === 'home'"><path d="M4 12l8-7 8 7" /><path d="M7 11v7h10v-7" /></template>
-                                    <template v-else-if="selectedIcon === 'star'"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></template>
-                                    <template v-else-if="selectedIcon === 'clock'"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></template>
-                                </svg>
+                            <div class="summary-center">
+                                <div class="summary-circle" :style="{ background: 'rgba(190, 190, 166, 0.45)' }">
+                                    <svg class="summary-svg" viewBox="0 0 24 24" fill="none" stroke="rgba(42, 40, 37, 0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <template v-if="selectedIcon === 'bolt'"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></template>
+                                        <template v-else-if="selectedIcon === 'sun'"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></template>
+                                        <template v-else-if="selectedIcon === 'moon'"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></template>
+                                        <template v-else-if="selectedIcon === 'home'"><path d="M4 12l8-7 8 7" /><path d="M7 11v7h10v-7" /></template>
+                                        <template v-else-if="selectedIcon === 'star'"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" /></template>
+                                        <template v-else-if="selectedIcon === 'clock'"><circle cx="12" cy="12" r="10" /><path d="M12 6v6l4 2" /></template>
+                                    </svg>
+                                </div>
+                                <p class="summary-name">{{ routineName || "Rutina" }}</p>
+                                <p class="summary-devices">
+                                    {{ selectedDeviceIds.length }}
+                                    dispositivo{{ selectedDeviceIds.length !== 1 ? "s" : "" }}
+                                </p>
                             </div>
-                            <p class="summary-name">{{ routineName || "Rutina" }}</p>
-                            <p class="summary-devices">
-                                {{ selectedDeviceIds.length }}
-                                dispositivo{{ selectedDeviceIds.length !== 1 ? "s" : "" }}
-                            </p>
                         </div>
 
                     </div>
@@ -619,41 +684,41 @@ function onOverlayClick(e: MouseEvent) {
                                 >{{ room.name }}</button>
                             </div>
 
-                            <div v-if="loadingDevices" class="device-grid">
-                                <div v-for="i in 6" :key="i" class="device-tile device-tile--skeleton" />
-                            </div>
+                            <div class="device-panel">
+                                <div v-if="loadingDevices" class="device-grid">
+                                    <div v-for="i in 6" :key="i" class="device-tile device-tile--skeleton" />
+                                </div>
 
-                            <div v-else-if="filteredDevices.length === 0" class="empty-devices">
-                                No hay dispositivos en esta habitación.
-                            </div>
+                                <div v-else-if="filteredDevices.length === 0" class="empty-devices">
+                                    No hay dispositivos en esta habitación.
+                                </div>
 
-                            <div v-else class="device-grid">
-                                <button
-                                    v-for="device in filteredDevices"
-                                    :key="device.id"
-                                    type="button"
-                                    class="device-tile"
-                                    :class="{ 'device-tile--selected': isDeviceSelected(device.id) }"
-                                    @click="toggleDevice(device.id)"
-                                >
-                                    <span class="device-tile__icon" aria-hidden="true">
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <template v-if="device.kind === 'vacuum'"><rect x="6" y="3" width="12" height="10" rx="3" /><path d="M12 13v8" /></template>
-                                            <template v-else-if="device.kind === 'speaker'"><rect x="7" y="3" width="10" height="18" rx="2" /><circle cx="12" cy="9" r="2" fill="currentColor" /><circle cx="12" cy="15" r="3" /></template>
-                                            <template v-else-if="device.kind === 'tap'"><path d="M6 8h12" /><path d="M9 8v5a3 3 0 0 0 6 0V8" /><circle cx="12" cy="18" r="1" fill="currentColor" /></template>
-                                            <template v-else-if="device.kind === 'blind'"><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M6 9h12M6 13h12" /></template>
-                                            <template v-else-if="device.kind === 'lamp'"><path d="M8 10a4 4 0 0 1 8 0c0 2-2 3-2 5H10c0-2-2-3-2-5z" /><path d="M10 18h4" /></template>
-                                            <template v-else-if="device.kind === 'oven'"><rect x="5" y="4" width="14" height="16" rx="2" /><rect x="8" y="9" width="8" height="6" rx="1" /><circle cx="8" cy="6.5" r="1" fill="currentColor" /><circle cx="12" cy="6.5" r="1" fill="currentColor" /></template>
-                                            <template v-else-if="device.kind === 'ac'"><path d="M6 7h12M7 11h10M9 15h6" /></template>
-                                            <template v-else-if="device.kind === 'door'"><rect x="7" y="4" width="10" height="16" rx="2" /><circle cx="14" cy="12" r="1" fill="currentColor" /></template>
-                                            <template v-else><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M6 10h12" /></template>
-                                        </svg>
-                                    </span>
-                                    <span class="device-tile__name">{{ device.name }}</span>
-                                    <span v-if="isDeviceSelected(device.id)" class="device-tile__check" aria-hidden="true">✓</span>
-                                </button>
+                                <div v-else class="device-grid">
+                                    <button
+                                        v-for="device in filteredDevices"
+                                        :key="device.id"
+                                        type="button"
+                                        class="device-tile"
+                                        :class="{ 'device-tile--selected': isDeviceSelected(device.id) }"
+                                        @click="toggleDevice(device.id)"
+                                    >
+                                        <span class="device-tile__icon" aria-hidden="true">
+                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <template v-if="device.kind === 'vacuum'"><rect x="6" y="3" width="12" height="10" rx="3" /><path d="M12 13v8" /></template>
+                                                <template v-else-if="device.kind === 'speaker'"><rect x="7" y="3" width="10" height="18" rx="2" /><circle cx="12" cy="9" r="2" fill="currentColor" /><circle cx="12" cy="15" r="3" /></template>
+                                                <template v-else-if="device.kind === 'tap'"><path d="M6 8h12" /><path d="M9 8v5a3 3 0 0 0 6 0V8" /><circle cx="12" cy="18" r="1" fill="currentColor" /></template>
+                                                <template v-else-if="device.kind === 'blind'"><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M6 9h12M6 13h12" /></template>
+                                                <template v-else-if="device.kind === 'lamp'"><path d="M8 10a4 4 0 0 1 8 0c0 2-2 3-2 5H10c0-2-2-3-2-5z" /><path d="M10 18h4" /></template>
+                                                <template v-else-if="device.kind === 'oven'"><rect x="5" y="4" width="14" height="16" rx="2" /><rect x="8" y="9" width="8" height="6" rx="1" /><circle cx="8" cy="6.5" r="1" fill="currentColor" /><circle cx="12" cy="6.5" r="1" fill="currentColor" /></template>
+                                                <template v-else-if="device.kind === 'ac'"><path d="M6 7h12M7 11h10M9 15h6" /></template>
+                                                <template v-else-if="device.kind === 'door'"><rect x="7" y="4" width="10" height="16" rx="2" /><circle cx="14" cy="12" r="1" fill="currentColor" /></template>
+                                                <template v-else><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M6 10h12" /></template>
+                                            </svg>
+                                        </span>
+                                        <span class="device-tile__name">{{ device.name }}</span>
+                                    </button>
+                                </div>
                             </div>
-
                             <div class="panel-right__footer">
                                 <button
                                     type="button"
@@ -698,18 +763,38 @@ function onOverlayClick(e: MouseEvent) {
                                             :class="{ 'action-row--error': showActionErrors && getRowErrors(device.id, index).length > 0 }"
                                         >
                                             <div class="action-row__top">
-                                                <select
-                                                    class="action-row__select"
-                                                    :value="action.actionName"
-                                                    @change="updateActionName(device.id, index, ($event.target as HTMLSelectElement).value)"
-                                                >
-                                                    <option value="">Selecciona una accion</option>
-                                                    <option
-                                                        v-for="option in buildActionOptionsForRow(device.id, index)"
-                                                        :key="option.actionName"
-                                                        :value="option.actionName"
-                                                    >{{ option.label }}</option>
-                                                </select>
+                                                <div class="custom-select" :data-key="dropdownKey(device.id, index)" @click.stop>
+                                                    <button
+                                                        type="button"
+                                                        class="custom-select__trigger"
+                                                        :aria-expanded="isDropdownOpen(dropdownKey(device.id, index))"
+                                                        @click="toggleDropdown(dropdownKey(device.id, index))"
+                                                    >
+                                                        <span
+                                                            class="custom-select__label"
+                                                            :class="{ 'custom-select__label--placeholder': !action.actionName }"
+                                                        >
+                                                            {{ getSelectedActionLabel(device.id, index) || 'Selecciona una accion' }}
+                                                        </span>
+                                                        <span class="custom-select__chev" aria-hidden="true">
+                                                            <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                                                        </span>
+                                                    </button>
+                                                    <Transition name="fade-slide">
+                                                        <div v-if="isDropdownOpen(dropdownKey(device.id, index))" class="custom-select__dropdown">
+                                                            <button
+                                                                v-for="option in buildActionOptionsForRow(device.id, index)"
+                                                                :key="option.actionName"
+                                                                type="button"
+                                                                class="custom-select__item"
+                                                                :class="{ 'custom-select__item--active': option.actionName === action.actionName }"
+                                                                @click="updateActionName(device.id, index, option.actionName); closeAllDropdowns()"
+                                                            >
+                                                                {{ option.label }}
+                                                            </button>
+                                                        </div>
+                                                    </Transition>
+                                                </div>
 
                                                 <div
                                                     v-if="getActionSchema(device.id, action.actionName).length > 0"
@@ -721,23 +806,57 @@ function onOverlayClick(e: MouseEvent) {
                                                         class="param-inline"
                                                     >
                                                         <template v-if="param.enum && param.enum.length">
-                                                            <select
-                                                                class="param-inline__input"
-                                                                :value="String(action.params[param.name] ?? '')"
-                                                                @change="updateParamValue(device.id, index, param, ($event.target as HTMLSelectElement).value)"
-                                                            >
-                                                                <option v-for="option in param.enum" :key="option" :value="option">{{ option }}</option>
-                                                            </select>
+                                                            <div class="custom-select" :data-key="dropdownKey(device.id, index) + '-' + param.name" @click.stop>
+                                                                <button
+                                                                    type="button"
+                                                                    class="custom-select__trigger"
+                                                                    :aria-expanded="isDropdownOpen(dropdownKey(device.id, index) + '-' + param.name)"
+                                                                    @click="toggleDropdown(dropdownKey(device.id, index) + '-' + param.name)"
+                                                                >
+                                                                    <span class="custom-select__label">
+                                                                        {{ String(action.params[param.name] ?? '') || param.label || param.name }}
+                                                                    </span>
+                                                                    <span class="custom-select__chev" aria-hidden="true">
+                                                                        <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                                                                    </span>
+                                                                </button>
+                                                                <Transition name="fade-slide">
+                                                                    <div v-if="isDropdownOpen(dropdownKey(device.id, index) + '-' + param.name)" class="custom-select__dropdown">
+                                                                        <button
+                                                                            v-for="option in param.enum" :key="option"
+                                                                            type="button"
+                                                                            class="custom-select__item"
+                                                                            :class="{ 'custom-select__item--active': String(action.params[param.name] ?? '') === option }"
+                                                                            @click="updateParamValue(device.id, index, param, option); closeAllDropdowns()"
+                                                                        >
+                                                                            {{ option }}
+                                                                        </button>
+                                                                    </div>
+                                                                </Transition>
+                                                            </div>
                                                         </template>
                                                         <template v-else-if="param.type === 'boolean'">
-                                                            <select
-                                                                class="param-inline__input"
-                                                                :value="String(action.params[param.name] ?? false)"
-                                                                @change="updateParamValue(device.id, index, param, ($event.target as HTMLSelectElement).value === 'true')"
-                                                            >
-                                                                <option value="true">Si</option>
-                                                                <option value="false">No</option>
-                                                            </select>
+                                                            <div class="custom-select" :data-key="dropdownKey(device.id, index) + '-' + param.name" @click.stop>
+                                                                <button
+                                                                    type="button"
+                                                                    class="custom-select__trigger"
+                                                                    :aria-expanded="isDropdownOpen(dropdownKey(device.id, index) + '-' + param.name)"
+                                                                    @click="toggleDropdown(dropdownKey(device.id, index) + '-' + param.name)"
+                                                                >
+                                                                    <span class="custom-select__label">
+                                                                        {{ action.params[param.name] ? 'Si' : 'No' }}
+                                                                    </span>
+                                                                    <span class="custom-select__chev" aria-hidden="true">
+                                                                        <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                                                                    </span>
+                                                                </button>
+                                                                <Transition name="fade-slide">
+                                                                    <div v-if="isDropdownOpen(dropdownKey(device.id, index) + '-' + param.name)" class="custom-select__dropdown">
+                                                                        <button type="button" class="custom-select__item" :class="{ 'custom-select__item--active': action.params[param.name] === true }" @click="updateParamValue(device.id, index, param, true); closeAllDropdowns()">Si</button>
+                                                                        <button type="button" class="custom-select__item" :class="{ 'custom-select__item--active': action.params[param.name] === false }" @click="updateParamValue(device.id, index, param, false); closeAllDropdowns()">No</button>
+                                                                    </div>
+                                                                </Transition>
+                                                            </div>
                                                         </template>
                                                         <template v-else-if="param.type === 'integer' || param.type === 'number'">
                                                             <input
@@ -751,10 +870,62 @@ function onOverlayClick(e: MouseEvent) {
                                                                 @input="updateParamValue(device.id, index, param, ($event.target as HTMLInputElement).value)"
                                                             />
                                                         </template>
+                                                        <template v-else-if="param.name === 'securityCode'">
+                                                            <input
+                                                                class="param-inline__input"
+                                                                type="text"
+                                                                inputmode="numeric"
+                                                                :maxlength="param.maxLength ?? 6"
+                                                                placeholder="Ingresa el codigo"
+                                                                :value="String(action.params[param.name] ?? '')"
+                                                                @input="updateParamValue(device.id, index, param, ($event.target as HTMLInputElement).value)"
+                                                            />
+                                                        </template>
+                                                        <template v-else-if="param.name === 'roomId'">
+                                                            <div class="custom-select" :data-key="dropdownKey(device.id, index) + '-' + param.name" @click.stop>
+                                                                <button
+                                                                    type="button"
+                                                                    class="custom-select__trigger"
+                                                                    :aria-expanded="isDropdownOpen(dropdownKey(device.id, index) + '-' + param.name)"
+                                                                    @click="toggleDropdown(dropdownKey(device.id, index) + '-' + param.name)"
+                                                                >
+                                                                    <span
+                                                                        class="custom-select__label"
+                                                                        :class="{ 'custom-select__label--placeholder': !action.params[param.name] }"
+                                                                    >
+                                                                        {{ getRoomName(String(action.params[param.name] ?? '')) || 'Selecciona una habitacion' }}
+                                                                    </span>
+                                                                    <span class="custom-select__chev" aria-hidden="true">
+                                                                        <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                                                                    </span>
+                                                                </button>
+                                                                <Transition name="fade-slide">
+                                                                    <div v-if="isDropdownOpen(dropdownKey(device.id, index) + '-' + param.name)" class="custom-select__dropdown">
+                                                                        <button type="button" class="custom-select__item" :class="{ 'custom-select__item--active': !action.params[param.name] }" @click="updateParamValue(device.id, index, param, ''); closeAllDropdowns()">Selecciona una habitacion</button>
+                                                                        <button v-for="room in rooms" :key="room.id" type="button" class="custom-select__item" :class="{ 'custom-select__item--active': action.params[param.name] === room.id }" @click="updateParamValue(device.id, index, param, room.id); closeAllDropdowns()">{{ room.name }}</button>
+                                                                    </div>
+                                                                </Transition>
+                                                            </div>
+                                                        </template>
+                                                        <template v-else-if="param.name === 'color' && getDeviceKind(device.id) === 'lamp'">
+                                                            <div class="color-picker-inline">
+                                                                <button
+                                                                    v-for="preset in PRESET_COLORS"
+                                                                    :key="preset.value"
+                                                                    class="color-swatch-sm"
+                                                                    :class="{ 'color-swatch-sm--active': action.params[param.name] === preset.value }"
+                                                                    :style="{ background: preset.value }"
+                                                                    :aria-label="preset.label"
+                                                                    type="button"
+                                                                    @click="updateParamValue(device.id, index, param, preset.value)"
+                                                                />
+                                                            </div>
+                                                        </template>
                                                         <template v-else>
                                                             <input
                                                                 class="param-inline__input"
                                                                 type="text"
+                                                                :maxlength="param.maxLength"
                                                                 :value="String(action.params[param.name] ?? '')"
                                                                 @input="updateParamValue(device.id, index, param, ($event.target as HTMLInputElement).value)"
                                                             />
@@ -910,9 +1081,9 @@ function onOverlayClick(e: MouseEvent) {
 
 .field__input {
     width: 100%;
-    max-width: 200px;
+    max-width: 260px;
     height: 40px;
-    padding: 0 0.9rem;
+    padding: 0 2rem 0 1rem;
     text-align: center;
     background: rgba(255, 255, 255, 0.85);
     border: 1.5px solid rgba(52, 47, 41, 0.15);
@@ -925,7 +1096,7 @@ function onOverlayClick(e: MouseEvent) {
 
 .field__icon {
     position: absolute;
-    right: calc(50% - 100px + 0.75rem);
+    right: 0.75rem;
     top: 50%;
     transform: translateY(-50%);
     width: 16px;
@@ -1007,10 +1178,17 @@ function onOverlayClick(e: MouseEvent) {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    gap: 0.75rem;
-    padding: 1.5rem 1.25rem;
+    padding: 3.2rem 1.25rem 2.2rem;
     text-align: center;
+}
+
+.summary-center {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.25rem;
 }
 
 .summary-label {
@@ -1028,7 +1206,6 @@ function onOverlayClick(e: MouseEvent) {
     border-radius: 50%;
     display: grid;
     place-items: center;
-    box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
 }
 
 .summary-svg {
@@ -1073,6 +1250,7 @@ function onOverlayClick(e: MouseEvent) {
     flex-direction: column;
     gap: 0.3rem;
     flex-shrink: 0;
+    font-family: var(--font-sans);
 }
 
 .stepper__top-row {
@@ -1090,38 +1268,45 @@ function onOverlayClick(e: MouseEvent) {
 }
 
 .panel-right__title {
-    font-size: 1rem;
+    font-size: 0.82rem;
     font-weight: 600;
-    color: rgba(52, 47, 41, 0.88);
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(52, 47, 41, 0.42);
     margin: 0;
+    font-family: var(--font-sans);
 }
 
 .panel-right__subtitle {
     margin: 0;
     font-size: 0.82rem;
-    color: rgba(52, 47, 41, 0.6);
+    color: rgba(52, 47, 41, 0.42);
+    font-family: var(--font-sans);
 }
 
 .room-tabs {
-    
     display: flex;
     flex-wrap: nowrap;
     gap: 0.5rem;
     overflow-x: auto;
     scrollbar-width: none;
+    background: rgba(128, 120, 103, 0.52);
     border-radius: 999px;
-    padding: 0.4rem 0.6rem;
+    padding: 0.28rem;
     flex-shrink: 0;
+}
+
+.room-tabs::-webkit-scrollbar {
+    display: none;
 }
 
 .room-tab {
     border: none;
-    border: 1.5px solid rgba(42, 40, 37, 0.1);
-    background: rgba(255, 255, 255, 0.6);
-    color: rgba(42, 40, 37, 0.8);
-    font-size: 0.82rem;
+    background: transparent;
+    color: rgba(52, 47, 41, 0.95);
+    font-size: 0.85rem;
     font-weight: 600;
-    padding: 0.35rem 0.85rem;
+    padding: 0.55rem 1rem;
     border-radius: 999px;
     cursor: pointer;
     white-space: nowrap;
@@ -1129,11 +1314,29 @@ function onOverlayClick(e: MouseEvent) {
     text-overflow: ellipsis;
     max-width: 160px;
     font-family: var(--font-sans);
+    transition: background 0.15s, color 0.15s, transform 0.15s;
+}
+
+.room-tab:hover {
+    transform: translateY(-1px);
 }
 
 .room-tab--active {
-    background: rgba(42, 40, 37, 0.92);
-    color: #f7f3e7;
+    background: rgba(52, 47, 41, 0.92);
+    color: #fff;
+    box-shadow: 0 8px 18px rgba(52, 47, 41, 0.18);
+}
+
+.device-panel {
+    background: rgba(244, 244, 244, 0.7);
+    border-radius: 24px;
+    padding: 1.2rem;
+    box-shadow: 0 20px 40px rgba(42, 40, 37, 0.08);
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .device-grid {
@@ -1158,6 +1361,11 @@ function onOverlayClick(e: MouseEvent) {
     cursor: pointer;
     position: relative;
     font-family: var(--font-sans);
+}
+
+.device-tile:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
 }
 
 .device-tile--selected {
@@ -1293,17 +1501,6 @@ function onOverlayClick(e: MouseEvent) {
     flex-wrap: wrap;
 }
 
-.action-row__select {
-    min-width: 190px;
-    height: 34px;
-    padding: 0 0.6rem;
-    border-radius: 10px;
-    border: 1.5px solid rgba(42, 40, 37, 0.15);
-    background: rgba(255, 255, 255, 0.95);
-    font-size: 0.85rem;
-    font-family: var(--font-sans);
-}
-
 .action-row__params-inline {
     display: flex;
     gap: 0.5rem;
@@ -1318,14 +1515,171 @@ function onOverlayClick(e: MouseEvent) {
 }
 
 .param-inline__input {
-    height: 34px;
-    padding: 0 0.5rem;
-    border-radius: 10px;
-    border: 1.5px solid rgba(42, 40, 37, 0.15);
-    background: rgba(255, 255, 255, 0.95);
-    font-size: 0.82rem;
+    height: 54px;
+    padding: 0 0.75rem;
+    border-radius: 12px;
+    border: 1.5px solid var(--color-sage);
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--color-text);
+    font-weight: 400;
+    font-size: 0.95rem;
     font-family: var(--font-sans);
-    min-width: 120px;
+    min-width: 70px;
+    max-width: 110px;
+    transition: border-color 0.2s, background 0.2s;
+    line-height: 1.4;
+}
+
+.param-inline__input:hover {
+    border-color: var(--color-brown);
+}
+
+.param-inline__input:focus {
+    outline: none;
+    border-color: var(--color-brown);
+}
+
+.custom-select {
+    position: relative;
+    min-width: 110px;
+    max-width: 170px;
+}
+
+.action-row__top > .custom-select {
+    min-width: 180px;
+    max-width: 220px;
+}
+
+.custom-select__trigger {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    height: 54px;
+    padding: 0 1rem;
+    border-radius: 12px;
+    border: 1.5px solid var(--color-sage);
+    background: rgba(255, 255, 255, 0.6);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: 0.95rem;
+    font-weight: 400;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+}
+
+.custom-select__trigger:hover,
+.custom-select__trigger[aria-expanded="true"] {
+    border-color: var(--color-brown);
+}
+
+.custom-select__label {
+    flex: 1;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.custom-select__label--placeholder {
+    color: var(--color-text-muted, rgba(52, 47, 41, 0.5));
+    font-weight: 400;
+}
+
+.custom-select__chev {
+    display: grid;
+    place-items: center;
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    opacity: 0.5;
+    transition: transform 0.2s ease;
+}
+
+.custom-select__chev svg {
+    width: 14px;
+    height: 14px;
+}
+
+.custom-select__trigger[aria-expanded="true"] .custom-select__chev {
+    transform: rotate(180deg);
+}
+
+.custom-select__dropdown {
+    position: absolute;
+    top: calc(100% + 0.35rem);
+    left: 0;
+    right: 0;
+    z-index: 20;
+    background: #fff;
+    border: 1px solid rgba(42, 40, 37, 0.12);
+    border-radius: 12px;
+    padding: 0.4rem;
+    box-shadow: 0 12px 32px rgba(42, 40, 37, 0.12);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.custom-select__item {
+    width: 100%;
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    font: inherit;
+    color: var(--color-text);
+    cursor: pointer;
+    transition: background 0.15s;
+}
+
+.custom-select__item:hover {
+    background: rgba(42, 40, 37, 0.06);
+}
+
+.custom-select__item--active {
+    background: rgba(42, 40, 37, 0.1);
+    font-weight: 500;
+}
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+.fade-slide-enter-from,
+.fade-slide-leave-to {
+    opacity: 0;
+    transform: translateY(-6px);
+}
+
+.color-picker-inline {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.color-swatch-sm {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    cursor: pointer;
+    flex-shrink: 0;
+    box-shadow: 0 0 0 1.5px rgba(42, 40, 37, 0.18);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.color-swatch-sm:hover {
+    transform: scale(1.15);
+}
+
+.color-swatch-sm--active {
+    border-color: rgba(52, 47, 41, 0.7);
+    box-shadow: 0 0 0 2px rgba(52, 47, 41, 0.15);
 }
 
 .action-row__remove {
@@ -1367,44 +1721,55 @@ function onOverlayClick(e: MouseEvent) {
 .btn-back {
     width: 100%;
     max-width: 120px;
-    height: 48px;
-    padding: 0 1.1rem;
+    height: 46px;
     border-radius: 999px;
-    border: 1.5px solid rgba(42, 40, 37, 0.18);
-    background: rgba(255, 255, 255, 0.8);
-    color: rgba(42, 40, 37, 0.75);
+    border: none;
+    background: rgba(52, 47, 41, 0.12);
+    color: rgba(52, 47, 41, 0.88);
     font-size: 0.9rem;
-    font-weight: 600;
+    font-weight: 700;
     font-family: var(--font-sans);
     cursor: pointer;
     white-space: nowrap;
     flex-shrink: 0;
+    transition: background 0.2s, transform 0.2s, box-shadow 0.2s, opacity 0.2s;
 }
 
 .btn-back:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
+}
+
+.btn-back:hover:not(:disabled) {
+    background: rgba(52, 47, 41, 0.2);
 }
 
 .btn-continue {
     width: 100%;
     max-width: 240px;
-    height: 48px;
+    height: 46px;
     border-radius: 999px;
     border: none;
-    background: var(--color-brown);
+    background: rgba(52, 47, 41, 0.88);
     color: #fff;
-    font-size: 0.95rem;
-    font-weight: 400;
+    font-size: 0.9rem;
+    font-weight: 700;
     font-family: var(--font-sans);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
+    transition: background 0.2s, transform 0.2s, box-shadow 0.2s, opacity 0.2s;
+}
+
+.btn-continue:hover:not(:disabled) {
+    background: rgba(52, 47, 41, 1);
+    box-shadow: 0 8px 24px rgba(52, 47, 41, 0.18);
+    transform: translateY(-1px);
 }
 
 .btn-continue:disabled {
-    opacity: 0.5;
+    opacity: 0.6;
     cursor: not-allowed;
 }
 
