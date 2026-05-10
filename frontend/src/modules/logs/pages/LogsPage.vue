@@ -17,6 +17,7 @@ import {
     getActionLabel,
     initializeAllowedActionsOnce,
 } from "@/app/constants/actionLabels";
+import { labelForTypeId } from "@/app/stores/dashboard";
 
 const PAGE_SIZE = 100;
 
@@ -123,8 +124,8 @@ async function loadDeviceIndex(): Promise<void> {
 
     const typeNameByTypeId = Object.fromEntries(
         deviceTypes
-            .filter((type) => type.id && type.name)
-            .map((type) => [type.id, type.name.trim()]),
+            .filter((type) => Boolean(type.id))
+            .map((type) => [type.id, labelForTypeId(type.id)]),
     ) as Record<string, string>;
 
     const nameEntries = devices.map((device) => {
@@ -146,8 +147,8 @@ async function loadDeviceIndex(): Promise<void> {
     deviceTypeById.value = Object.fromEntries(typeEntries);
 
     const typeNames = deviceTypes
-        .map((type) => type.name?.trim())
-        .filter((name): name is string => Boolean(name));
+        .filter((type) => Boolean(type.id))
+        .map((type) => labelForTypeId(type.id));
 
     initializeAllowedActionsOnce(deviceTypes);
 

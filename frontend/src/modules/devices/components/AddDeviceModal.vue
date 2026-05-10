@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { api, ApiError } from '@/services/api/client'
-import { useDashboardStore } from '@/app/stores/dashboard'
+import { useDashboardStore, labelForTypeId } from '@/app/stores/dashboard'
 import type { DeviceType } from '@/app/stores/dashboard'
 import CustomSelect from '@/shared/components/CustomSelect.vue'
 import { useToast } from '@/shared/composables/useToast'
@@ -149,7 +149,7 @@ onBeforeUnmount(() => {
 
           <CustomSelect
             v-model="selectedTypeId"
-            :options="deviceTypes.map(t => ({ id: t.id, label: t.name }))"
+            :options="deviceTypes.map(t => ({ id: t.id, label: labelForTypeId(t.id) }))"
             placeholder="Elegí dispositivo"
           />
 

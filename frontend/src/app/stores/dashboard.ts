@@ -112,7 +112,7 @@ export type Routine = {
 
 const DEFAULT_SECURITY_CODE = '1234'
 
-const TYPE_ID_MAP: Record<string, DeviceKind> = {
+export const TYPE_ID_MAP: Record<string, DeviceKind> = {
   go46xmbqeomjrsjr: 'ac',
   eu0v2xgprrhhg41g: 'lamp',
   im77xxyulpegfmv8: 'alarm',
@@ -141,6 +141,25 @@ const TYPE_NAME_MAP: Record<string, DeviceKind> = {
   speaker: 'speaker',
   vacuum: 'vacuum',
   timer: 'other',
+}
+
+export const DEVICE_KIND_LABELS: Record<DeviceKind, string> = {
+  ac:      'Aire acondicionado',
+  lamp:    'Lámpara',
+  alarm:   'Alarma',
+  blind:   'Persiana',
+  door:    'Puerta',
+  tap:     'Aspersor',
+  oven:    'Horno',
+  fridge:  'Heladera',
+  speaker: 'Parlante',
+  vacuum:  'Aspiradora',
+  other:   'Otro',
+}
+
+export function labelForTypeId(typeId: string): string {
+  const kind = TYPE_ID_MAP[typeId]
+  return kind ? DEVICE_KIND_LABELS[kind] : 'Otro'
 }
 
 const STATUS_TRANSLATIONS: Record<string, string> = {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from "vue";
 import { api, ApiError } from "@/services/api/client";
-import { useDashboardStore } from "@/app/stores/dashboard";
+import { useDashboardStore, labelForTypeId } from "@/app/stores/dashboard";
 import { useToast } from "@/shared/composables/useToast";
 import type { Device } from "@/app/stores/dashboard";
 import {
@@ -104,7 +104,7 @@ const rooms = computed(() => store.rooms);
 const deviceTypeNameById = computed(() => {
     const map: Record<string, string> = {};
     for (const deviceType of deviceTypesWithActions.value) {
-        if (deviceType.id && deviceType.name) map[deviceType.id] = deviceType.name;
+        if (deviceType.id) map[deviceType.id] = labelForTypeId(deviceType.id);
     }
     return map;
 });
