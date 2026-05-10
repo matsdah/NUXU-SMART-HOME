@@ -29,9 +29,14 @@ export function useDragReorder<T extends DragReorderItem>(
   function onDrop(e: DragEvent, targetId: string) {
     e.preventDefault()
     const sourceId = draggingId.value
+    if (!sourceId || sourceId === targetId) {
+      draggingId.value = null
+      dragOverId.value = null
+      return
+    }
+
     draggingId.value = null
     dragOverId.value = null
-    if (!sourceId || sourceId === targetId) return
 
     const current = items.value.slice()
     const sourceIndex = current.findIndex(i => i.id === sourceId)
@@ -46,6 +51,11 @@ export function useDragReorder<T extends DragReorderItem>(
     void options.onReorder(current.map(i => i.id))
   }
 
+  function onDragEnd() {
+    draggingId.value = null
+    dragOverId.value = null
+  }
+
   return {
     draggingId,
     dragOverId,
@@ -53,5 +63,6 @@ export function useDragReorder<T extends DragReorderItem>(
     onDragOver,
     onDragLeave,
     onDrop,
+    onDragEnd,
   }
 }

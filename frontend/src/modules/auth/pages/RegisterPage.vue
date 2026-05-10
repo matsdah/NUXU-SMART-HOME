@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { api, ApiError } from '@/services/api/client'
 import { sendVerificationEmail } from '@/services/email'
 import { handleApiError } from '@/shared/utils/api-error-handler'
+import { translateAuthError } from '@/shared/utils/auth-error-translator'
 import AuthLayout from '../components/AuthLayout.vue'
 import { useToast } from '@/shared/composables/useToast'
 
@@ -59,7 +60,7 @@ async function handleSubmit() {
       showToast('Este mail ya tiene una cuenta. Podés iniciar sesión directamente.', 'error')
     } else {
       const { message } = handleApiError(e)
-      showToast(message, 'error')
+      showToast(translateAuthError(message), 'error')
     }
   } finally {
     loading.value = false

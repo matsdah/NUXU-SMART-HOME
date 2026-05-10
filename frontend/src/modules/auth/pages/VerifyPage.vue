@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api, ApiError } from '@/services/api/client'
 import { sendVerificationEmail } from '@/services/email'
 import { handleApiError } from '@/shared/utils/api-error-handler'
+import { translateAuthError } from '@/shared/utils/auth-error-translator'
 import AuthLayout from '../components/AuthLayout.vue'
 import { useToast } from '@/shared/composables/useToast'
 
@@ -55,7 +56,8 @@ async function handleSubmit() {
     router.push({ name: 'login' })
   } catch (e) {
     const { message } = handleApiError(e)
-    showToast(message || 'Código incorrecto. Revisá tu mail e intentá de nuevo.', 'error')
+    const translated = translateAuthError(message)
+    showToast(translated || 'Código incorrecto. Revisá tu mail e intentá de nuevo.', 'error')
   } finally {
     loading.value = false
   }
@@ -76,7 +78,7 @@ async function handleResendCode() {
     showToast(`Reenviamos un nuevo código a ${verificationEmail.value}.`, 'success')
   } catch (e) {
     const { message } = handleApiError(e)
-    showToast(message || 'No se pudo reenviar el código. Intentá de nuevo.', 'error')
+    showToast(translateAuthError(message) || 'No se pudo reenviar el código. Intentá de nuevo.', 'error')
   } finally {
     resendLoading.value = false
   }

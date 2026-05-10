@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/app/stores/auth'
 import { ApiError } from '@/services/api/client'
 import { handleApiError } from '@/shared/utils/api-error-handler'
+import { translateAuthError } from '@/shared/utils/auth-error-translator'
 
 import AuthLayout from '../components/AuthLayout.vue'
 import { useToast } from '@/shared/composables/useToast'
@@ -52,7 +53,7 @@ async function handleSubmit() {
       }
     } else {
       const { message } = handleApiError(e)
-      showToast(message, 'error')
+      showToast(translateAuthError(message), 'error')
     }
   } finally {
     loading.value = false
@@ -67,11 +68,7 @@ async function handleSubmit() {
       <h1 class="auth-title">¡Hola!</h1>
       <p class="auth-subtitle">Iniciá sesión para continuar</p>
     </div>
-
-    <div v-if="showVerifyAction" class="login__verify-help">
-      <RouterLink :to="{ name: 'verify', query: { email: email.trim() } }">Reenviar código de verificación</RouterLink>
-    </div>
-
+   
     <form class="auth-form" @submit.prevent="handleSubmit" novalidate>
 
         <!-- Email / Usuario -->

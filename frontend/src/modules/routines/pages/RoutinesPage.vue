@@ -63,7 +63,7 @@ const showDeleteConfirm = ref(false);
 const pendingDelete = ref<{ id: string; name: string } | null>(null);
 const deletingRoutine = ref(false);
 
-const { draggingId, dragOverId, onDragStart, onDragOver, onDragLeave, onDrop } = useDragReorder(routines, {
+const { draggingId, dragOverId, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd } = useDragReorder(routines, {
   canDrag: () => isEditMode.value,
   onReorder: async (orderedIds) => {
     const updates: Promise<void>[] = []
@@ -350,6 +350,7 @@ async function confirmDeletion() {
                     @dragover="onDragOver($event, card.id)"
                     @dragleave="onDragLeave"
                     @drop="onDrop($event, card.id)"
+                    @dragend="onDragEnd"
                     @click="onRoutineCardClick(card)"
                 >
                     <div

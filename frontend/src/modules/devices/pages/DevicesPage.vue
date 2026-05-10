@@ -44,7 +44,7 @@ const pendingRoomEdition = ref<{ id: string; name: string } | null>(null)
 const renamingRoom = ref(false)
 const isDeviceEditMode = ref(false)
 
-const { draggingId, dragOverId, onDragStart, onDragOver, onDragLeave, onDrop } = useDragReorder(allDevices, {
+const { draggingId, dragOverId, onDragStart, onDragOver, onDragLeave, onDrop, onDragEnd } = useDragReorder(allDevices, {
   canDrag: () => isDeviceEditMode.value && activeFilter.value === 'all',
   onReorder: async (orderedIds) => {
     const updates: Promise<void>[] = []
@@ -569,6 +569,7 @@ onMounted(async () => {
           @dragover="onDragOver($event, device.id)"
           @dragleave="onDragLeave"
           @drop="onDrop($event, device.id)"
+          @dragend="onDragEnd"
           @click="onDeviceCardClick(device)"
         >
           <div class="device-card__top">
