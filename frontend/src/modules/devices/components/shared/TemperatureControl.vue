@@ -66,6 +66,7 @@ function onKeydown(e: KeyboardEvent) {
         v-model.number="draft"
         type="number"
         class="temp-control__input"
+        aria-label="Valor de temperatura"
         :min="min"
         :max="max"
         @blur="commit"
@@ -161,6 +162,12 @@ function onKeydown(e: KeyboardEvent) {
   text-align: center;
   font-family: var(--font-sans);
   -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.temp-control__input:focus-visible {
+  outline: 2px solid var(--color-charcoal);
+  outline-offset: 2px;
 }
 
 .temp-control__input::-webkit-inner-spin-button,

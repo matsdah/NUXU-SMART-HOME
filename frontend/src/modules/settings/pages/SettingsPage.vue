@@ -331,12 +331,12 @@ watch(() => dashboard.activeHomeId, async (newId) => {
           <div class="profile-fields">
             <div class="form-group">
               <label class="form-label">Nombre de usuario</label>
-              <input v-model="profileData.name" class="form-input" type="text" />
+              <input v-model="profileData.name" class="form-input" type="text" aria-label="Nombre" />
               <span class="form-hint">El nombre que se muestra en el sistema</span>
             </div>
             <div class="form-group">
               <label class="form-label">Email</label>
-              <input v-model="profileData.email" class="form-input" type="email" />
+              <input v-model="profileData.email" class="form-input" type="email" aria-label="Email" />
               <span class="form-hint">Tu dirección de correo electrónico</span>
             </div>
           </div>
@@ -397,6 +397,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
               v-model="editingName"
               type="text"
               class="name-edit-input"
+              aria-label="Nombre del hogar"
               @keyup.enter="saveName"
               @keyup.escape="cancelEditName"
             />
@@ -522,6 +523,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
               v-model="addMemberEmail"
               class="form-input"
               type="email"
+              aria-label="Email del miembro"
               placeholder="usuario@ejemplo.com"
               @keyup.enter="confirmAddMember"
             />
@@ -604,6 +606,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
               v-model="newHomeName"
               class="form-input"
               type="text"
+              aria-label="Nombre del nuevo hogar"
               placeholder="Mi Casa"
               @keyup.enter="confirmCreateHome"
             />

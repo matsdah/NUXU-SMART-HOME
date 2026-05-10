@@ -180,6 +180,51 @@ const ACTION_PARAM_OVERRIDES_BY_TYPE: Record<
     },
 };
 
+/* Traducciones para valores de parámetros de acciones de dispositivos.
+   Los valores vienen en inglés desde la API / o desde los overrides
+   y se traducen acá para la UI de selección de acciones en rutinas. */
+export const PARAM_VALUE_LABELS: Record<string, Record<string, string>> = {
+  mode: {
+    cool: "Frío",
+    heat: "Calor",
+    fan: "Ventilación",
+    vacuum: "Aspirar",
+    mop: "Trapear",
+    default: "Normal",
+    party: "Fiesta",
+    vacation: "Vacaciones",
+  },
+  heat: {
+    conventional: "Convencional",
+    bottom: "Inferior",
+    top: "Superior",
+  },
+  grill: {
+    large: "Grande",
+    eco: "Económico",
+    off: "Apagado",
+  },
+  convection: {
+    normal: "Normal",
+    eco: "Económico",
+    off: "Apagado",
+  },
+  genre: {
+    classical: "Clásica",
+    country: "Country",
+    dance: "Danza",
+    latina: "Latina",
+    pop: "Pop",
+    rock: "Rock",
+  },
+};
+
+export function getParamValueLabel(paramName: string, value: string): string {
+  if (!value) return value
+  const labels = PARAM_VALUE_LABELS[paramName]
+  return labels?.[value] ?? value
+}
+
 const PARAM_TYPE_MAP: Record<string, ActionParamType> = {
     string: "string",
     integer: "integer",

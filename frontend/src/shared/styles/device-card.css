@@ -97,6 +97,11 @@
   transition: background 0.2s ease;
 }
 
+.switch input:focus-visible {
+  outline: 2px solid var(--color-charcoal);
+  outline-offset: 2px;
+}
+
 .switch input:checked {
   background: rgba(63, 129, 102, 0.65);
 }

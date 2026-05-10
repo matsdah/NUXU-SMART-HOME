@@ -6,6 +6,8 @@ import { useSocketStore } from '@/app/stores/socket'
 import type { Device } from '@/app/stores/dashboard'
 import { api, ApiError } from '@/services/api/client'
 import { useToast } from '@/shared/composables/useToast'
+import DeviceIcon from '@/shared/components/DeviceIcon.vue'
+import RoutineIcon from '@/shared/components/RoutineIcon.vue'
 import DeviceModal from '@/modules/devices/components/DeviceModal.vue'
 import AddDeviceModal from '@/modules/devices/components/AddDeviceModal.vue'
 import AddRoomModal from '@/modules/homes/components/AddRoomModal.vue'
@@ -94,6 +96,7 @@ function hasDeviceListChanged(nextDevices: Device[]): boolean {
       || current.status !== next.status
       || current.isOn !== next.isOn
       || current.tone !== next.tone
+      || current.displayOrder !== next.displayOrder
     ) {
       return true
     }
@@ -407,48 +410,7 @@ watch(() => socketStore.deviceListVersion, () => {
                 :class="{ 'device-icon--off': !device.isOn && device.kind !== 'fridge' && device.kind !== 'door' && device.kind !== 'alarm' }"
                 aria-hidden="true"
               >
-                <svg v-if="device.kind === 'vacuum'" viewBox="0 0 24 24">
-                  <rect x="6" y="3" width="12" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="2" />
-                  <path d="M12 13v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
-                <svg v-else-if="device.kind === 'speaker'" viewBox="0 0 24 24">
-                  <rect x="7" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-                  <circle cx="12" cy="9" r="2" fill="currentColor" />
-                  <circle cx="12" cy="15" r="3" fill="none" stroke="currentColor" stroke-width="2" />
-                </svg>
-                <svg v-else-if="device.kind === 'tap'" viewBox="0 0 24 24">
-                  <path d="M6 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                  <path d="M9 8v5a3 3 0 0 0 6 0V8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                  <circle cx="12" cy="18" r="1" fill="currentColor" />
-                </svg>
-                <svg v-else-if="device.kind === 'blind'" viewBox="0 0 24 24">
-                  <rect x="6" y="4" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-                  <path d="M6 9h12" stroke="currentColor" stroke-width="2" />
-                  <path d="M6 13h12" stroke="currentColor" stroke-width="2" />
-                </svg>
-                <svg v-else-if="device.kind === 'lamp'" viewBox="0 0 24 24">
-                  <path d="M8 10a4 4 0 0 1 8 0c0 2-2 3-2 5H10c0-2-2-3-2-5z" fill="none" stroke="currentColor" stroke-width="2" />
-                  <path d="M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
-                <svg v-else-if="device.kind === 'oven'" viewBox="0 0 24 24">
-                  <rect x="5" y="4" width="14" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-                  <rect x="8" y="9" width="8" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="2" />
-                  <circle cx="8" cy="6.5" r="1" fill="currentColor" />
-                  <circle cx="12" cy="6.5" r="1" fill="currentColor" />
-                </svg>
-                <svg v-else-if="device.kind === 'ac'" viewBox="0 0 24 24">
-                  <path d="M6 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                  <path d="M7 11h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                  <path d="M9 15h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                </svg>
-                <svg v-else-if="device.kind === 'door'" viewBox="0 0 24 24">
-                  <rect x="7" y="4" width="10" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-                  <circle cx="14" cy="12" r="1" fill="currentColor" />
-                </svg>
-                <svg v-else viewBox="0 0 24 24">
-                  <rect x="6" y="4" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-                  <path d="M6 10h12" stroke="currentColor" stroke-width="2" />
-                </svg>
+                <DeviceIcon :kind="device.kind" />
               </div>
 
               <label v-if="device.kind !== 'fridge' && device.kind !== 'door' && device.kind !== 'alarm'" class="switch" :aria-label="`Cambiar ${device.name}`" @click.stop>
@@ -478,19 +440,13 @@ watch(() => socketStore.deviceListVersion, () => {
         </header>
 
         <div class="routine-list">
+          <button class="routine-card routine-card--new" type="button" aria-label="Crear rutina" @click="showCreateRoutine = true">
+            <span class="routine-card__plus">+</span>
+            <span>Nueva</span>
+          </button>
           <article v-for="routine in routines" :key="routine.id" class="routine-card">
             <div class="routine-icon" aria-hidden="true">
-              <svg v-if="routine.icon === 'moon'" viewBox="0 0 24 24">
-                <path d="M15 3a8 8 0 1 0 6 13 7 7 0 0 1-6-13z" fill="currentColor" />
-              </svg>
-              <svg v-else-if="routine.icon === 'sun'" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="4" fill="currentColor" />
-                <path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.5 4.5l2 2M17.5 17.5l2 2M4.5 19.5l2-2M17.5 6.5l2-2" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              </svg>
-              <svg v-else viewBox="0 0 24 24">
-                <path d="M4 6h16v12H4z" fill="none" stroke="currentColor" stroke-width="2" />
-                <path d="M9 10l6 3-6 3z" fill="currentColor" />
-              </svg>
+              <RoutineIcon :icon="routine.icon" />
             </div>
             <div class="routine-info">
               <h3>{{ routine.name }}</h3>
@@ -519,10 +475,7 @@ watch(() => socketStore.deviceListVersion, () => {
             </button>
           </article>
 
-          <button class="routine-card routine-card--new" type="button" aria-label="Crear rutina" @click="showCreateRoutine = true">
-            <span class="routine-card__plus">+</span>
-            <span>Nueva</span>
-          </button>
+          
         </div>
       </aside>
     </div>
@@ -599,25 +552,5 @@ watch(() => socketStore.deviceListVersion, () => {
   .homes__content {
     grid-template-columns: 1fr;
   }
-}
-
-.toast--success .toast__dot {
-  background: #52c47d;
-}
-.toast--error .toast__dot {
-  background: #e05252;
-}
-
-.toast-enter-active,
-.toast-leave-active {
-  transition: all 0.3s ease;
-}
-.toast-enter-from {
-  opacity: 0;
-  transform: translateX(24px);
-}
-.toast-leave-to {
-  opacity: 0;
-  transform: translateX(24px);
 }
 </style>

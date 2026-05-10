@@ -228,6 +228,7 @@ async function saveChanges() {
               type="range"
               min="0"
               max="360"
+              aria-label="Matiz de color"
               :value="currentHue"
               @input="(e) => setHue(Number((e.target as HTMLInputElement).value))"
             />

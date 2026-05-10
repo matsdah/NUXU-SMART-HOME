@@ -4,6 +4,7 @@ import { api, ApiError } from "@/services/api/client";
 import { useDashboardStore, labelForTypeId } from "@/app/stores/dashboard";
 import { useToast } from "@/shared/composables/useToast";
 import type { Device, DeviceKind } from "@/app/stores/dashboard";
+import DeviceIcon from "@/shared/components/DeviceIcon.vue";
 import {
     getActionLabel,
     getAllowedActionsForType,
@@ -18,6 +19,7 @@ import {
     mapParamsToArray,
     validateActionsForDevice,
     validateRoutineActions,
+    getParamValueLabel,
     type ActionItem,
     type ActionParamSchema,
     type ActionRowError,
@@ -34,6 +36,7 @@ export type RoutineCard = {
     deviceIds: string[];
     actionsCount: number;
     icon: RoutineIcon;
+    displayOrder?: number;
 };
 
 /* ─── Internal types ─────────────────────────────────────── */
@@ -43,6 +46,7 @@ type ApiRoutineDetail = {
     id?: string;
     name?: string;
     actions?: ApiRoutineAction[];
+    metadata?: Record<string, unknown>;
 };
 type ApiRoutineAction = {
     device?: { id?: string };
@@ -86,6 +90,7 @@ const { showToast } = useToast();
 
 const routineName = ref(props.routine?.name ?? "");
 const selectedIcon = ref<RoutineIcon>(props.routine?.icon ?? "bolt");
+const existingMetadata = ref<Record<string, unknown>>({});
 
 // Step 1 = details + devices, Step 2 = actions
 const activeStep = ref<1 | 2>(
@@ -343,6 +348,13 @@ async function loadRoutineActions(routineId: string): Promise<void> {
     try {
         const detail = await api.get<ApiRoutineDetail>(`/routines/${routineId}`);
         if (detail?.name && routineName.value.trim() === "") routineName.value = detail.name;
+        if (detail?.metadata) {
+            existingMetadata.value = detail.metadata;
+            const metaIcon = detail.metadata.icon as RoutineIcon | undefined;
+            if (metaIcon && ICONS.includes(metaIcon)) {
+                selectedIcon.value = metaIcon;
+            }
+        }
         if (Array.isArray(detail?.actions)) {
             applyRoutineActions(detail.actions);
         } else {
@@ -510,7 +522,8 @@ async function handleSubmit() {
                     };
                 });
         });
-        const body = { name: routineName.value.trim(), actions };
+        const metadata = { ...existingMetadata.value, icon: selectedIcon.value };
+        const body = { name: routineName.value.trim(), actions, metadata };
         if (props.mode === "create") {
             const result = await api.post<ApiCreatedRoutine>("/routines", body);
             const card: RoutineCard = {
@@ -530,6 +543,7 @@ async function handleSubmit() {
                 deviceIds: selectedDeviceIds.value.slice(),
                 actionsCount: actions.length,
                 icon: selectedIcon.value,
+                displayOrder: props.routine.displayOrder,
             };
             emit("updated", card);
         }
@@ -583,6 +597,7 @@ function onOverlayClick(e: MouseEvent) {
                                     class="field__input"
                                     autocomplete="off"
                                     maxlength="25"
+                                    aria-label="Nombre de la rutina"
                                 />
                                 <span class="field__icon" aria-hidden="true">
                                     <svg viewBox="0 0 24 24" fill="none">
@@ -596,7 +611,7 @@ function onOverlayClick(e: MouseEvent) {
 
                             <div class="preview">
                                 <div class="preview__circle">
-                                    <svg class="preview__svg" viewBox="0 0 24 24" fill="none" stroke="rgba(42, 40, 37, 0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <svg class="preview__svg" viewBox="0 0 24 24" fill="none" stroke="rgba(42, 40, 37, 0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <template v-if="selectedIcon === 'bolt'"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></template>
                                         <template v-else-if="selectedIcon === 'sun'"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></template>
                                         <template v-else-if="selectedIcon === 'moon'"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></template>
@@ -619,7 +634,7 @@ function onOverlayClick(e: MouseEvent) {
                                         :aria-label="ico"
                                         @click="selectedIcon = ico"
                                     >
-                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                             <template v-if="ico === 'bolt'"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></template>
                                             <template v-else-if="ico === 'sun'"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></template>
                                             <template v-else-if="ico === 'moon'"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></template>
@@ -637,7 +652,7 @@ function onOverlayClick(e: MouseEvent) {
                             <p class="field__label">RUTINA</p>
                             <div class="summary-center">
                                 <div class="summary-circle">
-                                    <svg class="summary-svg" viewBox="0 0 24 24" fill="none" stroke="rgba(42, 40, 37, 0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <svg class="summary-svg" viewBox="0 0 24 24" fill="none" stroke="rgba(42, 40, 37, 0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <template v-if="selectedIcon === 'bolt'"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></template>
                                         <template v-else-if="selectedIcon === 'sun'"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></template>
                                         <template v-else-if="selectedIcon === 'moon'"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" /></template>
@@ -703,17 +718,7 @@ function onOverlayClick(e: MouseEvent) {
                                         @click="toggleDevice(device.id)"
                                     >
                                         <span class="device-tile__icon" aria-hidden="true">
-                                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                                <template v-if="device.kind === 'vacuum'"><rect x="6" y="3" width="12" height="10" rx="3" /><path d="M12 13v8" /></template>
-                                                <template v-else-if="device.kind === 'speaker'"><rect x="7" y="3" width="10" height="18" rx="2" /><circle cx="12" cy="9" r="2" fill="currentColor" /><circle cx="12" cy="15" r="3" /></template>
-                                                <template v-else-if="device.kind === 'tap'"><path d="M6 8h12" /><path d="M9 8v5a3 3 0 0 0 6 0V8" /><circle cx="12" cy="18" r="1" fill="currentColor" /></template>
-                                                <template v-else-if="device.kind === 'blind'"><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M6 9h12M6 13h12" /></template>
-                                                <template v-else-if="device.kind === 'lamp'"><path d="M8 10a4 4 0 0 1 8 0c0 2-2 3-2 5H10c0-2-2-3-2-5z" /><path d="M10 18h4" /></template>
-                                                <template v-else-if="device.kind === 'oven'"><rect x="5" y="4" width="14" height="16" rx="2" /><rect x="8" y="9" width="8" height="6" rx="1" /><circle cx="8" cy="6.5" r="1" fill="currentColor" /><circle cx="12" cy="6.5" r="1" fill="currentColor" /></template>
-                                                <template v-else-if="device.kind === 'ac'"><path d="M6 7h12M7 11h10M9 15h6" /></template>
-                                                <template v-else-if="device.kind === 'door'"><rect x="7" y="4" width="10" height="16" rx="2" /><circle cx="14" cy="12" r="1" fill="currentColor" /></template>
-                                                <template v-else><rect x="6" y="4" width="12" height="16" rx="2" /><path d="M6 10h12" /></template>
-                                            </svg>
+                                            <DeviceIcon :kind="device.kind" />
                                         </span>
                                         <span class="device-tile__name">{{ device.name }}</span>
                                     </button>
@@ -814,7 +819,7 @@ function onOverlayClick(e: MouseEvent) {
                                                                     @click="toggleDropdown(dropdownKey(device.id, index) + '-' + param.name)"
                                                                 >
                                                                     <span class="custom-select__label">
-                                                                        {{ String(action.params[param.name] ?? '') || param.label || param.name }}
+                                                                        {{ getParamValueLabel(param.name, String(action.params[param.name] ?? '')) || param.label || param.name }}
                                                                     </span>
                                                                     <span class="custom-select__chev" aria-hidden="true">
                                                                         <svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
@@ -829,7 +834,7 @@ function onOverlayClick(e: MouseEvent) {
                                                                             :class="{ 'custom-select__item--active': String(action.params[param.name] ?? '') === option }"
                                                                             @click="updateParamValue(device.id, index, param, option); closeAllDropdowns()"
                                                                         >
-                                                                            {{ option }}
+                                                                             {{ getParamValueLabel(param.name, option) }}
                                                                         </button>
                                                                     </div>
                                                                 </Transition>
@@ -863,6 +868,7 @@ function onOverlayClick(e: MouseEvent) {
                                                                 class="param-inline__input"
                                                                 type="number"
                                                                 inputmode="numeric"
+                                                                :aria-label="'Valor para ' + (param.label || param.name)"
                                                                 :min="param.min"
                                                                 :max="param.max"
                                                                 :step="param.step ?? (param.type === 'integer' ? 1 : 'any')"
@@ -875,7 +881,7 @@ function onOverlayClick(e: MouseEvent) {
                                                                 class="param-inline__input"
                                                                 type="text"
                                                                 inputmode="numeric"
-                                                                :maxlength="param.maxLength ?? 6"
+                                                                :aria-label="'Código de seguridad'"
                                                                 placeholder="Ingresa el codigo"
                                                                 :value="String(action.params[param.name] ?? '')"
                                                                 @input="updateParamValue(device.id, index, param, ($event.target as HTMLInputElement).value)"
@@ -926,6 +932,7 @@ function onOverlayClick(e: MouseEvent) {
                                                             <input
                                                                 class="param-inline__input"
                                                                 type="text"
+                                                                :aria-label="'Valor para ' + (param.label || param.name)"
                                                                 :maxlength="param.maxLength"
                                                                 :value="String(action.params[param.name] ?? '')"
                                                                 @input="updateParamValue(device.id, index, param, ($event.target as HTMLInputElement).value)"
@@ -993,7 +1000,7 @@ function onOverlayClick(e: MouseEvent) {
     display: flex;
     align-items: center;
     justify-content: center;
-    background: rgba(42, 40, 37, 0.4);
+    -webkit-backdrop-filter: blur(10px);
     backdrop-filter: blur(10px);
     padding: 1.5rem;
 }
@@ -1093,6 +1100,9 @@ function onOverlayClick(e: MouseEvent) {
     font-family: var(--font-sans);
     color: rgba(52, 47, 41, 0.88);
     outline: none;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .field__icon {
@@ -1221,11 +1231,13 @@ function onOverlayClick(e: MouseEvent) {
     font-size: 1.25rem;
     font-weight: 700;
     color: rgba(52, 47, 41, 0.92);
-    max-width: 100%;
+    width: 100%;
+    max-width: 260px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
     line-height: 1.2;
+    padding: 0 0.5rem;
 }
 
 .summary-devices {
@@ -1353,10 +1365,11 @@ function onOverlayClick(e: MouseEvent) {
 }
 
 .device-tile {
+    color: rgba(42, 40, 37, 0.85);
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.45rem;
+    gap: 0.35rem;
     padding: 0.75rem 0.5rem;
     border-radius: 14px;
     border: 1.5px solid rgba(42, 40, 37, 0.1);
@@ -1385,15 +1398,15 @@ function onOverlayClick(e: MouseEvent) {
 }
 
 .device-tile__icon {
-    width: 28px;
-    height: 28px;
+    width: 22px;
+    height: 22px;
     display: grid;
     place-items: center;
 }
 
 .device-tile__icon svg {
-    width: 22px;
-    height: 22px;
+    width: 14px;
+    height: 14px;
 }
 
 .device-tile__name {

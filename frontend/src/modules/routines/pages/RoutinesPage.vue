@@ -5,18 +5,21 @@ import { useDashboardStore } from "@/app/stores/dashboard";
 import { useSocketStore } from "@/app/stores/socket";
 import { useEditMode } from "@/app/composables/useEditMode";
 import { useToast } from "@/shared/composables/useToast";
+import { useDragReorder } from "@/shared/composables/useDragReorder";
+import RoutineIcon from "@/shared/components/RoutineIcon.vue";
 import RoutineFormModal from "../components/RoutineFormModal.vue";
 import EditEntityModal from "@/app/components/EditEntityModal.vue";
 import DeleteEntityConfirmModal from "@/app/components/DeleteEntityConfirmModal.vue";
 import type {
     RoutineCard,
-    RoutineIcon,
+    RoutineIcon as RoutineIconType,
 } from "../components/RoutineFormModal.vue";
 
 type ApiRoutineRaw = {
     id: string;
     name: string;
     actions?: ApiRoutineAction[];
+    metadata?: Record<string, unknown>;
 };
 
 type ApiRoutineAction = {
@@ -27,7 +30,7 @@ const { showToast, showPersistentToast, hidePersistentToast } = useToast();
 
 const dashboardStore = useDashboardStore();
 const socketStore = useSocketStore();
-const ADMIN_HINT = 'Modo edición activo: tocá una rutina para renombrarla o eliminarla.'
+const ADMIN_HINT = 'Modo edición activo: arrastrá las rutinas para ordenarlas, o tocá una para renombrarla o eliminarla.'
 const { isEditMode, toggleEditMode: _toggleEditMode } = useEditMode();
 function toggleEditMode() {
   _toggleEditMode()
@@ -60,13 +63,52 @@ const showDeleteConfirm = ref(false);
 const pendingDelete = ref<{ id: string; name: string } | null>(null);
 const deletingRoutine = ref(false);
 
+const { draggingId, dragOverId, onDragStart, onDragOver, onDragLeave, onDrop } = useDragReorder(routines, {
+  canDrag: () => isEditMode.value,
+  onReorder: async (orderedIds) => {
+    const updates: Promise<void>[] = []
+    for (let i = 0; i < orderedIds.length; i++) {
+      const id = orderedIds[i]
+      const routine = routines.value.find(r => r.id === id)
+      if (routine && routine.displayOrder !== i) {
+        routine.displayOrder = i
+        updates.push(dashboardStore.updateRoutineDisplayOrder(id, i))
+      }
+    }
+    if (updates.length > 0) {
+      try {
+        await Promise.all(updates)
+        dashboardStore.invalidateRoutines()
+      } catch (e) {
+        showToast('No se pudo guardar el orden de las rutinas.', 'error')
+      }
+    }
+  },
+})
+
 async function loadRoutines() {
+    if (!dashboardStore.activeHomeId) {
+        routines.value = []
+        return
+    }
+
     loading.value = true;
 
     try {
-        const data = await api.get<ApiRoutineRaw[]>("/routines");
+        const [allRoutines, homeDevices] = await Promise.all([
+            api.get<ApiRoutineRaw[]>("/routines"),
+            /* Traemos todos los dispositivos del hogar activo, no solo los de la
+               habitación activa (dashboardStore.devices se limita a una room). */
+            dashboardStore.fetchHomeDevices(dashboardStore.activeHomeId),
+        ])
 
-        routines.value = data.map((r: ApiRoutineRaw) => {
+        const activeDeviceIds = new Set(homeDevices.map(d => d.id))
+
+        const homeRoutines = allRoutines.filter(r =>
+            (r.actions ?? []).some(a => a.device?.id && activeDeviceIds.has(a.device.id))
+        )
+
+        routines.value = homeRoutines.map((r: ApiRoutineRaw) => {
             const deviceIds = (r.actions ?? [])
                 .map((a: ApiRoutineAction) => a.device?.id)
                 .filter(
@@ -79,8 +121,13 @@ async function loadRoutines() {
                 name: r.name,
                 deviceIds,
                 actionsCount: r.actions?.length ?? 0,
-                icon: "bolt" as RoutineIcon,
+                icon: (r.metadata?.icon as RoutineIconType) || "bolt",
+                displayOrder: typeof r.metadata?.displayOrder === 'number' ? r.metadata.displayOrder : undefined,
             };
+        }).sort((a, b) => {
+            const aOrder = a.displayOrder ?? Infinity
+            const bOrder = b.displayOrder ?? Infinity
+            return aOrder - bOrder
         });
     } catch (e: unknown) {
         const apiError = e instanceof ApiError ? e : null;
@@ -93,9 +140,22 @@ async function loadRoutines() {
     }
 }
 
-onMounted(loadRoutines);
+onMounted(async () => {
+    /* Primero aseguramos que los hogares y dispositivos estén cargados
+       (imitando el patrón de useHomesDashboard en Homes/DevicesPage).
+       Si ya se cargaron al visitar otra pestaña, loadDashboard() es no-op
+       gracias a su flag dashboardLoaded. */
+    await dashboardStore.loadDashboard()
+    await loadRoutines()
+});
 
 watch(() => socketStore.deviceListVersion, () => {
+    void loadRoutines();
+});
+
+/* Al cambiar de hogar, recargamos las rutinas para que coincidan
+   con los dispositivos del nuevo hogar. */
+watch(() => dashboardStore.activeHomeId, () => {
     void loadRoutines();
 });
 
@@ -124,7 +184,7 @@ function openCreateModal() {
 }
 
 function onRoutineCreated(card: RoutineCard) {
-    routines.value.unshift(card);
+    routines.value.push(card);
     dashboardStore.invalidateRoutines();
     showFormModal.value = false;
     showToast(`"${card.name}" creada.`, "success");
@@ -132,7 +192,10 @@ function onRoutineCreated(card: RoutineCard) {
 
 function onRoutineUpdated(card: RoutineCard) {
     const idx = routines.value.findIndex((r) => r.id === card.id);
-    if (idx >= 0) routines.value[idx] = card;
+    if (idx >= 0) {
+        const existingOrder = routines.value[idx]!.displayOrder;
+        routines.value[idx] = { ...card, displayOrder: existingOrder };
+    }
     dashboardStore.invalidateRoutines();
     showFormModal.value = false;
     showToast(`"${card.name}" actualizada.`, "success");
@@ -173,6 +236,7 @@ async function confirmRoutineEdition(payload: { name: string }) {
         await api.put(`/routines/${pendingEditRoutine.value.id}`, {
             name: payload.name,
             actions: existing.actions ?? [],
+            metadata: existing.metadata ?? {},
         })
         const idx = routines.value.findIndex(r => r.id === pendingEditRoutine.value?.id)
         if (idx >= 0 && routines.value[idx]) {
@@ -275,49 +339,23 @@ async function confirmDeletion() {
                     v-for="card in routines"
                     :key="card.id"
                     class="routine-card"
-                    :class="{ 'routine-card--edit-mode': isEditMode }"
+                    :class="{
+                        'routine-card--edit-mode': isEditMode,
+                        'routine-card--dragging': draggingId === card.id,
+                        'routine-card--drag-over': dragOverId === card.id,
+                    }"
+                    :draggable="isEditMode"
+                    @dragstart="onDragStart(card.id)"
+                    @dragover="onDragOver($event, card.id)"
+                    @dragleave="onDragLeave"
+                    @drop="onDrop($event, card.id)"
                     @click="onRoutineCardClick(card)"
                 >
                     <div
                         class="routine-card__icon"
                         aria-hidden="true"
                     >
-                        <svg
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="rgba(42, 40, 37, 0.8)"
-                            stroke-width="2"
-                            stroke-linecap="round"
-                            stroke-linejoin="round"
-                        >
-                            <template v-if="card.icon === 'bolt'">
-                                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                            </template>
-                            <template v-else-if="card.icon === 'sun'">
-                                <circle cx="12" cy="12" r="5" />
-                                <path
-                                    d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"
-                                />
-                            </template>
-                            <template v-else-if="card.icon === 'moon'">
-                                <path
-                                    d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"
-                                />
-                            </template>
-                            <template v-else-if="card.icon === 'home'">
-                                <path d="M4 12l8-7 8 7" />
-                                <path d="M7 11v7h10v-7" />
-                            </template>
-                            <template v-else-if="card.icon === 'star'">
-                                <polygon
-                                    points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"
-                                />
-                            </template>
-                            <template v-else-if="card.icon === 'clock'">
-                                <circle cx="12" cy="12" r="10" />
-                                <path d="M12 6v6l4 2" />
-                            </template>
-                        </svg>
+                        <RoutineIcon :icon="card.icon" />
                     </div>
 
                     <div class="routine-card__body">
@@ -585,11 +623,20 @@ async function confirmDeletion() {
     place-items: center;
     flex-shrink: 0;
     background: rgba(190, 190, 166, 0.45);
+    color: rgba(42, 40, 37, 0.8);
 }
 
 .routine-card__icon svg {
     width: 22px;
     height: 22px;
+}
+
+.routine-card--dragging {
+    opacity: 0.5;
+}
+
+.routine-card--drag-over {
+    box-shadow: inset 0 0 0 2px var(--color-sage), 0 0 0 1px rgba(42, 40, 37, 0.3);
 }
 
 .routine-card__body {
@@ -656,21 +703,6 @@ async function confirmDeletion() {
 .routine-card__run:disabled {
     opacity: 0.45;
     cursor: not-allowed;
-}
-
-
-
-.toast-enter-active,
-.toast-leave-active {
-    transition: all 0.3s ease;
-}
-.toast-enter-from {
-    opacity: 0;
-    transform: translateX(24px);
-}
-.toast-leave-to {
-    opacity: 0;
-    transform: translateX(24px);
 }
 
 @keyframes spin {

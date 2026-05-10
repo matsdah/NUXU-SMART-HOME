@@ -27,6 +27,7 @@ type ApiDevice = {
   typeId?: string
   room?: { id?: string }
   state?: Record<string, unknown>
+  metadata?: Record<string, unknown>
 }
 
 type ApiRoutine = {
@@ -34,6 +35,7 @@ type ApiRoutine = {
   name: string
   actions?: unknown[]       /* Cada elemento puede tener una estructura diferente. */
   schedule?: { time?: string }
+  metadata?: Record<string, unknown>
 }
 
 type ApiRoutineActionRef = {
@@ -98,6 +100,7 @@ export type Device = {
   isOn: boolean
   tone?: 'sage' | 'neutral'   /* sage -> encendido, neutral -> apagado */
   typeId?: string              /* ID del tipo, para poder crear dispositivos del mismo tipo */
+  displayOrder?: number
 }
 
 export type Routine = {
@@ -105,7 +108,8 @@ export type Routine = {
   name: string
   summary: string
   time: string
-  icon: 'moon' | 'sun' | 'movie'
+  icon: string
+  displayOrder?: number
 }
 
 /* Helpers de mapeo y formateo */
@@ -262,6 +266,15 @@ function mapRoutineIcon(name: string): Routine['icon'] {
   }
 
   return 'movie'
+}
+
+function sortByDisplayOrder<T extends { displayOrder?: number }>(items: T[]): T[] {
+  return items.slice().sort((a, b) => {
+    const aOrder = a.displayOrder ?? Infinity
+    const bOrder = b.displayOrder ?? Infinity
+    if (aOrder !== bOrder) return aOrder - bOrder
+    return 0
+  })
 }
 
 function wait(ms: number): Promise<void> {
@@ -667,6 +680,9 @@ export const useDashboardStore = defineStore('dashboard', () => {
     const persistedEntries = readPersistedControlStates(device.id, kind)
     const persistedState = mergePersistedNormalizedState(persistedEntries)
     const resolvedIsOn = resolveDevicePowerState(state, persistedState)
+    const displayOrder = typeof device.metadata?.displayOrder === 'number'
+      ? device.metadata.displayOrder
+      : undefined
 
     return {
       id: device.id,
@@ -677,6 +693,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
       isOn: isFridge ? true : resolvedIsOn,
       tone: isFridge ? 'sage' : (resolvedIsOn ? 'sage' : 'neutral'),
       typeId,
+      displayOrder,
     }
   }
 
@@ -704,9 +721,10 @@ export const useDashboardStore = defineStore('dashboard', () => {
     ])
 
     const roomIdSet = new Set(homeRooms.map(r => r.id))
-    return allDevices
+    const mapped = allDevices
       .filter(d => d.room?.id && roomIdSet.has(d.room.id))
       .map(d => mapApiDevice(d, d.room?.id ?? ''))
+    return sortByDisplayOrder(mapped)
   }
 
   function invalidateRoutines(): void {
@@ -716,14 +734,30 @@ export const useDashboardStore = defineStore('dashboard', () => {
 
   async function loadRoutines(): Promise<void> {
     if (routinesLoaded.value) return
-    const data = await api.get<ApiRoutine[]>('/routines')
-    routines.value = data.map(r => ({
+
+    const [data, homeDevices] = await Promise.all([
+      api.get<ApiRoutine[]>('/routines'),
+      /* Necesitamos todos los dispositivos del hogar activo — no solo los de
+         la habitación activa — para filtrar las rutinas correctamente. */
+      fetchHomeDevices(activeHomeId.value),
+    ])
+
+    const activeDeviceIds = new Set(homeDevices.map(d => d.id))
+
+    const homeRoutines = data.filter(r => {
+      if (!r.actions || r.actions.length === 0) return false
+      return (r.actions as Array<{ device?: { id?: string } }>)
+        .some(a => a.device?.id && activeDeviceIds.has(a.device.id))
+    })
+
+    routines.value = sortByDisplayOrder(homeRoutines.map(r => ({
       id: r.id,
       name: r.name,
       summary: r.actions ? `${r.actions.length} acciones` : 'Manual',
       time: r.schedule?.time ?? '',
-      icon: mapRoutineIcon(r.name),
-    }))
+      icon: (r.metadata?.icon as string) || mapRoutineIcon(r.name),
+      displayOrder: typeof r.metadata?.displayOrder === 'number' ? r.metadata.displayOrder : undefined,
+    })))
     routinesLoaded.value = true
   }
 
@@ -1525,6 +1559,31 @@ export const useDashboardStore = defineStore('dashboard', () => {
     activeHomeId.value = home.id
   }
 
+  async function updateDeviceDisplayOrder(deviceId: string, displayOrder: number): Promise<void> {
+    const detail = await api.get<ApiDeviceDetail>(`/devices/${deviceId}`)
+    const typeId = detail.type?.id ?? detail.typeId
+    if (!typeId) {
+      throw new Error('No se pudo identificar el tipo del dispositivo.')
+    }
+
+    await api.put(`/devices/${deviceId}`, {
+      name: detail.name ?? '',
+      type: { id: typeId },
+      room: { id: detail.room?.id ?? detail.roomId ?? '' },
+      state: detail.state ?? {},
+      metadata: { ...(detail.metadata ?? {}), displayOrder },
+    })
+  }
+
+  async function updateRoutineDisplayOrder(routineId: string, displayOrder: number): Promise<void> {
+    const existing = await api.get<ApiRoutine>(`/routines/${routineId}`)
+    await api.put(`/routines/${routineId}`, {
+      name: existing.name,
+      actions: existing.actions ?? [],
+      metadata: { ...(existing.metadata ?? {}), displayOrder },
+    })
+  }
+
 /* Carga datos de homes, rooms y devices. Se usa en páginas que los necesitan. */
   async function loadDashboard(): Promise<void> {
     if (dashboardLoaded.value) return
@@ -1614,6 +1673,11 @@ export const useDashboardStore = defineStore('dashboard', () => {
         ? `Error ${err.status} cargando habitaciones.`
         : 'Error inesperado cargando habitaciones.'
     }
+
+    /* Al cambiar de hogar, invalidamos las rutinas para que se vuelvan
+       a cargar contra el backend, ya que pueden ser distintas por hogar. */
+    routinesLoaded.value = false
+    void loadRoutines()
   })
 
   watch(activeRoomId, async (id, prev) => {
@@ -1696,6 +1760,8 @@ export const useDashboardStore = defineStore('dashboard', () => {
     fetchDeviceState,
     initialStateForNewDevice,
     seedDeviceInitialPowerState,
+    updateDeviceDisplayOrder,
+    updateRoutineDisplayOrder,
 
     reset,
   }

@@ -6,6 +6,8 @@ import { useDashboardStore, statusForKind } from '@/app/stores/dashboard'
 import { useSocketStore } from '@/app/stores/socket'
 import type { Device } from '@/app/stores/dashboard'
 import { useToast } from '@/shared/composables/useToast'
+import { useDragReorder } from '@/shared/composables/useDragReorder'
+import DeviceIcon from '@/shared/components/DeviceIcon.vue'
 import DeviceModal from '../components/DeviceModal.vue'
 import DeleteDeviceConfirmModal from '@/modules/devices/components/DeleteDeviceConfirmModal.vue'
 import AddDeviceModal from '@/modules/devices/components/AddDeviceModal.vue'
@@ -41,6 +43,29 @@ const deletingRoom = ref(false)
 const pendingRoomEdition = ref<{ id: string; name: string } | null>(null)
 const renamingRoom = ref(false)
 const isDeviceEditMode = ref(false)
+
+const { draggingId, dragOverId, onDragStart, onDragOver, onDragLeave, onDrop } = useDragReorder(allDevices, {
+  canDrag: () => isDeviceEditMode.value && activeFilter.value === 'all',
+  onReorder: async (orderedIds) => {
+    const updates: Promise<void>[] = []
+    for (let i = 0; i < orderedIds.length; i++) {
+      const id = orderedIds[i]
+      const device = allDevices.value.find(d => d.id === id)
+      if (device && device.displayOrder !== i) {
+        device.displayOrder = i
+        updates.push(store.updateDeviceDisplayOrder(id, i))
+      }
+    }
+    if (updates.length > 0) {
+      try {
+        await Promise.all(updates)
+        store.devices.splice(0, store.devices.length, ...allDevices.value)
+      } catch (e) {
+        showToast('No se pudo guardar el orden de los dispositivos.', 'error')
+      }
+    }
+  },
+})
 
 const selectedDevice = ref<Device | null>(null)
 const selectedRoomName = ref('')
@@ -87,7 +112,7 @@ function onDeviceUpdated(id: string, isOn: boolean) {
   })
 }
 
-const ADMIN_HINT = 'Modo edición activo: tocá un dispositivo para renombrarlo o eliminarlo.'
+const ADMIN_HINT = 'Modo edición activo: arrastrá los dispositivos para ordenarlos, o tocá uno para renombrarlo o eliminarlo.'
 
 function toggleDeviceEditMode() {
   isDeviceEditMode.value = !isDeviceEditMode.value
@@ -229,6 +254,7 @@ function hasDeviceListChanged(nextDevices: Device[]): boolean {
       || current.status !== next.status
       || current.isOn !== next.isOn
       || current.tone !== next.tone
+      || current.displayOrder !== next.displayOrder
     ) {
       return true
     }
@@ -534,7 +560,14 @@ onMounted(async () => {
           :class="{
             'device-card--accent': device.tone === 'sage',
             'device-card--delete-mode': isDeviceEditMode,
+            'device-card--dragging': draggingId === device.id,
+            'device-card--drag-over': dragOverId === device.id,
           }"
+          :draggable="isDeviceEditMode && activeFilter === 'all'"
+          @dragstart="onDragStart(device.id)"
+          @dragover="onDragOver($event, device.id)"
+          @dragleave="onDragLeave"
+          @drop="onDrop($event, device.id)"
           @click="onDeviceCardClick(device)"
         >
           <div class="device-card__top">
@@ -543,48 +576,7 @@ onMounted(async () => {
               :class="{ 'device-icon--off': !device.isOn && device.kind !== 'fridge' && device.kind !== 'door' && device.kind !== 'alarm' }"
               aria-hidden="true"
             >
-              <svg v-if="device.kind === 'vacuum'" viewBox="0 0 24 24">
-                <rect x="6" y="3" width="12" height="10" rx="3" fill="none" stroke="currentColor" stroke-width="2" />
-                <path d="M12 13v8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              </svg>
-              <svg v-else-if="device.kind === 'speaker'" viewBox="0 0 24 24">
-                <rect x="7" y="3" width="10" height="18" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-                <circle cx="12" cy="9" r="2" fill="currentColor" />
-                <circle cx="12" cy="15" r="3" fill="none" stroke="currentColor" stroke-width="2" />
-              </svg>
-              <svg v-else-if="device.kind === 'tap'" viewBox="0 0 24 24">
-                <path d="M6 8h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                <path d="M9 8v5a3 3 0 0 0 6 0V8" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                <circle cx="12" cy="18" r="1" fill="currentColor" />
-              </svg>
-              <svg v-else-if="device.kind === 'blind'" viewBox="0 0 24 24">
-                <rect x="6" y="4" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-                <path d="M6 9h12" stroke="currentColor" stroke-width="2" />
-                <path d="M6 13h12" stroke="currentColor" stroke-width="2" />
-              </svg>
-              <svg v-else-if="device.kind === 'lamp'" viewBox="0 0 24 24">
-                <path d="M8 10a4 4 0 0 1 8 0c0 2-2 3-2 5H10c0-2-2-3-2-5z" fill="none" stroke="currentColor" stroke-width="2" />
-                <path d="M10 18h4" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              </svg>
-              <svg v-else-if="device.kind === 'oven'" viewBox="0 0 24 24">
-                <rect x="5" y="4" width="14" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-                <rect x="8" y="9" width="8" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="2" />
-                <circle cx="8" cy="6.5" r="1" fill="currentColor" />
-                <circle cx="12" cy="6.5" r="1" fill="currentColor" />
-              </svg>
-              <svg v-else-if="device.kind === 'ac'" viewBox="0 0 24 24">
-                <path d="M6 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                <path d="M7 11h10" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-                <path d="M9 15h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              </svg>
-              <svg v-else-if="device.kind === 'door'" viewBox="0 0 24 24">
-                <rect x="7" y="4" width="10" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-                <circle cx="14" cy="12" r="1" fill="currentColor" />
-              </svg>
-              <svg v-else viewBox="0 0 24 24">
-                <rect x="6" y="4" width="12" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2" />
-                <path d="M6 10h12" stroke="currentColor" stroke-width="2" />
-              </svg>
+              <DeviceIcon :kind="device.kind" />
             </div>
 
             <label v-if="device.kind !== 'fridge' && device.kind !== 'door' && device.kind !== 'alarm'" class="switch" :aria-label="`Cambiar ${device.name}`" @click.stop>
@@ -744,5 +736,13 @@ onMounted(async () => {
   padding: 2rem;
   color: rgba(42, 40, 37, 0.45);
   font-size: 0.9rem;
+}
+
+.device-card--dragging {
+  opacity: 0.5;
+}
+
+.device-card--drag-over {
+  box-shadow: inset 0 0 0 2px var(--color-sage), 0 0 0 1px rgba(42, 40, 37, 0.3);
 }
 </style>

@@ -42,6 +42,8 @@ export const DEFAULT_ACTION_LABELS: ActionMap = {
   setLocation: "Cambiar ubicacion",
   changeSecurityCode: "Cambiar codigo",
   getPlaylist: "Obtener playlist",
+  up: "Subir",
+  down: "Bajar",
 };
 
 export const EXCLUSIVE_ACTION_GROUPS: string[][] = [
