@@ -166,7 +166,14 @@ async function confirmRoutineEdition(payload: { name: string }) {
 
     editingRoutine.value = true
     try {
-        await api.put(`/routines/${pendingEditRoutine.value.id}`, { name: payload.name })
+        /* El backend PUT /routines/{id} espera el objeto completo;
+           si solo mandamos { name } puede sobrescribir actions como [].
+           Traemos la rutina actual para preservar sus acciones. */
+        const existing = await api.get<ApiRoutineRaw>(`/routines/${pendingEditRoutine.value.id}`)
+        await api.put(`/routines/${pendingEditRoutine.value.id}`, {
+            name: payload.name,
+            actions: existing.actions ?? [],
+        })
         const idx = routines.value.findIndex(r => r.id === pendingEditRoutine.value?.id)
         if (idx >= 0 && routines.value[idx]) {
             routines.value[idx]!.name = payload.name

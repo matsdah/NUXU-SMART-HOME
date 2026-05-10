@@ -6,6 +6,7 @@ import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
 import TemperatureControl from '../shared/TemperatureControl.vue'
 import { useToast } from '@/shared/composables/useToast'
+import '@/shared/styles/control-panel.css'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
@@ -106,10 +107,10 @@ function onLevelChange(val: number) {
 </script>
 
 <template>
-  <div v-if="loading" class="blind-loading">Cargando...</div>
+  <div v-if="loading" class="cp-loading">Cargando...</div>
 
-  <div v-else class="blind-shell">
-    <section class="blind-card">
+  <div v-else class="cp-shell">
+    <section class="cp-card">
       <ControlSidebar
         :title="props.deviceName || 'Persiana'"
         room-label="AMBIENTE"
@@ -131,11 +132,11 @@ function onLevelChange(val: number) {
         </template>
       </ControlSidebar>
 
-      <div class="blind-controls">
+      <div class="cp-controls">
 
-        <section class="blind-section">
-          <p class="blind-label">Posición</p>
-          <div :class="{ 'blind-pills--disabled': actionPending }">
+        <section class="cp-section">
+          <p class="cp-label">Posición</p>
+          <div :class="{ 'cp-controls--disabled': actionPending }">
             <TemperatureControl
               :model-value="displayLevel"
               :min="0"
@@ -148,9 +149,9 @@ function onLevelChange(val: number) {
           </div>
         </section>
 
-        <section class="blind-section">
-          <p class="blind-label">Control</p>
-          <div :class="{ 'blind-pills--disabled': actionPending }">
+        <section class="cp-section">
+          <p class="cp-label">Control</p>
+          <div :class="{ 'cp-controls--disabled': actionPending }">
             <PillButtons
               :model-value="pillValue"
               :options="ACTION_OPTIONS"
@@ -169,45 +170,6 @@ function onLevelChange(val: number) {
 </template>
 
 <style scoped>
-.blind-loading {
-  padding: 2rem;
-  color: rgba(42, 40, 37, 0.55);
-  font-size: 0.9rem;
-}
-
-.blind-shell { width: 100%; }
-
-.blind-card {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  border-radius: 28px;
-  overflow: hidden;
-  background: #f7f5f0;
-  box-shadow: 0 28px 70px rgba(42, 40, 37, 0.16);
-}
-
-.blind-controls {
-  padding: 2.6rem 2.2rem 2.2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.blind-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.blind-label {
-  margin: 0;
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: rgba(52, 47, 41, 0.42);
-}
-
 .blind-hint {
   margin: 0;
   font-size: 0.78rem;
@@ -274,14 +236,4 @@ function onLevelChange(val: number) {
   color: #7a5c10;
 }
 
-
-.blind-pills--disabled {
-  opacity: 0.4;
-  pointer-events: none;
-}
-
-@media (max-width: 900px) {
-  .blind-card { grid-template-columns: 1fr; }
-  .blind-controls { padding: 1.5rem; }
-}
 </style>

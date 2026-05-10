@@ -6,6 +6,7 @@ import ControlSidebar from '../shared/ControlSidebar.vue'
 import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
 import { useToast } from '@/shared/composables/useToast'
+import '@/shared/styles/control-panel.css'
 import { persistClose, cancelClose, getRemainingMs } from './doorCloseTracker'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
@@ -203,10 +204,10 @@ function onLockChange(value: string) {
 </script>
 
 <template>
-  <div v-if="loading" class="door-loading">Cargando...</div>
+  <div v-if="loading" class="cp-loading">Cargando...</div>
 
-  <div v-else class="door-shell">
-    <section class="door-card">
+  <div v-else class="cp-shell">
+    <section class="cp-card">
       <ControlSidebar
         :title="props.deviceName || 'Puerta'"
         room-label="HABITACIÓN"
@@ -227,10 +228,10 @@ function onLockChange(value: string) {
         </template>
       </ControlSidebar>
 
-      <div class="door-controls">
-        <section class="door-section">
-          <p class="door-label">Acceso</p>
-          <div :class="{ 'door-pills--disabled': accessDisabled }">
+      <div class="cp-controls">
+        <section class="cp-section">
+          <p class="cp-label">Acceso</p>
+          <div :class="{ 'cp-controls--disabled': accessDisabled }">
             <PillButtons
               :model-value="state.status"
               :options="ACCESS_OPTIONS"
@@ -253,9 +254,9 @@ function onLockChange(value: string) {
           </div>
         </section>
 
-        <section class="door-section">
-          <p class="door-label">Seguridad</p>
-          <div :class="{ 'door-pills--disabled': lockDisabled }">
+        <section class="cp-section">
+          <p class="cp-label">Seguridad</p>
+          <div :class="{ 'cp-controls--disabled': lockDisabled }">
             <PillButtons
               :model-value="state.lock"
               :options="LOCK_OPTIONS"
@@ -271,45 +272,6 @@ function onLockChange(value: string) {
 </template>
 
 <style scoped>
-.door-loading {
-  padding: 2rem;
-  color: rgba(42, 40, 37, 0.55);
-  font-size: 0.9rem;
-}
-
-.door-shell { width: 100%; }
-
-.door-card {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  border-radius: 28px;
-  overflow: hidden;
-  background: #f7f5f0;
-  box-shadow: 0 28px 70px rgba(42, 40, 37, 0.16);
-}
-
-.door-controls {
-  padding: 2.6rem 2.2rem 2.2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.door-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.door-label {
-  margin: 0;
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: #6B6860;
-}
-
 .door-badges {
   display: flex;
   flex-direction: column;
@@ -328,11 +290,6 @@ function onLockChange(value: string) {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: rgba(52, 47, 41, 0.88);
-}
-
-.door-pills--disabled {
-  opacity: 0.4;
-  pointer-events: none;
 }
 
 .door-autoclose {
@@ -364,10 +321,5 @@ function onLockChange(value: string) {
 
 .door-autoclose__text strong {
   color: rgba(52, 47, 41, 0.8);
-}
-
-@media (max-width: 900px) {
-  .door-card { grid-template-columns: 1fr; }
-  .door-controls { padding: 1.5rem; }
 }
 </style>

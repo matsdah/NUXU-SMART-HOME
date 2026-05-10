@@ -1,0 +1,229 @@
+/* ==========================================================================
+   Auth Form — Estilos compartidos para formularios de autenticación
+   (Login, Register, Recover, Verify, ResetPassword)
+   ========================================================================== */
+
+/* ---- Encabezado ---- */
+.auth-header {
+  width: 100%;
+  text-align: center;
+}
+
+.auth-title {
+  font-size: clamp(1.5rem, 6vw, 2.25rem);
+  font-weight: 300;
+  color: var(--color-text);
+  margin-bottom: 0.15rem;
+}
+
+.auth-subtitle {
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+  font-weight: 300;
+}
+
+/* ---- Formulario ---- */
+.auth-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ---- Campo de entrada flotante ---- */
+.field {
+  position: relative;
+  width: 100%;
+}
+
+.field__input {
+  width: 100%;
+  height: 54px;
+  padding: 18px 1rem 4px;
+  background: rgba(255, 255, 255, 0.6);
+  border: 1.5px solid var(--color-sage);
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-family: var(--font-sans);
+  color: var(--color-text);
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.field__input--with-icon {
+  padding-left: 2.5rem;
+}
+
+.field__input--pass {
+  padding-right: 2.75rem;
+}
+
+.field__input:focus {
+  border-color: var(--color-brown);
+}
+
+/* Input para código de verificación (centrado, espaciado) */
+.field__input--code {
+  text-align: center;
+  letter-spacing: 0.45em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Ícono dentro del campo */
+.field__icon {
+  position: absolute;
+  left: 0.9rem;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  pointer-events: none;
+}
+
+.field__icon svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Label flotante */
+.field__label {
+  position: absolute;
+  left: 1rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.95rem;
+  font-weight: 300;
+  color: var(--color-text-muted);
+  pointer-events: none;
+  transition: top 0.18s ease, font-size 0.18s ease, color 0.18s ease;
+}
+
+.field__label--with-icon {
+  left: 2.5rem;
+}
+
+.field__input:focus ~ .field__label,
+.field__input:not(:placeholder-shown) ~ .field__label {
+  top: 10px;
+  font-size: 0.72rem;
+  color: var(--color-brown);
+}
+
+/* Botón ojo (mostrar/ocultar contraseña) */
+.field__eye {
+  position: absolute;
+  right: 0.75rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  color: var(--color-text-muted);
+  transition: color 0.15s;
+}
+
+.field__eye:hover {
+  color: var(--color-text);
+}
+
+/* ---- Botón de enviar ---- */
+.auth-submit {
+  width: 100%;
+  height: 50px;
+  border-radius: 12px;
+  background-color: var(--color-brown);
+  border: none;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 400;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s;
+}
+
+.auth-submit:hover:not(:disabled) {
+  background-color: #7a5240;
+}
+
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ---- Separador ---- */
+.auth-separator {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  font-size: 0.78rem;
+  color: var(--color-text-muted);
+  font-weight: 300;
+}
+
+.auth-separator::before,
+.auth-separator::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-sage);
+}
+
+/* ---- Footer de navegación ---- */
+.auth-footer {
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  font-weight: 300;
+  text-align: center;
+}
+
+.auth-footer a {
+  color: var(--color-brown);
+  font-weight: 400;
+  text-decoration: none;
+}
+
+.auth-footer a:hover {
+  text-decoration: underline;
+}
+
+/* ---- Botones sociales ---- */
+.auth-social {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.social-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 1.5px solid var(--color-sage);
+  background: rgba(255, 255, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.social-btn:hover {
+  background: rgba(255, 255, 255, 0.85);
+  border-color: var(--color-sage-dark);
+}
+
+/* ---- Spinner de carga ---- */
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  animation: spin 0.9s linear infinite;
+}

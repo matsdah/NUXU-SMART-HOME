@@ -7,6 +7,8 @@ import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
 import { useToast } from '@/shared/composables/useToast'
 
+import '@/shared/styles/control-panel.css'
+
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
 
@@ -146,10 +148,10 @@ function normalizeMode(raw: unknown): FridgeState['mode'] {
 </script>
 
 <template>
-  <div v-if="loading" class="fridge-loading">Cargando...</div>
+  <div v-if="loading" class="cp-loading">Cargando...</div>
 
-  <div v-else class="fridge-shell">
-    <section class="fridge-card">
+  <div v-else class="cp-shell">
+    <section class="cp-card">
       <ControlSidebar
         :title="props.deviceName || 'Heladera'"
         room-label="COCINA"
@@ -159,19 +161,19 @@ function normalizeMode(raw: unknown): FridgeState['mode'] {
         :badge-label="`MODO ${currentModeLabel.toUpperCase()}`"
       />
 
-      <div class="fridge-controls">
-        <section class="fridge-section">
-          <p class="fridge-label">Modo de operación</p>
+      <div class="cp-controls">
+        <section class="cp-section">
+          <p class="cp-label">Modo de operación</p>
           <PillButtons v-model="state.mode" :options="MODES" appearance="container" />
         </section>
 
-        <section class="fridge-section">
-          <p class="fridge-label">Ajuste de temperatura heladera</p>
+        <section class="cp-section">
+          <p class="cp-label">Ajuste de temperatura heladera</p>
           <TemperatureControl v-model="state.fridgeTemp" :min="FRIDGE_TEMP_MIN" :max="FRIDGE_TEMP_MAX" label="temperatura heladera" />
         </section>
 
-        <section class="fridge-section">
-          <p class="fridge-label">Ajuste de temperatura freezer</p>
+        <section class="cp-section">
+          <p class="cp-label">Ajuste de temperatura freezer</p>
           <TemperatureControl v-model="state.freezerTemp" :min="FREEZER_TEMP_MIN" :max="FREEZER_TEMP_MAX" label="temperatura freezer" />
         </section>
 
@@ -181,53 +183,5 @@ function normalizeMode(raw: unknown): FridgeState['mode'] {
 </template>
 
 <style scoped>
-.fridge-loading {
-  padding: 2rem;
-  color: rgba(42, 40, 37, 0.55);
-  font-size: 0.9rem;
-}
-
-.fridge-shell {
-  width: 100%;
-}
-
-.fridge-card {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  border-radius: 28px;
-  overflow: hidden;
-  background: #f7f5f0;
-  box-shadow: 0 28px 70px rgba(42, 40, 37, 0.16);
-}
-
-.fridge-controls {
-  padding: 2.6rem 2.2rem 2.2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.fridge-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.fridge-label {
-  margin: 0;
-  font-size: 0.82rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(42, 40, 37, 0.55);
-}
-
-@media (max-width: 900px) {
-  .fridge-card {
-    grid-template-columns: 1fr;
-  }
-
-  .fridge-controls {
-    padding: 1.5rem;
-  }
-}
+/* El layout base está en shared/styles/control-panel.css */
 </style>

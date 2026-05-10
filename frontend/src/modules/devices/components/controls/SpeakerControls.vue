@@ -6,6 +6,7 @@ import TemperatureControl from '../shared/TemperatureControl.vue'
 import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
 import { useToast } from '@/shared/composables/useToast'
+import '@/shared/styles/control-panel.css'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
@@ -144,10 +145,10 @@ function formatDuration(secs?: number): string {
 </script>
 
 <template>
-  <div v-if="loading" class="spk-loading">Cargando...</div>
+  <div v-if="loading" class="cp-loading">Cargando...</div>
 
-  <div v-else class="spk-shell">
-    <section class="spk-card">
+  <div v-else class="cp-shell">
+    <section class="cp-card">
       <ControlSidebar
         :title="props.deviceName || 'Parlante'"
         room-label="AMBIENTE"
@@ -159,10 +160,10 @@ function formatDuration(secs?: number): string {
         :show-power-button="false"
       />
 
-      <div class="spk-controls">
+      <div class="cp-controls cp-controls--scrollable">
 
-        <section class="spk-section">
-          <p class="spk-label">Reproducción</p>
+        <section class="cp-section">
+          <p class="cp-label">Reproducción</p>
           <div class="spk-playback-row">
             <button
               type="button"
@@ -199,9 +200,9 @@ function formatDuration(secs?: number): string {
           </div>
         </section>
 
-        <section class="spk-section">
-          <p class="spk-label">Volumen</p>
-          <div :class="{ 'spk-disabled': actionPending }">
+        <section class="cp-section">
+          <p class="cp-label">Volumen</p>
+          <div :class="{ 'cp-controls--disabled': actionPending }">
             <TemperatureControl
               :model-value="volume"
               :min="0"
@@ -215,9 +216,9 @@ function formatDuration(secs?: number): string {
           </div>
         </section>
 
-        <section class="spk-section">
-          <p class="spk-label">Género</p>
-          <div :class="{ 'spk-disabled': actionPending }">
+        <section class="cp-section">
+          <p class="cp-label">Género</p>
+          <div :class="{ 'cp-controls--disabled': actionPending }">
             <PillButtons
               :model-value="genre"
               :options="GENRES"
@@ -227,7 +228,7 @@ function formatDuration(secs?: number): string {
           </div>
         </section>
 
-        <section class="spk-section">
+        <section class="cp-section">
           <button
             type="button"
             class="spk-playlist-btn"
@@ -252,57 +253,11 @@ function formatDuration(secs?: number): string {
 </template>
 
 <style scoped>
-.spk-loading {
-  padding: 2rem;
-  color: rgba(42, 40, 37, 0.55);
-  font-size: 0.9rem;
-}
-
-.spk-shell { width: 100%; }
-
-.spk-card {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  border-radius: 28px;
-  overflow: hidden;
-  background: #f7f5f0;
-  box-shadow: 0 28px 70px rgba(42, 40, 37, 0.16);
-}
-
-.spk-controls {
-  padding: 2.6rem 2.2rem 2.2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  overflow-y: auto;
-}
-
-.spk-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.spk-label {
-  margin: 0;
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: rgba(52, 47, 41, 0.42);
-}
-
 .spk-hint {
   margin: 0;
   font-size: 0.78rem;
   color: rgba(52, 47, 41, 0.45);
 }
-
-.spk-disabled {
-  opacity: 0.4;
-  pointer-events: none;
-}
-
 
 /* Playback buttons */
 
@@ -414,10 +369,5 @@ function formatDuration(secs?: number): string {
   font-size: 0.75rem;
   flex-shrink: 0;
   margin-left: 0.5rem;
-}
-
-@media (max-width: 900px) {
-  .spk-card { grid-template-columns: 1fr; }
-  .spk-controls { padding: 1.5rem; }
 }
 </style>

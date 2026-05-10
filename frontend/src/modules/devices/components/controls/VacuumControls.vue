@@ -6,6 +6,7 @@ import ControlSidebar from '../shared/ControlSidebar.vue'
 import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
 import { useToast } from '@/shared/composables/useToast'
+import '@/shared/styles/control-panel.css'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
@@ -164,10 +165,10 @@ async function onLocationChange(roomId: string) {
 </script>
 
 <template>
-  <div v-if="loading" class="vac-loading">Cargando...</div>
+  <div v-if="loading" class="cp-loading">Cargando...</div>
 
-  <div v-else class="vac-shell">
-    <section class="vac-card">
+  <div v-else class="cp-shell">
+    <section class="cp-card">
       <ControlSidebar
         :title="props.deviceName || 'Aspiradora'"
         room-label="AMBIENTE"
@@ -189,15 +190,15 @@ async function onLocationChange(roomId: string) {
         </template>
       </ControlSidebar>
 
-      <div class="vac-controls">
+      <div class="cp-controls cp-controls--scrollable">
 
         <!-- Aspiradora -->
         <div class="vac-group">
           <p class="vac-group-title">Aspiradora</p>
 
-          <section class="vac-section">
-            <p class="vac-label">Control</p>
-            <div :class="{ 'vac-disabled': actionPending }">
+          <section class="cp-section">
+            <p class="cp-label">Control</p>
+            <div :class="{ 'cp-controls--disabled': actionPending }">
               <PillButtons
                 :model-value="isActive ? 'start' : 'pause'"
                 :options="CONTROL_OPTIONS"
@@ -207,9 +208,9 @@ async function onLocationChange(roomId: string) {
             </div>
           </section>
 
-          <section class="vac-section">
-            <p class="vac-label">Modo</p>
-            <div :class="{ 'vac-disabled': actionPending }">
+          <section class="cp-section">
+            <p class="cp-label">Modo</p>
+            <div :class="{ 'cp-controls--disabled': actionPending }">
               <PillButtons
                 :model-value="mode"
                 :options="MODE_OPTIONS"
@@ -219,9 +220,9 @@ async function onLocationChange(roomId: string) {
             </div>
           </section>
 
-          <section v-if="roomOptions.length" class="vac-section">
-            <p class="vac-label">Ubicación de accion</p>
-            <div :class="{ 'vac-disabled': actionPending }">
+          <section v-if="roomOptions.length" class="cp-section">
+            <p class="cp-label">Ubicación de accion</p>
+            <div :class="{ 'cp-controls--disabled': actionPending }">
               <PillButtons
                 :model-value="locationId"
                 :options="roomOptions"
@@ -236,8 +237,8 @@ async function onLocationChange(roomId: string) {
         <div class="vac-group">
           <p class="vac-group-title">Base de carga</p>
 
-          <section class="vac-section">
-            <p class="vac-label">Control</p>
+          <section class="cp-section">
+            <p class="cp-label">Control</p>
             <button
               type="button"
               class="vac-dock-btn"
@@ -246,8 +247,8 @@ async function onLocationChange(roomId: string) {
             >Regresar a base de carga</button>
           </section>
 
-          <section class="vac-section">
-            <p class="vac-label">Ubicación de la base</p>
+          <section class="cp-section">
+            <p class="cp-label">Ubicación de la base</p>
             <div v-if="deviceRoomName" class="vac-dock-info">
               {{ deviceRoomName }}
             </div>
@@ -261,31 +262,6 @@ async function onLocationChange(roomId: string) {
 </template>
 
 <style scoped>
-.vac-loading {
-  padding: 2rem;
-  color: rgba(42, 40, 37, 0.55);
-  font-size: 0.9rem;
-}
-
-.vac-shell { width: 100%; }
-
-.vac-card {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  border-radius: 28px;
-  overflow: hidden;
-  background: #f7f5f0;
-  box-shadow: 0 28px 70px rgba(42, 40, 37, 0.16);
-}
-
-.vac-controls {
-  padding: 2.6rem 2.2rem 2.2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  overflow-y: auto;
-}
-
 /* Grupos */
 .vac-group {
   display: flex;
@@ -304,31 +280,12 @@ async function onLocationChange(roomId: string) {
   letter-spacing: 0.04em;
 }
 
-.vac-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-}
-
-.vac-label {
-  margin: 0;
-  font-size: 0.72rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: rgba(52, 47, 41, 0.38);
-}
-
 .vac-hint {
   margin: 0;
   font-size: 0.78rem;
   color: rgba(52, 47, 41, 0.45);
 }
 
-.vac-disabled {
-  opacity: 0.4;
-  pointer-events: none;
-}
 
 /* Sidebar */
 .vac-sidebar-center {
@@ -409,10 +366,5 @@ async function onLocationChange(roomId: string) {
   text-overflow: ellipsis;
   white-space: nowrap;
   padding: 0.65rem 0.75rem;
-}
-
-@media (max-width: 900px) {
-  .vac-card { grid-template-columns: 1fr; }
-  .vac-controls { padding: 1.5rem; }
 }
 </style>

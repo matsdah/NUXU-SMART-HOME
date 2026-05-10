@@ -7,6 +7,8 @@ import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
 import { useToast } from '@/shared/composables/useToast'
 
+import '@/shared/styles/control-panel.css'
+
 const props = defineProps<{ deviceId: string; deviceName?: string; initialIsOn?: boolean }>()
 
 const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
@@ -168,10 +170,10 @@ async function saveChanges() {
 </script>
 
 <template>
-  <div v-if="loading" class="oven-loading">Cargando...</div>
+  <div v-if="loading" class="cp-loading">Cargando...</div>
 
-  <div v-else class="oven-shell">
-    <section class="oven-card">
+  <div v-else class="cp-shell">
+    <section class="cp-card">
       <ControlSidebar
         :title="props.deviceName || 'Horno'"
         room-label="COCINA"
@@ -182,24 +184,24 @@ async function saveChanges() {
         @toggle-power="togglePower"
       />
 
-      <div class="oven-controls">
-        <section class="oven-section">
-          <p class="oven-label">Fuente de calor</p>
+      <div class="cp-controls">
+        <section class="cp-section">
+          <p class="cp-label">Fuente de calor</p>
           <PillButtons v-model="state.heatSource" :options="HEAT_SOURCES" appearance="container" />
         </section>
 
-        <section class="oven-section">
-          <p class="oven-label">Ajuste de temperatura</p>
+        <section class="cp-section">
+          <p class="cp-label">Ajuste de temperatura</p>
           <TemperatureControl v-model="state.temperature" :min="TEMP_MIN" :max="TEMP_MAX" label="temperatura" />
         </section>
 
-        <section class="oven-section">
-          <p class="oven-label">Potencia</p>
+        <section class="cp-section">
+          <p class="cp-label">Potencia</p>
           <PillButtons v-model="state.powerLevel" :options="POWER_LEVELS" appearance="container" />
         </section>
 
-        <section class="oven-section">
-          <p class="oven-label">Modo convección</p>
+        <section class="cp-section">
+          <p class="cp-label">Modo convección</p>
           <PillButtons v-model="state.convectionMode" :options="CONVECTION_MODES" appearance="container" />
         </section>
 
@@ -209,54 +211,5 @@ async function saveChanges() {
 </template>
 
 <style scoped>
-.oven-loading {
-  padding: 2rem;
-  color: rgba(42, 40, 37, 0.55);
-  font-size: 0.9rem;
-}
-
-.oven-shell {
-  width: 100%;
-}
-
-.oven-card {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  min-height: 640px;
-  border-radius: 28px;
-  overflow: hidden;
-  background: #f7f5f0;
-  box-shadow: 0 28px 70px rgba(42, 40, 37, 0.16);
-}
-
-.oven-controls {
-  padding: 2.6rem 2.2rem 2.2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.oven-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.oven-label {
-  margin: 0;
-  font-size: 0.82rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: rgba(42, 40, 37, 0.55);
-}
-
-@media (max-width: 900px) {
-  .oven-card {
-    grid-template-columns: 1fr;
-  }
-
-  .oven-controls {
-    padding: 1.5rem;
-  }
-}
+/* El layout base está en shared/styles/control-panel.css */
 </style>

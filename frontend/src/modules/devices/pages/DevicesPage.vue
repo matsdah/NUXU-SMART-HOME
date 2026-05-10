@@ -13,6 +13,9 @@ import EditDeviceModal from '@/modules/devices/components/EditDeviceModal.vue'
 import AddRoomModal from '@/modules/homes/components/AddRoomModal.vue'
 import DeleteRoomConfirmModal from '@/modules/homes/components/DeleteRoomConfirmModal.vue'
 import EditRoomModal from '@/modules/homes/components/EditRoomModal.vue'
+import '@/shared/styles/device-card.css'
+import '@/shared/styles/room-tabs.css'
+import '@/shared/styles/shared-panel.css'
 
 const store = useDashboardStore()
 const socketStore = useSocketStore()
@@ -678,104 +681,6 @@ onMounted(async () => {
   justify-content: space-between;
 }
 
-.section-label {
-  font-size: 1.05rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  margin-bottom: 0.75rem;
-}
-
-.room-tabs {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: 0.6rem;
-  overflow-x: auto;
-  scroll-behavior: smooth;
-  background: #9e9b8e;
-  border-radius: 999px;
-  padding: 0.45rem 0.7rem;
-  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.08);
-  scrollbar-width: none;
-}
-
-.room-tabs::-webkit-scrollbar { display: none; }
-
-.room-tab {
-  border: none;
-  background: rgba(255, 255, 255, 0.65);
-  color: rgba(42, 40, 37, 0.8);
-  font-size: 0.85rem;
-  font-weight: 600;
-  padding: 0.4rem 0.9rem;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 160px;
-}
-
-.room-tab:hover:not(:disabled) {
-  background: rgba(255, 255, 255, 0.85);
-  color: rgba(42, 40, 37, 0.95);
-}
-
-.room-tab--active {
-  background: rgba(42, 40, 37, 0.95);
-  color: #f7f3e7;
-}
-
-.room-tab--icon {
-  width: 32px;
-  height: 32px;
-  padding: 0;
-  display: grid;
-  place-items: center;
-  font-size: 1.1rem;
-  line-height: 1;
-}
-
-.room-tab:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.notice {
-  background: rgba(255, 255, 255, 0.7);
-  border-radius: 16px;
-  padding: 0.8rem 1rem;
-  font-weight: 600;
-  color: rgba(42, 40, 37, 0.7);
-  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.08);
-}
-
-.notice--error {
-  color: #8a2d2d;
-  background: rgba(180, 60, 60, 0.12);
-  box-shadow: inset 0 0 0 1px rgba(180, 60, 60, 0.2);
-}
-
-.panel {
-  background: rgba(244, 244, 244, 0.7);
-  border-radius: 24px;
-  padding: 1.5rem;
-  box-shadow: 0 20px 40px rgba(42, 40, 37, 0.08);
-}
-
-.panel__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.2rem;
-}
-
-.panel__title {
-  font-family: var(--font-serif);
-  font-size: 1.4rem;
-  font-weight: 600;
-}
-
 .panel__edit-toggle {
   border: none;
   background: rgba(255, 255, 255, 0.7);
@@ -799,75 +704,11 @@ onMounted(async () => {
   box-shadow: 0 0 0 1px rgba(42, 40, 37, 0.45);
 }
 
-.device-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  gap: 1rem;
-}
-
-.device-card {
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 18px;
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: 1.4rem;
-  min-height: 150px;
-  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
-  cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
-}
-
-.device-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 24px rgba(42, 40, 37, 0.12);
-}
-
-.device-card--accent {
-  background: rgba(190, 190, 166, 0.6);
-}
-
 .device-card--delete-mode {
   box-shadow:
     inset 0 0 0 2px rgba(42, 40, 37, 0.95),
     0 0 0 1px rgba(42, 40, 37, 0.3);
   background: rgba(255, 255, 255, 0.4);
-}
-
-.device-card__top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.device-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.9);
-  display: grid;
-  place-items: center;
-  color: rgba(42, 40, 37, 0.85);
-  box-shadow: 0 6px 12px rgba(42, 40, 37, 0.08);
-}
-
-.device-icon--off {
-  background: rgba(42, 40, 37, 0.08);
-  color: rgba(42, 40, 37, 0.42);
-  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
-}
-
-.device-icon svg {
-  width: 20px;
-  height: 20px;
-}
-
-.device-card__body {
-  display: flex;
-  flex-direction: column;
-  min-height: 68px;
-  min-width: 0;
 }
 
 .device-card__room {
@@ -881,62 +722,9 @@ onMounted(async () => {
   text-align: right;
 }
 
-.device-card__body h3 {
-  font-size: 0.95rem;
-  font-weight: 600;
-  margin-bottom: 0.2rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 .device-card__status {
   font-size: 0.8rem;
   color: rgba(42, 40, 37, 0.6);
-}
-
-.switch {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-}
-
-.switch input {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 36px;
-  height: 22px;
-  background: rgba(42, 40, 37, 0.18);
-  border-radius: 999px;
-  position: relative;
-  outline: none;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.switch input:checked { background: rgba(63, 129, 102, 0.65); }
-
-.switch__track {
-  position: absolute;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  left: 4px;
-  transition: transform 0.2s ease;
-  pointer-events: none;
-}
-
-.switch input:checked + .switch__track { transform: translateX(14px); }
-
-.switch input:disabled { opacity: 0.5; cursor: not-allowed; }
-.switch input:disabled + .switch__track { background: #e0e0e0; }
-
-.device-card--new {
-  border: none;
-  align-items: center;
-  justify-content: center;
-  background: rgba(42, 40, 37, 0.07);
 }
 
 .device-card--new--editing {
@@ -950,33 +738,11 @@ onMounted(async () => {
   box-shadow: none !important;
 }
 
-.device-card__plus {
-  width: 32px;
-  height: 32px;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.65);
-  display: grid;
-  place-items: center;
-  font-size: 1.1rem;
-  line-height: 1;
-  color: rgba(42, 40, 37, 0.8);
-}
-
 .devices-empty {
   grid-column: 1 / -1;
   text-align: center;
   padding: 2rem;
   color: rgba(42, 40, 37, 0.45);
   font-size: 0.9rem;
-}
-
-@media (max-width: 720px) {
-  .panel {
-    padding: 1.1rem;
-  }
-
-  .device-grid {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  }
 }
 </style>

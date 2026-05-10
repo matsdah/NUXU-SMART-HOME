@@ -4,8 +4,11 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { api, ApiError, TOKEN_KEY } from '@/services/api/client'
 import { sendVerificationEmail } from '@/services/email'
+import { handleApiError } from '@/shared/utils/api-error-handler'
 import AuthLayout from '../components/AuthLayout.vue'
 import { useToast } from '@/shared/composables/useToast'
+
+import '@/shared/styles/auth-form.css'
 
 const route = useRoute()
 const router = useRouter()
@@ -56,11 +59,9 @@ async function handleEmailStep() {
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) {
       showToast('No existe una cuenta con ese email.', 'error')
-    } else if (e instanceof ApiError) {
-      const msg = (e.body as { error?: { description?: string } })?.error?.description
-      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
     } else {
-      showToast('No se pudo enviar el código. Intentá de nuevo.', 'error')
+      const { message } = handleApiError(e)
+      showToast(message, 'error')
     }
   } finally {
     loading.value = false
@@ -134,11 +135,9 @@ async function handlePasswordStep() {
   } catch (e) {
     if (e instanceof ApiError && e.status === 401) {
       showToast('Contraseña actual incorrecta.', 'error')
-    } else if (e instanceof ApiError) {
-      const msg = (e.body as { error?: { description?: string } })?.error?.description
-      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
     } else {
-      showToast('Error inesperado. Intentá de nuevo.', 'error')
+      const { message } = handleApiError(e)
+      showToast(message, 'error')
     }
   } finally {
     loading.value = false
@@ -149,16 +148,16 @@ async function handlePasswordStep() {
 <template>
   <AuthLayout>
 
-    <div class="reset__header">
-      <h1 class="reset__title">
+    <div class="auth-header">
+      <h1 class="auth-title">
         {{ step === 'email' ? 'Cambiar contraseña' : step === 'code' ? 'Verificar identidad' : fromSettings ? 'Nueva contraseña' : 'Restablecer contraseña' }}
       </h1>
-      <p class="reset__subtitle">
+      <p class="auth-subtitle">
         {{ step === 'email' ? 'Ingresá tu email para continuar' : step === 'code' ? `Ingresá el código enviado a ${email}` : fromSettings ? 'Ingresá tu contraseña actual y la nueva' : 'Elegí una nueva contraseña' }}
       </p>
     </div>
 
-    <form v-if="step === 'email'" class="reset__form" @submit.prevent="handleEmailStep" novalidate>
+    <form v-if="step === 'email'" class="auth-form" @submit.prevent="handleEmailStep" novalidate>
 
       <div class="field">
         <span class="field__icon" aria-hidden="true">
@@ -185,7 +184,7 @@ async function handlePasswordStep() {
 
     </form>
 
-    <form v-else-if="step === 'code'" class="reset__form" @submit.prevent="handleCodeStep" novalidate>
+    <form v-else-if="step === 'code'" class="auth-form" @submit.prevent="handleCodeStep" novalidate>
 
       <div class="field">
         <input
@@ -209,7 +208,7 @@ async function handlePasswordStep() {
 
     </form>
 
-    <form v-else class="reset__form" @submit.prevent="handlePasswordStep" novalidate>
+    <form v-else class="auth-form" @submit.prevent="handlePasswordStep" novalidate>
 
       <div v-if="fromSettings" class="field">
         <span class="field__icon" aria-hidden="true">
@@ -309,146 +308,5 @@ async function handlePasswordStep() {
 </template>
 
 <style scoped>
-
-.reset__header {
-  width: 100%;
-  text-align: center;
-}
-
-.reset__title {
-  font-size: clamp(1.5rem, 5vw, 2rem);
-  font-weight: 300;
-  color: var(--color-text);
-  margin-bottom: 0.15rem;
-}
-
-.reset__subtitle {
-  font-size: 0.875rem;
-  color: var(--color-text-muted);
-  font-weight: 300;
-}
-
-.reset__form {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.field {
-  position: relative;
-  width: 100%;
-}
-
-.field__input {
-  width: 100%;
-  height: 54px;
-  padding: 18px 1rem 4px;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1.5px solid var(--color-sage);
-  border-radius: 12px;
-  font-size: 0.95rem;
-  font-family: var(--font-sans);
-  color: var(--color-text);
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.field__input--with-icon { padding-left: 2.5rem; }
-.field__input--pass { padding-right: 2.75rem; }
-.field__input:focus { border-color: var(--color-brown); }
-
-.field__icon {
-  position: absolute;
-  left: 0.9rem;
-  top: 50%;
-  transform: translateY(-50%);
-  display: flex;
-  align-items: center;
-  color: var(--color-text-muted);
-  pointer-events: none;
-}
-
-.field__icon :deep(svg) {
-  width: 16px;
-  height: 16px;
-}
-
-.field__label {
-  position: absolute;
-  left: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.95rem;
-  font-weight: 300;
-  color: var(--color-text-muted);
-  pointer-events: none;
-  transition: top 0.18s ease, font-size 0.18s ease, color 0.18s ease;
-}
-
-.field__label--with-icon { left: 2.5rem; }
-
-.field__input:focus ~ .field__label,
-.field__input:not(:placeholder-shown) ~ .field__label {
-  top: 10px;
-  font-size: 0.72rem;
-  color: var(--color-brown);
-}
-
-.field__eye {
-  position: absolute;
-  right: 0.75rem;
-  top: 50%;
-  transform: translateY(-50%);
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0;
-  display: flex;
-  align-items: center;
-  color: var(--color-text-muted);
-  transition: color 0.15s;
-}
-.field__eye:hover { color: var(--color-text); }
-
-.auth-submit {
-  width: 100%;
-  height: 50px;
-  border-radius: 12px;
-  background-color: var(--color-brown);
-  border: none;
-  color: #fff;
-  font-size: 0.95rem;
-  font-weight: 400;
-  font-family: var(--font-sans);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color 0.2s;
-}
-.auth-submit:hover:not(:disabled) { background-color: #7a5240; }
-.auth-submit:disabled { opacity: 0.6; cursor: not-allowed; }
-
-.field__input--code {
-  text-align: center;
-  letter-spacing: 0.45em;
-  font-variant-numeric: tabular-nums;
-}
-
-@keyframes spin { to { transform: rotate(360deg); } }
-.spinner { animation: spin 0.9s linear infinite; }
-
-.auth-footer {
-  font-size: 0.85rem;
-  color: var(--color-text-muted);
-  font-weight: 300;
-  text-align: center;
-}
-.auth-footer a {
-  color: var(--color-brown);
-  font-weight: 400;
-  text-decoration: none;
-}
-.auth-footer a:hover { text-decoration: underline; }
+/* Todos los estilos compartidos están en shared/styles/auth-form.css */
 </style>

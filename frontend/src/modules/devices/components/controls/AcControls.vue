@@ -6,6 +6,7 @@ import TemperatureControl from '../shared/TemperatureControl.vue'
 import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
 import { useToast } from '@/shared/composables/useToast'
+import '@/shared/styles/control-panel.css'
 
 const props = defineProps<{ deviceId: string; deviceName?: string; initialIsOn?: boolean }>()
 
@@ -190,10 +191,10 @@ async function saveChanges() {
 </script>
 
 <template>
-  <div v-if="loading" class="ac-loading">Cargando...</div>
+  <div v-if="loading" class="cp-loading">Cargando...</div>
 
-  <div v-else class="ac-shell">
-    <section class="ac-card">
+  <div v-else class="cp-shell">
+    <section class="cp-card">
       <ControlSidebar
         :title="props.deviceName || 'Aire Acondicionado'"
         room-label="SALÓN"
@@ -204,31 +205,31 @@ async function saveChanges() {
         @toggle-power="togglePower"
       />
 
-      <div class="ac-controls">
-        <section class="ac-section">
-          <p class="ac-label">Modo de operación</p>
+      <div class="cp-controls">
+        <section class="cp-section">
+          <p class="cp-label">Modo de operación</p>
           <PillButtons v-model="state.mode" :options="MODES" variant="mode" />
         </section>
 
-        <section class="ac-section">
-          <p class="ac-label">Ajuste de temperatura</p>
+        <section class="cp-section">
+          <p class="cp-label">Ajuste de temperatura</p>
           <TemperatureControl v-model="state.temperature" :min="TEMP_MIN" :max="TEMP_MAX" label="temperatura" />
         </section>
 
-        <section class="ac-section ac-section--split">
-          <div class="ac-sub">
-            <p class="ac-label">Aspas verticales</p>
+        <section class="cp-section cp-section--split">
+          <div class="cp-sub">
+            <p class="cp-label">Aspas verticales</p>
             <PillButtons v-model="state.verticalSwing" :options="VERTICAL_OPTIONS" size="small" class="ac-swing-buttons" />
           </div>
 
-          <div class="ac-sub">
-            <p class="ac-label">Aspas horizontales</p>
+          <div class="cp-sub">
+            <p class="cp-label">Aspas horizontales</p>
             <PillButtons v-model="state.horizontalSwing" :options="HORIZONTAL_OPTIONS" size="small" class="ac-swing-buttons" />
           </div>
         </section>
 
-        <section class="ac-section">
-          <p class="ac-label">Velocidad ventilador</p>
+        <section class="cp-section">
+          <p class="cp-label">Velocidad ventilador</p>
           <PillButtons v-model="state.fanSpeed" :options="FAN_OPTIONS" appearance="container" size="fan" />
         </section>
 
@@ -238,51 +239,8 @@ async function saveChanges() {
 </template>
 
 <style scoped>
-.ac-loading {
-  padding: 2rem;
-  color: rgba(42, 40, 37, 0.55);
-  font-size: 0.9rem;
-}
 
-.ac-shell {
-  width: 100%;
-}
-
-.ac-card {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  min-height: 640px;
-  border-radius: 28px;
-  overflow: hidden;
-  background: #f7f5f0;
-  box-shadow: 0 28px 70px rgba(42, 40, 37, 0.16);
-}
-
-.ac-controls {
-  padding: 2.6rem 2.2rem 2.2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.ac-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.ac-section--split {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-}
-
-.ac-sub {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
+/* Estilos específicos de AC (swing buttons) */
 .ac-swing-buttons :deep(.pill-button) {
   background: rgba(158, 155, 142, 0.35);
 }
@@ -293,29 +251,6 @@ async function saveChanges() {
   box-shadow: 0 8px 18px rgba(52, 47, 41, 0.18);
 }
 
-.ac-label {
-  margin: 0;
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: rgba(52, 47, 41, 0.42);
-}
-
-@media (max-width: 900px) {
-  .ac-card {
-    grid-template-columns: 1fr;
-  }
-
-  .ac-controls {
-    padding: 1.5rem;
-  }
-}
-
-@media (max-width: 640px) {
-  .ac-section--split {
-    grid-template-columns: 1fr;
-  }
-}
+/* El layout base está en shared/styles/control-panel.css */
 </style>
 

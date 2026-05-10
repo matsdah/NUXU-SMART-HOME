@@ -5,6 +5,8 @@ import ControlSidebar from '../shared/ControlSidebar.vue'
 import TemperatureControl from '../shared/TemperatureControl.vue'
 import { useToast } from '@/shared/composables/useToast'
 
+import '@/shared/styles/control-panel.css'
+
 const props = defineProps<{ deviceId: string; deviceName?: string; initialIsOn?: boolean }>()
 
 const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
@@ -169,10 +171,10 @@ async function saveChanges() {
 </script>
 
 <template>
-  <div v-if="loading" class="lamp-loading">Cargando...</div>
+  <div v-if="loading" class="cp-loading">Cargando...</div>
 
-  <div v-else class="lamp-shell">
-    <section class="lamp-card">
+  <div v-else class="cp-shell">
+    <section class="cp-card">
       <ControlSidebar
         :title="props.deviceName || 'Luz'"
         room-label="HABITACIÓN"
@@ -183,9 +185,9 @@ async function saveChanges() {
         @toggle-power="togglePower"
       />
 
-      <div class="lamp-controls">
-        <section class="lamp-section">
-          <p class="lamp-label">Intensidad</p>
+      <div class="cp-controls">
+        <section class="cp-section">
+          <p class="cp-label">Intensidad</p>
           <TemperatureControl
             v-model="state.brightness"
             :min="BRIGHTNESS_MIN"
@@ -196,8 +198,8 @@ async function saveChanges() {
           />
         </section>
 
-        <section class="lamp-section">
-          <p class="lamp-label">Color</p>
+        <section class="cp-section">
+          <p class="cp-label">Color</p>
           <div class="color-picker">
             <!-- [html-validate-disable-next no-inline-style: color is a runtime hex value that cannot be expressed as a CSS class] -->
             <button
@@ -243,47 +245,8 @@ async function saveChanges() {
 </template>
 
 <style scoped>
-.lamp-loading {
-  padding: 2rem;
-  color: rgba(42, 40, 37, 0.55);
-  font-size: 0.9rem;
-}
 
-.lamp-shell {
-  width: 100%;
-}
-
-.lamp-card {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  border-radius: 28px;
-  overflow: hidden;
-  background: #f7f5f0;
-  box-shadow: 0 28px 70px rgba(42, 40, 37, 0.16);
-}
-
-.lamp-controls {
-  padding: 2.6rem 2.2rem 2.2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-}
-
-.lamp-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.lamp-label {
-  margin: 0;
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: #6B6860;
-}
-
+/* Color picker específico de lámpara */
 .color-picker {
   display: flex;
   flex-wrap: wrap;
@@ -423,13 +386,5 @@ async function saveChanges() {
   text-transform: uppercase;
 }
 
-@media (max-width: 900px) {
-  .lamp-card {
-    grid-template-columns: 1fr;
-  }
-
-  .lamp-controls {
-    padding: 1.5rem;
-  }
-}
+/* El layout base está en shared/styles/control-panel.css */
 </style>

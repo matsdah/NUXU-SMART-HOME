@@ -1,0 +1,96 @@
+/* ==========================================================================
+   Device Control Panel — Layout compartido
+   Todos los paneles de control de dispositivos (AC, horno, heladera,
+   lámpara, persiana, etc.) usan el mismo grid sidebar + controles.
+   ========================================================================== */
+
+/* Estado de carga */
+.cp-loading {
+  padding: 2rem;
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+}
+
+/* Contenedor exterior */
+.cp-shell {
+  width: 100%;
+}
+
+/* Grid principal: sidebar | controles */
+.cp-card {
+  display: grid;
+  grid-template-columns: 240px minmax(0, 1fr);
+  border-radius: 28px;
+  overflow: hidden;
+  background: #f7f5f0;
+  box-shadow: 0 28px 70px rgba(42, 40, 37, 0.16);
+}
+
+/* Panel de controles derecho */
+.cp-controls {
+  padding: 2.6rem 2.2rem 2.2rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2rem;
+}
+
+/* Variante: con scroll vertical (para controles largos) */
+.cp-controls--scrollable {
+  overflow-y: auto;
+}
+
+/* Estado deshabilitado (mientras se ejecuta una acción) */
+.cp-controls--disabled {
+  opacity: 0.4;
+  pointer-events: none;
+}
+
+/* Sección individual dentro de controles */
+.cp-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+/* Sección partida en dos columnas (ej: aspas V/H en AC) */
+.cp-section--split {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+/* Sub-sección dentro de un split */
+.cp-sub {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* Etiqueta de sección */
+.cp-label {
+  margin: 0;
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: rgba(52, 47, 41, 0.42);
+}
+
+/* Responsive: a partir de 900px el sidebar pasa arriba */
+@media (max-width: 900px) {
+  .cp-card {
+    grid-template-columns: 1fr;
+  }
+
+  .cp-controls {
+    padding: 1.5rem;
+  }
+}
+
+/* Responsive para split en mobile */
+@media (max-width: 640px) {
+  .cp-section--split {
+    grid-template-columns: 1fr;
+  }
+}

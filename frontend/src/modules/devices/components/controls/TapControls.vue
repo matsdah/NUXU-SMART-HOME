@@ -6,6 +6,7 @@ import TemperatureControl from '../shared/TemperatureControl.vue'
 import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
 import { useToast } from '@/shared/composables/useToast'
+import '@/shared/styles/control-panel.css'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 const emit = defineEmits<{ powerToggled: [isOn: boolean] }>()
@@ -102,10 +103,10 @@ async function onDispense() {
 </script>
 
 <template>
-  <div v-if="loading" class="tap-loading">Cargando...</div>
+  <div v-if="loading" class="cp-loading">Cargando...</div>
 
-  <div v-else class="tap-shell">
-    <section class="tap-card">
+  <div v-else class="cp-shell">
+    <section class="cp-card">
       <ControlSidebar
         :title="props.deviceName || 'Aspersor'"
         room-label="AMBIENTE"
@@ -126,11 +127,11 @@ async function onDispense() {
         </template>
       </ControlSidebar>
 
-      <div class="tap-controls">
+      <div class="cp-controls cp-controls--scrollable">
 
-        <section class="tap-section">
-          <p class="tap-label">Estado</p>
-          <div :class="{ 'tap-pills--disabled': actionPending }">
+        <section class="cp-section">
+          <p class="cp-label">Estado</p>
+          <div :class="{ 'cp-controls--disabled': actionPending }">
             <PillButtons
               :model-value="status === 'opened' ? 'open' : 'close'"
               :options="ACCESS_OPTIONS"
@@ -140,10 +141,10 @@ async function onDispense() {
           </div>
         </section>
 
-        <section class="tap-section">
-          <p class="tap-label">Dispensar</p>
+        <section class="cp-section">
+          <p class="cp-label">Dispensar</p>
 
-          <div :class="{ 'tap-pills--disabled': dispensePending || status === 'closed' }">
+          <div :class="{ 'cp-controls--disabled': dispensePending || status === 'closed' }">
             <TemperatureControl
               :model-value="dispenseQty"
               :min="1"
@@ -155,7 +156,7 @@ async function onDispense() {
             />
           </div>
 
-          <div :class="{ 'tap-pills--disabled': dispensePending || status === 'closed' }">
+          <div :class="{ 'cp-controls--disabled': dispensePending || status === 'closed' }">
             <PillButtons
               :model-value="dispenseUnit"
               :options="UNIT_OPTIONS"
@@ -180,46 +181,6 @@ async function onDispense() {
 </template>
 
 <style scoped>
-.tap-loading {
-  padding: 2rem;
-  color: rgba(42, 40, 37, 0.55);
-  font-size: 0.9rem;
-}
-
-.tap-shell { width: 100%; }
-
-.tap-card {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  border-radius: 28px;
-  overflow: hidden;
-  background: #f7f5f0;
-  box-shadow: 0 28px 70px rgba(42, 40, 37, 0.16);
-}
-
-.tap-controls {
-  padding: 2.6rem 2.2rem 2.2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  overflow-y: auto;
-}
-
-.tap-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.tap-label {
-  margin: 0;
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: rgba(52, 47, 41, 0.42);
-}
-
 .tap-sidebar-center {
   display: flex;
   flex-direction: column;
@@ -262,11 +223,6 @@ async function onDispense() {
   margin-left: 0.15rem;
 }
 
-.tap-pills--disabled {
-  opacity: 0.4;
-  pointer-events: none;
-}
-
 .tap-dispense-btn {
   width: 100%;
   height: 46px;
@@ -290,10 +246,5 @@ async function onDispense() {
 .tap-dispense-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
-}
-
-@media (max-width: 900px) {
-  .tap-card { grid-template-columns: 1fr; }
-  .tap-controls { padding: 1.5rem; }
 }
 </style>

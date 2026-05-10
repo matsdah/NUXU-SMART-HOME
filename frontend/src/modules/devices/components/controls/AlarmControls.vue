@@ -5,6 +5,7 @@ import ControlSidebar from '../shared/ControlSidebar.vue'
 import type { PillOption } from '../shared/PillButtons.vue'
 import PillButtons from '../shared/PillButtons.vue'
 import { useToast } from '@/shared/composables/useToast'
+import '@/shared/styles/control-panel.css'
 
 const props = defineProps<{ deviceId: string; deviceName?: string }>()
 
@@ -129,10 +130,10 @@ async function changeCode() {
 </script>
 
 <template>
-  <div v-if="loading" class="alarm-loading">Cargando...</div>
+  <div v-if="loading" class="cp-loading">Cargando...</div>
 
-  <div v-else class="alarm-shell">
-    <section class="alarm-card">
+  <div v-else class="cp-shell">
+    <section class="cp-card">
       <ControlSidebar
         :title="props.deviceName || 'Alarma'"
         room-label="SEGURIDAD"
@@ -153,11 +154,11 @@ async function changeCode() {
         </template>
       </ControlSidebar>
 
-      <div class="alarm-controls">
+      <div class="cp-controls cp-controls--scrollable">
 
-        <section class="alarm-section">
-          <p class="alarm-label">Modo</p>
-          <div :class="{ 'alarm-pills--disabled': actionPending || !!pendingMode }">
+        <section class="cp-section">
+          <p class="cp-label">Modo</p>
+          <div :class="{ 'cp-controls--disabled': actionPending || !!pendingMode }">
             <PillButtons
               :model-value="pendingMode ?? currentMode"
               :options="MODE_OPTIONS"
@@ -200,8 +201,8 @@ async function changeCode() {
 
         </section>
 
-        <section class="alarm-section alarm-section--divider">
-          <p class="alarm-label">Cambiar código de seguridad</p>
+        <section class="cp-section cp-section--divider">
+          <p class="cp-label">Cambiar código de seguridad</p>
 
           <div class="alarm-code-row">
             <div class="alarm-code-field">
@@ -250,49 +251,9 @@ async function changeCode() {
 </template>
 
 <style scoped>
-.alarm-loading {
-  padding: 2rem;
-  color: rgba(42, 40, 37, 0.55);
-  font-size: 0.9rem;
-}
-
-.alarm-shell { width: 100%; }
-
-.alarm-card {
-  display: grid;
-  grid-template-columns: 240px minmax(0, 1fr);
-  border-radius: 28px;
-  overflow: hidden;
-  background: #f7f5f0;
-  box-shadow: 0 28px 70px rgba(42, 40, 37, 0.16);
-}
-
-.alarm-controls {
-  padding: 2.6rem 2.2rem 2.2rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  overflow-y: auto;
-}
-
-.alarm-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.65rem;
-}
-
-.alarm-section--divider {
+.cp-section--divider {
   padding-top: 1.5rem;
   border-top: 1px solid rgba(52, 47, 41, 0.1);
-}
-
-.alarm-label {
-  margin: 0;
-  font-size: 0.76rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.16em;
-  color: rgba(52, 47, 41, 0.42);
 }
 
 .alarm-hint {
@@ -336,10 +297,6 @@ async function changeCode() {
   color: rgba(52, 47, 41, 0.88);
 }
 
-.alarm-pills--disabled {
-  opacity: 0.4;
-  pointer-events: none;
-}
 
 .alarm-code-input {
   width: 100%;
@@ -430,8 +387,6 @@ async function changeCode() {
 }
 
 @media (max-width: 900px) {
-  .alarm-card { grid-template-columns: 1fr; }
-  .alarm-controls { padding: 1.5rem; }
   .alarm-code-row { grid-template-columns: 1fr; }
 }
 </style>
