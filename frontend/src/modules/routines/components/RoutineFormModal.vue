@@ -104,7 +104,7 @@ const rooms = computed(() => store.rooms);
 const deviceTypeNameById = computed(() => {
     const map: Record<string, string> = {};
     for (const deviceType of deviceTypesWithActions.value) {
-        if (deviceType.id) map[deviceType.id] = labelForTypeId(deviceType.id);
+        if (deviceType.id && deviceType.name) map[deviceType.id] = deviceType.name;
     }
     return map;
 });
@@ -115,6 +115,15 @@ const deviceTypeNameByDeviceId = computed(() => {
         if (!device.typeId) continue;
         const typeName = deviceTypeNameById.value[device.typeId];
         if (typeName) map[device.id] = typeName;
+    }
+    return map;
+});
+
+const deviceTypeDisplayNameByDeviceId = computed(() => {
+    const map: Record<string, string> = {};
+    for (const device of allDevices.value) {
+        if (!device.typeId) continue;
+        map[device.id] = labelForTypeId(device.typeId);
     }
     return map;
 });
@@ -160,6 +169,10 @@ const stepSubtitle = computed(() =>
 
 function getDeviceTypeName(deviceId: string): string | undefined {
     return deviceTypeNameByDeviceId.value[deviceId];
+}
+
+function getDeviceTypeDisplayName(deviceId: string): string {
+    return deviceTypeDisplayNameByDeviceId.value[deviceId] ?? "Tipo desconocido";
 }
 
 function getActionSchema(deviceId: string, actionName: string): ActionParamSchema[] {
@@ -669,7 +682,7 @@ function onOverlayClick(e: MouseEvent) {
                                         <div>
                                             <h4 class="device-action-block__title">{{ device.name }}</h4>
                                             <p class="device-action-block__subtitle">
-                                                {{ getDeviceTypeName(device.id) ?? "Tipo desconocido" }}
+                                                {{ getDeviceTypeDisplayName(device.id) }}
                                             </p>
                                         </div>
                                         <button type="button" class="btn-add-action" @click="addActionRow(device.id)">
