@@ -25,10 +25,8 @@
 <style scoped>
 
 .auth-layout {
-  position: relative;
-  width: 100%;
-  min-height: 100vh;
-  min-height: 100svh;
+  position: fixed;
+  inset: 0;
   background-color: var(--color-bg);
   display: flex;
   align-items: center;
@@ -40,7 +38,7 @@
 }
 
 .deco {
-  position: absolute;
+  position: fixed;
   pointer-events: none;
   -webkit-user-select: none;
   user-select: none;

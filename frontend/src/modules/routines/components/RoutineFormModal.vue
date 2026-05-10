@@ -595,7 +595,7 @@ function onOverlayClick(e: MouseEvent) {
                             </div>
 
                             <div class="preview">
-                                <div class="preview__circle" :style="{ background: 'rgba(190, 190, 166, 0.45)' }">
+                                <div class="preview__circle">
                                     <svg class="preview__svg" viewBox="0 0 24 24" fill="none" stroke="rgba(42, 40, 37, 0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <template v-if="selectedIcon === 'bolt'"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></template>
                                         <template v-else-if="selectedIcon === 'sun'"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></template>
@@ -636,7 +636,7 @@ function onOverlayClick(e: MouseEvent) {
                         <div v-else class="summary-body">
                             <p class="field__label">RUTINA</p>
                             <div class="summary-center">
-                                <div class="summary-circle" :style="{ background: 'rgba(190, 190, 166, 0.45)' }">
+                                <div class="summary-circle">
                                     <svg class="summary-svg" viewBox="0 0 24 24" fill="none" stroke="rgba(42, 40, 37, 0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <template v-if="selectedIcon === 'bolt'"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></template>
                                         <template v-else-if="selectedIcon === 'sun'"><circle cx="12" cy="12" r="5" /><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" /></template>
@@ -909,6 +909,7 @@ function onOverlayClick(e: MouseEvent) {
                                                         </template>
                                                         <template v-else-if="param.name === 'color' && getDeviceKind(device.id) === 'lamp'">
                                                             <div class="color-picker-inline">
+                                                                <!-- [html-validate-disable-next no-inline-style: color is a runtime hex value that cannot be expressed as a CSS class] -->
                                                                 <button
                                                                     v-for="preset in PRESET_COLORS"
                                                                     :key="preset.value"
@@ -1116,6 +1117,7 @@ function onOverlayClick(e: MouseEvent) {
     border-radius: 50%;
     display: grid;
     place-items: center;
+    background: rgba(190, 190, 166, 0.45);
 }
 
 .preview__svg {
@@ -1206,6 +1208,7 @@ function onOverlayClick(e: MouseEvent) {
     border-radius: 50%;
     display: grid;
     place-items: center;
+    background: rgba(190, 190, 166, 0.45);
 }
 
 .summary-svg {

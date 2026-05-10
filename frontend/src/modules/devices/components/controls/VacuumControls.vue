@@ -402,13 +402,6 @@ async function onLocationChange(roomId: string) {
 }
 
 .vac-controls .pill-buttons--container .pill-button {
-  max-width: 110px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.vac-controls .pill-buttons--container .pill-button {
   flex: 0 0 auto;
   min-width: 0;
   max-width: 110px;

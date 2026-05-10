@@ -307,7 +307,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
     <div v-if="activeView === 'perfil'" class="hogar-view">
       <div class="hogar__header">
         <div>
-          <header class="h-panel__header" style="margin-bottom: 0.75rem;">
+          <header class="h-panel__header h-panel__header--spaced" aria-label="Configuración personal">
             <h1 class="h-panel__title">Configuración</h1>
           </header>
         </div>
@@ -342,7 +342,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
           </div>
         </section>
 
-        <aside class="h-panel h-panel--actions">
+        <aside class="h-panel h-panel--actions" aria-label="Seguridad">
           <header class="h-panel__header">
             <h2 class="h-panel__title">Seguridad</h2>
           </header>
@@ -355,10 +355,10 @@ watch(() => dashboard.activeHomeId, async (newId) => {
                   <circle cx="12" cy="16" r="1.2" fill="currentColor" />
                 </svg>
               </span>
-              <div class="action-card__body">
+              <span class="action-card__body">
                 <span class="action-card__name">Cambiar contraseña</span>
                 <span class="action-card__desc">Actualizá tu contraseña de acceso</span>
-              </div>
+              </span>
               <span class="action-card__arrow">›</span>
             </button>
           </div>
@@ -369,7 +369,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
     <div v-if="activeView === 'hogar'" class="hogar-view">
       <div class="hogar__header">
         <div>
-          <header class="h-panel__header">
+          <header class="h-panel__header" aria-label="Hogar activo">
             <h1 class="h-panel__title">Mi Hogar</h1>
           </header>
           <div class="home-tabs">
@@ -433,7 +433,7 @@ watch(() => dashboard.activeHomeId, async (newId) => {
           </div>
         </section>
 
-        <aside class="h-panel h-panel--actions">
+        <aside class="h-panel h-panel--actions" aria-label="Acciones del hogar">
           <header class="h-panel__header">
             <h2 class="h-panel__title">Acciones</h2>
           </header>
@@ -452,10 +452,10 @@ watch(() => dashboard.activeHomeId, async (newId) => {
                   <path d="M19 8v6M16 11h6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
                 </svg>
               </span>
-              <div class="action-card__body">
+              <span class="action-card__body">
                 <span class="action-card__name">Añadir miembro</span>
                 <span class="action-card__desc">Invitá a alguien a tu hogar</span>
-              </div>
+              </span>
             </button>
 
             <button
@@ -471,10 +471,10 @@ watch(() => dashboard.activeHomeId, async (newId) => {
                   <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </span>
-              <div class="action-card__body">
+              <span class="action-card__body">
                 <span class="action-card__name">Salir del hogar</span>
                 <span class="action-card__desc">Perdés el acceso a este hogar</span>
-              </div>
+              </span>
             </button>
 
             <button
@@ -491,10 +491,10 @@ watch(() => dashboard.activeHomeId, async (newId) => {
                   <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
                 </svg>
               </span>
-              <div class="action-card__body">
+              <span class="action-card__body">
                 <span class="action-card__name">Eliminar hogar</span>
                 <span class="action-card__desc">{{ currentHome.name }} se eliminará permanentemente</span>
-              </div>
+              </span>
             </button>
 
             <p v-if="!isAdmin" class="action-note">
@@ -1561,6 +1561,10 @@ watch(() => dashboard.activeHomeId, async (newId) => {
   align-items: center;
   justify-content: space-between;
   margin-bottom: 1.2rem;
+}
+
+.h-panel__header--spaced {
+  margin-bottom: 0.75rem;
 }
 
 .h-panel__title {
