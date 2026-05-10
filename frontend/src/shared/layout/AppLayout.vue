@@ -304,13 +304,13 @@ function onLogoutOverlayClick(event: MouseEvent) {
 .brand {
   height: 3.5rem;
   display: flex;
+  flex-direction: row;
   align-items: center;
   gap: 0.1rem;
   text-decoration: none;
   background-color: #9E9B8E;
   padding: 0.0rem 0.8rem 1.5rem 0.5rem;
-  border-radius: 16px;
-  width: 150px;
+  border-radius: 16px 16px 16px 16px;
   flex-shrink: 0;
 }
 
@@ -319,12 +319,16 @@ function onLogoutOverlayClick(event: MouseEvent) {
   height: 65px;
   object-fit: contain;
   filter: drop-shadow(0 2px 4px rgba(0,0,0,0.10));
+  flex-shrink: 0;
+  display: block;
 }
 
 .brand__name {
   font-size: 1.3rem;
   font-weight: 500;
   letter-spacing: 0.08em;
+  color: var(--color-text);
+  line-height: 1;
   margin-bottom: -1.5rem;
 }
 
@@ -787,8 +791,19 @@ function onLogoutOverlayClick(event: MouseEvent) {
     padding: 1rem 1.25rem;
   }
 
+  .brand {
+    height: 3rem;
+    padding: 0 0.65rem 1.25rem 0.4rem;
+    border-radius: 14px;
+  }
+
+  .brand__logo {
+    width: 32px;
+    height: 56px;
+  }
+
   .brand__name {
-    display: none;
+    font-size: 1.08rem;
   }
 
   .home-switch__label {
