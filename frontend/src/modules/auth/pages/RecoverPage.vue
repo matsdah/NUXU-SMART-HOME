@@ -26,9 +26,6 @@ async function handleSubmit() {
     )
     const recoveryCode = recoveryResponse.code ?? recoveryResponse.verification_code ?? generateVerificationCode()
 
-    console.log('forgot-password response:', recoveryResponse)
-    console.log('recovery code sent to EmailJS:', recoveryCode)
-
     sessionStorage.setItem('recovery_code', recoveryCode)
     sessionStorage.setItem('recovery_session', crypto.randomUUID())
     await sendVerificationEmail(normalizedEmail, recoveryCode)

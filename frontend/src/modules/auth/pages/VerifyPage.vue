@@ -130,7 +130,7 @@ async function handleResendCode() {
       @click="handleResendCode"
     >
       <span v-if="resendLoading">Reenviando código...</span>
-      <span v-else>No recibí el mail, reenviar código</span>
+      <span v-else>Reenviar código</span>
     </button>
 
     <p class="auth-footer">
