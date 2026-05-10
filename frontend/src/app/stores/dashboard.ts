@@ -56,6 +56,7 @@ type ApiDeviceState = {
 }
 
 type ApiDeviceDetail = {
+  name?: string
   type?: { id?: string }
   typeId?: string
   room?: { id?: string }

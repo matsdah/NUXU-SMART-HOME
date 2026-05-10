@@ -50,6 +50,7 @@ const { draggingId, dragOverId, onDragStart, onDragOver, onDragLeave, onDrop } =
     const updates: Promise<void>[] = []
     for (let i = 0; i < orderedIds.length; i++) {
       const id = orderedIds[i]
+      if (!id) continue
       const device = allDevices.value.find(d => d.id === id)
       if (device && device.displayOrder !== i) {
         device.displayOrder = i

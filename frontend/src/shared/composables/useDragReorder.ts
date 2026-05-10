@@ -39,6 +39,7 @@ export function useDragReorder<T extends DragReorderItem>(
     if (sourceIndex === -1 || targetIndex === -1) return
 
     const [moved] = current.splice(sourceIndex, 1)
+    if (!moved) return
     current.splice(targetIndex, 0, moved)
 
     items.value = current

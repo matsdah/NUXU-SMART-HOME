@@ -69,6 +69,7 @@ const { draggingId, dragOverId, onDragStart, onDragOver, onDragLeave, onDrop } =
     const updates: Promise<void>[] = []
     for (let i = 0; i < orderedIds.length; i++) {
       const id = orderedIds[i]
+      if (!id) continue
       const routine = routines.value.find(r => r.id === id)
       if (routine && routine.displayOrder !== i) {
         routine.displayOrder = i

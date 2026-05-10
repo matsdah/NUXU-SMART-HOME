@@ -53,7 +53,7 @@ const deviceInStore = computed(() => store.devices.find(d => d.id === props.devi
 
 const deviceRoomName = computed(() => {
   if (!deviceInStore.value?.roomId) return ''
-  return store.rooms.find(r => r.id === deviceInStore.value.roomId)?.name ?? ''
+  return store.rooms.find(r => r.id === deviceInStore.value?.roomId)?.name ?? ''
 })
 
 const roomOptions = computed<PillOption[]>(() =>
@@ -82,7 +82,9 @@ async function fetchState() {
 
   const dock = raw.dockingStation as Record<string, unknown> | null | undefined
 
-  const loc = (raw.location ?? detail?.location ?? detail?.state?.location) as
+  const detailTyped = detail as Record<string, unknown> | null
+  const detailState = detailTyped?.state as Record<string, unknown> | null | undefined
+  const loc = (raw.location ?? detailTyped?.location ?? detailState?.location) as
     | Record<string, unknown>
     | string
     | null
@@ -96,7 +98,7 @@ async function fetchState() {
     locationName.value = String(resolvedLoc.name ?? '')
   } else if (deviceInStore.value?.roomId) {
     locationId.value = deviceInStore.value.roomId
-    locationName.value = store.rooms.find(r => r.id === deviceInStore.value.roomId)?.name ?? ''
+    locationName.value = store.rooms.find(r => r.id === deviceInStore.value?.roomId)?.name ?? ''
   } else {
     locationId.value = ''
     locationName.value = ''
