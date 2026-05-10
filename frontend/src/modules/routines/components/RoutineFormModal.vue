@@ -928,6 +928,17 @@ function onOverlayClick(e: MouseEvent) {
                                                                 />
                                                             </div>
                                                         </template>
+                                                        <template v-else-if="param.name === 'oldSecurityCode' || param.name === 'newSecurityCode'">
+                                                            <input
+                                                                class="param-inline__input"
+                                                                type="text"
+                                                                inputmode="numeric"
+                                                                :aria-label="param.label || param.name"
+                                                                :placeholder="param.name === 'oldSecurityCode' ? 'Codigo viejo' : 'Codigo nuevo'"
+                                                                :value="String(action.params[param.name] ?? '')"
+                                                                @input="updateParamValue(device.id, index, param, ($event.target as HTMLInputElement).value)"
+                                                            />
+                                                        </template>
                                                         <template v-else>
                                                             <input
                                                                 class="param-inline__input"
