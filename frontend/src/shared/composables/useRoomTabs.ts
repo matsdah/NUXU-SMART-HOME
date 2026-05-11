@@ -3,21 +3,29 @@
  * (room tabs) tanto en HomesPage como en DevicesPage.
  *
  * Centraliza la lógica de selección, filtrado y modales de CRUD
- * de habitaciones.
+ * de habitaciones. Elimina la duplicación de ~100 líneas entre ambos pages.
+ *
+ * Retorna un objeto reactivo para que los refs se desenvuelvan
+ * automáticamente en los templates.
  */
-import { ref, computed, type Ref } from 'vue'
+import { ref, reactive, type Ref } from 'vue'
+import { storeToRefs } from 'pinia'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import { useToast } from './useToast'
 import { handleApiError } from '@/shared/utils/api-error-handler'
-import type { Room } from '@/app/stores/dashboard'
 
 export type RoomFilter = 'all' | string
 
-export function useRoomTabs(activeFilter: Ref<RoomFilter>) {
+export type RoomTabsCallbacks = {
+  /** Invocado después de crear, renombrar o eliminar una habitación. */
+  onRoomsChanged?: () => Promise<void>
+}
+
+export function useRoomTabs(activeFilter: Ref<RoomFilter>, callbacks?: RoomTabsCallbacks) {
   const store = useDashboardStore()
+  const { rooms } = storeToRefs(store)
   const { showToast } = useToast()
 
-  // Modales
   const showAddRoom = ref(false)
   const showDeleteRoomConfirm = ref(false)
   const showEditRoomModal = ref(false)
@@ -25,8 +33,6 @@ export function useRoomTabs(activeFilter: Ref<RoomFilter>) {
   const renamingRoom = ref(false)
   const pendingRoomDeletion = ref<{ id: string; name: string } | null>(null)
   const pendingRoomEdition = ref<{ id: string; name: string } | null>(null)
-
-  const rooms = computed(() => store.rooms)
 
   function selectAllRooms() {
     activeFilter.value = 'all'
@@ -41,6 +47,7 @@ export function useRoomTabs(activeFilter: Ref<RoomFilter>) {
   async function onRoomCreated() {
     showAddRoom.value = false
     activeFilter.value = store.activeRoomId || 'all'
+    await callbacks?.onRoomsChanged?.()
   }
 
   // ---- Edición ----
@@ -71,6 +78,7 @@ export function useRoomTabs(activeFilter: Ref<RoomFilter>) {
       await store.updateRoomName(pendingRoomEdition.value.id, name)
       showEditRoomModal.value = false
       pendingRoomEdition.value = null
+      await callbacks?.onRoomsChanged?.()
     } catch (e) {
       const { message } = handleApiError(e)
       showToast(message, 'error')
@@ -100,7 +108,7 @@ export function useRoomTabs(activeFilter: Ref<RoomFilter>) {
     pendingRoomDeletion.value = null
   }
 
-  async function confirmRoomDeletion(onDeleted?: () => Promise<void>) {
+  async function confirmRoomDeletion() {
     if (!pendingRoomDeletion.value) return
     deletingRoom.value = true
     try {
@@ -108,7 +116,7 @@ export function useRoomTabs(activeFilter: Ref<RoomFilter>) {
       activeFilter.value = store.activeRoomId || 'all'
       showDeleteRoomConfirm.value = false
       pendingRoomDeletion.value = null
-      await onDeleted?.()
+      await callbacks?.onRoomsChanged?.()
     } catch (e) {
       const { message } = handleApiError(e)
       showToast(message, 'error')
@@ -117,7 +125,7 @@ export function useRoomTabs(activeFilter: Ref<RoomFilter>) {
     }
   }
 
-  return {
+  return reactive({
     rooms,
     showAddRoom,
     showDeleteRoomConfirm,
@@ -135,5 +143,5 @@ export function useRoomTabs(activeFilter: Ref<RoomFilter>) {
     requestRoomDeletion,
     closeDeleteRoomConfirm,
     confirmRoomDeletion,
-  }
+  })
 }

@@ -50,6 +50,75 @@ const loading = ref(true);
 
 const runningId = ref<string | null>(null);
 
+/* Scheduled execution tracking */
+const scheduleCheckInterval = ref<ReturnType<typeof setInterval> | null>(null);
+const lastExecutedMinute = ref<Map<string, string>>(new Map());
+
+function getCurrentMinuteKey(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}-${now.getHours()}-${now.getMinutes()}`;
+}
+
+function shouldExecuteRoutine(card: RoutineCard): boolean {
+    if (!card.isScheduled || !card.isScheduleEnabled) return false;
+    if (!card.scheduleTime || !card.scheduleFrequency) return false;
+
+    const now = new Date();
+    const currentDay = now.getDay();
+    const currentHM = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+
+    if (card.scheduleTime !== currentHM) return false;
+
+    switch (card.scheduleFrequency) {
+        case 'once':
+            break;
+        case 'daily':
+            break;
+        case 'weekly':
+            if (!card.scheduleDaysOfWeek?.includes(currentDay)) return false;
+            break;
+        default:
+            return false;
+    }
+
+    const minuteKey = getCurrentMinuteKey();
+    const lastKey = lastExecutedMinute.value.get(card.id);
+    if (lastKey === minuteKey) return false;
+
+    return true;
+}
+
+async function executeScheduledRoutine(card: RoutineCard) {
+    try {
+        await api.patch(`/routines/${card.id}/execute`, {});
+        lastExecutedMinute.value.set(card.id, getCurrentMinuteKey());
+        showToast(`Rutina "${card.name}" ejecutada automáticamente.`, 'success');
+    } catch {
+        /* Silently fail auto-execution to avoid spamming toasts */
+    }
+}
+
+function checkScheduledRoutines() {
+    for (const card of routines.value) {
+        if (shouldExecuteRoutine(card)) {
+            void executeScheduledRoutine(card);
+        }
+    }
+}
+
+function startScheduleChecker() {
+    if (scheduleCheckInterval.value) return;
+    checkScheduledRoutines();
+    scheduleCheckInterval.value = setInterval(checkScheduledRoutines, 15000);
+}
+
+function stopScheduleChecker() {
+    if (scheduleCheckInterval.value) {
+        clearInterval(scheduleCheckInterval.value);
+        scheduleCheckInterval.value = null;
+    }
+}
+
 const showFormModal = ref(false);
 const formMode = ref<"create" | "edit">("create");
 const editingCard = ref<RoutineCard | undefined>(undefined);
@@ -124,6 +193,8 @@ async function loadRoutines() {
                 actionsCount: r.actions?.length ?? 0,
                 icon: (r.metadata?.icon as RoutineIconType) || "bolt",
                 displayOrder: typeof r.metadata?.displayOrder === 'number' ? r.metadata.displayOrder : undefined,
+                isScheduled: (r.metadata?.scheduleMode as string) === 'scheduled' || Boolean(r.metadata?.schedule),
+                isScheduleEnabled: (r.metadata?.scheduleMode as string) === 'scheduled' && (r.metadata?.scheduleEnabled !== false),
             };
         }).sort((a, b) => {
             const aOrder = a.displayOrder ?? Infinity
@@ -295,6 +366,34 @@ async function confirmDeletion() {
         deletingRoutine.value = false
     }
 }
+
+async function toggleRoutineSchedule(id: string) {
+    const idx = routines.value.findIndex((r) => r.id === id)
+    if (idx < 0) return
+    const routine = routines.value[idx]!
+    if (!routine.isScheduled) return
+
+    try {
+        const existing = await api.get<ApiRoutineRaw>(`/routines/${id}`)
+        const nextEnabled = !routine.isScheduleEnabled
+        await api.put(`/routines/${id}`, {
+            name: existing.name,
+            actions: existing.actions ?? [],
+            metadata: {
+                ...existing.metadata,
+                scheduleEnabled: nextEnabled,
+            },
+        })
+        routines.value[idx] = { ...routine, isScheduleEnabled: nextEnabled }
+        showToast(nextEnabled ? 'Programación activada.' : 'Programación pausada.', 'success')
+    } catch (e: unknown) {
+        const apiError = e instanceof ApiError ? e : null
+        const msg = apiError
+            ? `Error ${apiError.status} al cambiar el estado.`
+            : 'No se pudo cambiar el estado de la programación.'
+        showToast(msg, 'error')
+    }
+}
 </script>
 
 <template>
@@ -344,6 +443,8 @@ async function confirmDeletion() {
                         'routine-card--edit-mode': isEditMode,
                         'routine-card--dragging': draggingId === card.id,
                         'routine-card--drag-over': dragOverId === card.id,
+                        'routine-card--scheduled': card.isScheduled && card.isScheduleEnabled,
+                        'routine-card--scheduled-paused': card.isScheduled && !card.isScheduleEnabled,
                     }"
                     :draggable="isEditMode"
                     @dragstart="onDragStart(card.id)"
@@ -375,6 +476,7 @@ async function confirmDeletion() {
                     </div>
 
                     <button
+                        v-if="!card.isScheduled"
                         type="button"
                         class="routine-card__run"
                         :disabled="runningId !== null || isEditMode"
@@ -405,6 +507,23 @@ async function confirmDeletion() {
                             aria-hidden="true"
                         >
                             <path d="M8 5v14l11-7z" />
+                        </svg>
+                    </button>
+                    <button
+                        v-else
+                        type="button"
+                        class="routine-card__run"
+                        :class="{
+                            'routine-card__run--scheduled-on': card.isScheduleEnabled,
+                            'routine-card__run--scheduled-off': !card.isScheduleEnabled,
+                        }"
+                        :aria-label="card.isScheduleEnabled ? 'Pausar programación' : 'Activar programación'"
+                        :disabled="isEditMode"
+                        @click.stop="toggleRoutineSchedule(card.id)"
+                    >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 6v6l4 2" />
                         </svg>
                     </button>
                 </article>
@@ -705,6 +824,78 @@ async function confirmDeletion() {
 .routine-card__run:disabled {
     opacity: 0.45;
     cursor: not-allowed;
+}
+
+/* Scheduled routine — match device on/off colours */
+.routine-card--scheduled {
+    background: rgba(190, 190, 166, 0.6);
+    box-shadow: inset 0 0 0 1px rgba(158, 155, 142, 0.3);
+}
+
+.routine-card--scheduled:hover {
+    background: rgba(190, 190, 166, 0.75);
+}
+
+.routine-card--scheduled-paused {
+    background: rgba(255, 255, 255, 0.82);
+    box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
+}
+
+.routine-card--scheduled-paused:hover {
+    background: rgba(255, 255, 255, 0.95);
+}
+
+/* Schedule toggle — match device switch */
+.routine-card__run--scheduled-on {
+    background: rgba(63, 129, 102, 0.65);
+    color: #fff;
+}
+
+.routine-card__run--scheduled-on:hover:not(:disabled) {
+    background: rgba(63, 129, 102, 0.85);
+}
+
+.routine-card__run--scheduled-off {
+    background: rgba(42, 40, 37, 0.18);
+    color: rgba(42, 40, 37, 0.6);
+}
+
+.routine-card__run--scheduled-off:hover:not(:disabled) {
+    background: rgba(42, 40, 37, 0.3);
+}
+
+.routine-card--scheduled:hover {
+    background: rgba(224, 220, 194, 0.9);
+}
+
+.routine-card--scheduled-paused {
+    background: rgba(200, 198, 188, 0.55);
+    box-shadow: inset 0 0 0 1px rgba(158, 155, 142, 0.25);
+}
+
+.routine-card--scheduled-paused:hover {
+    background: rgba(200, 198, 188, 0.7);
+}
+
+/* Schedule toggle: ON = dark active, OFF = muted inactive */
+.routine-card__run--scheduled-on {
+    background: rgba(42, 40, 37, 0.88);
+    color: #f7f3e7;
+}
+
+.routine-card__run--scheduled-on:hover:not(:disabled) {
+    background: rgba(42, 40, 37, 1);
+    transform: scale(1.05);
+}
+
+.routine-card__run--scheduled-off {
+    background: rgba(158, 155, 142, 0.55);
+    color: rgba(42, 40, 37, 0.7);
+}
+
+.routine-card__run--scheduled-off:hover:not(:disabled) {
+    background: rgba(158, 155, 142, 0.75);
+    transform: scale(1.05);
 }
 
 @keyframes spin {

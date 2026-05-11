@@ -2,6 +2,7 @@ import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { api, ApiError } from '@/services/api/client'
 import { useAuthStore } from '@/app/stores/auth'
+import { wait, isRecord, normalizeTypeName, statusForKind, isRecoverableActionError } from '@/shared/utils/store-helpers'
 
 /* Tipos de la API */
 
@@ -112,6 +113,8 @@ export type Routine = {
   time: string
   icon: string
   displayOrder?: number
+  scheduleMode?: 'manual' | 'scheduled'
+  scheduleEnabled?: boolean
 }
 
 /* Helpers de mapeo y formateo */
@@ -221,21 +224,7 @@ function formatStatus(state?: ApiDeviceState): string {
   return 'Sin estado'
 }
 
-export function statusForKind(kind: string, isOn: boolean): string {
-  const map: Record<string, [string, string]> = {
-    door: ['Abierto', 'Cerrado'],
-    tap: ['Abierto', 'Cerrado'],
-    blind: ['Abierto', 'Cerrado'],
-    speaker: ['Reproduciendo', 'Detenido'],
-    vacuum: ['Activo', 'Inactivo'],
-    alarm: ['Activada', 'Desactivada'],
-    ac: ['Encendido', 'Apagado'],
-    oven: ['Encendido', 'Apagado'],
-    lamp: ['Encendido', 'Apagado'],
-    fridge: ['Encendido', 'Encendido'],
-  }
-  return map[kind]?.[isOn ? 0 : 1] ?? (isOn ? 'Encendido' : 'Apagado')
-}
+export { statusForKind } from '@/shared/utils/store-helpers'
 
 function resolveIsOn(state?: ApiDeviceState): boolean {
   if(!state){ 
@@ -279,10 +268,6 @@ function sortByDisplayOrder<T extends { displayOrder?: number }>(items: T[]): T[
   })
 }
 
-function wait(ms: number): Promise<void> {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
 const LOCAL_STATE_STORAGE_PREFIX: Partial<Record<DeviceKind, string>> = {
   ac: 'ac-controls-state:',
   oven: 'oven-controls-state:',
@@ -305,10 +290,6 @@ type DeviceToggleCommand = {
 
 const PERSISTED_CONTROL_KINDS: PersistedControlKind[] = ['ac', 'oven', 'lamp', 'fridge']
 const DEFAULT_ON_DEVICE_KINDS = new Set<DeviceKind>(['ac', 'oven', 'lamp'])
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
 
 function readPersistedControlState(kind: DeviceKind | undefined, deviceId: string): Record<string, unknown> {
   if (!kind || typeof localStorage === 'undefined') {
@@ -532,10 +513,6 @@ function syncPersistedPowerState(
   writePersistedControlState(preferredKind, deviceId, { ...existing, isOn })
 }
 
-function normalizeTypeName(typeName?: string): string {
-  return typeName?.trim().toLowerCase() ?? ''
-}
-
 function resolveDeviceKind(typeId?: string, typeName?: string): DeviceKind | undefined {
   const nameKind = TYPE_NAME_MAP[normalizeTypeName(typeName)]
   if (nameKind) {
@@ -588,10 +565,6 @@ function getToggleCommands(kind: DeviceKind | undefined, isCurrentlyOn: boolean)
   }
 
   return [{ action: powerAction }]
-}
-
-function isRecoverableActionError(err: unknown): err is ApiError {
-  return err instanceof ApiError && [400, 404, 405, 422].includes(err.status)
 }
 
 function writePersistedControlStates(deviceId: string, entries: PersistedControlEntry[]): void {
@@ -754,14 +727,20 @@ export const useDashboardStore = defineStore('dashboard', () => {
         .some(a => a.device?.id && activeDeviceIds.has(a.device.id))
     })
 
-    routines.value = sortByDisplayOrder(homeRoutines.map(r => ({
-      id: r.id,
-      name: r.name,
-      summary: r.actions ? `${r.actions.length} acciones` : 'Manual',
-      time: r.schedule?.time ?? '',
-      icon: (r.metadata?.icon as string) || mapRoutineIcon(r.name),
-      displayOrder: typeof r.metadata?.displayOrder === 'number' ? r.metadata.displayOrder : undefined,
-    })))
+    routines.value = sortByDisplayOrder(homeRoutines.map(r => {
+      const scheduleMode = (r.metadata?.scheduleMode as 'manual' | 'scheduled' | undefined) ?? (r.schedule ? 'scheduled' : 'manual')
+      const scheduleEnabled = scheduleMode === 'scheduled' && (r.metadata?.scheduleEnabled !== false)
+      return {
+        id: r.id,
+        name: r.name,
+        summary: r.actions ? `${r.actions.length} acciones` : 'Manual',
+        time: scheduleEnabled ? (r.schedule?.time ?? '') : '',
+        icon: (r.metadata?.icon as string) || mapRoutineIcon(r.name),
+        displayOrder: typeof r.metadata?.displayOrder === 'number' ? r.metadata.displayOrder : undefined,
+        scheduleMode,
+        scheduleEnabled,
+      }
+    }))
     routinesLoaded.value = true
   }
 
@@ -944,7 +923,7 @@ export const useDashboardStore = defineStore('dashboard', () => {
           return
         } catch (err) {
           if (isRecoverableActionError(err)) {
-            lastRecoverableError = err
+            lastRecoverableError = err as ApiError
             continue
           }
           throw err

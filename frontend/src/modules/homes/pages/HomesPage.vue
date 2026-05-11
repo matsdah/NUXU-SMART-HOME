@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useHomesDashboard } from '@/modules/homes/composables/useHomesDashboard'
-import { useDashboardStore, statusForKind } from '@/app/stores/dashboard'
-import { useSocketStore } from '@/app/stores/socket'
+import { useDashboardStore } from '@/app/stores/dashboard'
 import type { Device } from '@/app/stores/dashboard'
 import { api, ApiError } from '@/services/api/client'
 import { useToast } from '@/shared/composables/useToast'
+import { useDeviceList } from '@/shared/composables/useDeviceList'
+import { useRoomTabs } from '@/shared/composables/useRoomTabs'
+import { handleApiError } from '@/shared/utils/api-error-handler'
 import DeviceIcon from '@/shared/components/DeviceIcon.vue'
 import RoutineIcon from '@/shared/components/RoutineIcon.vue'
 import DeviceModal from '@/modules/devices/components/DeviceModal.vue'
@@ -15,33 +17,43 @@ import DeleteRoomConfirmModal from '@/modules/homes/components/DeleteRoomConfirm
 import EditRoomModal from '@/modules/homes/components/EditRoomModal.vue'
 import RoutineFormModal from '@/modules/routines/components/RoutineFormModal.vue'
 import type { RoutineCard } from '@/modules/routines/components/RoutineFormModal.vue'
+import { useSocketStore } from '@/app/stores/socket'
 import '@/shared/styles/device-card.css'
 import '@/shared/styles/room-tabs.css'
 import '@/shared/styles/shared-panel.css'
 
-const { rooms, routines, activeHomeId, activeRoomId, loading, error, pendingActions } = useHomesDashboard()
-
+const { activeHomeId, routines, loading, error, pendingActions } = useHomesDashboard()
 const store = useDashboardStore()
 const socketStore = useSocketStore()
+const { showToast } = useToast()
 
-const showAddDevice = ref(false)
-const showAddRoom = ref(false)
-const showDeleteRoomConfirm = ref(false)
-const showEditRoomModal = ref(false)
+// ---- Room tabs ----
+const activeRoomFilter = ref<'all' | string>('all')
+
+const roomTabs = useRoomTabs(activeRoomFilter, {
+  onRoomsChanged: async () => {
+    await deviceList.refreshDevices({ silent: true })
+    socketStore.deviceListVersion++
+  },
+})
+
+// ---- Device list ----
+const deviceList = useDeviceList({
+  activeHomeId,
+  loading,
+  onHomeChanged: () => { activeRoomFilter.value = 'all' },
+})
+
+const { allDevices } = deviceList
+
+const displayedDevices = computed(() => {
+  if (activeRoomFilter.value === 'all') return allDevices.value
+  return allDevices.value.filter(d => d.roomId === activeRoomFilter.value)
+})
+
+// ---- Device modal ----
 const selectedDevice = ref<Device | null>(null)
 const selectedRoomName = ref('')
-const activeRoomFilter = ref<'all' | string>('all')
-const allDevices = ref<Device[]>([])
-const loadingDevices = ref(false)
-const refreshingDevices = ref(false)
-const pendingRoomDeletion = ref<{ id: string; name: string } | null>(null)
-const deletingRoom = ref(false)
-const pendingRoomEdition = ref<{ id: string; name: string } | null>(null)
-const renamingRoom = ref(false)
-const showCreateRoutine = ref(false)
-const runningRoutineId = ref<string | null>(null)
-
-const { showToast } = useToast()
 
 function openDeviceModal(device: Device) {
   selectedDevice.value = device
@@ -53,146 +65,61 @@ function closeDeviceModal() {
 }
 
 function onDeviceUpdated(id: string, isOn: boolean) {
-  const d = allDevices.value.find(x => x.id === id)
-  if (!d) return
-  d.isOn = isOn
-  d.tone = isOn ? 'sage' : 'neutral'
-  d.status = statusForKind(d.kind, isOn)
-  store.fetchDeviceState(id).then(state => {
-    if (!state) return
-    const device = allDevices.value.find(x => x.id === id)
-    if (device) device.status = state.status
-  })
+  deviceList.applyDeviceUpdate(id, isOn)
 }
 
 async function onDeviceCreated() {
   showAddDevice.value = false
-  await refreshHomeDevices({ silent: true })
+  await deviceList.refreshDevices({ silent: true })
 }
 
-const displayedDevices = computed(() => {
-  if (activeRoomFilter.value === 'all') {
-    return allDevices.value
-  }
-  return allDevices.value.filter(device => device.roomId === activeRoomFilter.value)
-})
+// ---- Add device ----
+const showAddDevice = ref(false)
 
-function hasDeviceListChanged(nextDevices: Device[]): boolean {
-  if (allDevices.value.length !== nextDevices.length) {
-    return true
-  }
-
-  const currentById = new Map(allDevices.value.map(device => [device.id, device]))
-  for (const next of nextDevices) {
-    const current = currentById.get(next.id)
-    if (!current) {
-      return true
-    }
-
-    if (
-      current.name !== next.name
-      || current.roomId !== next.roomId
-      || current.kind !== next.kind
-      || current.status !== next.status
-      || current.isOn !== next.isOn
-      || current.tone !== next.tone
-      || current.displayOrder !== next.displayOrder
-    ) {
-      return true
-    }
-  }
-
-  return false
-}
-
-async function refreshHomeDevices(options: { silent?: boolean } = {}) {
-  if (!activeHomeId.value) {
-    allDevices.value = []
-    return
-  }
-  if (refreshingDevices.value) {
-    return
-  }
-
-  const silent = options.silent === true
-  refreshingDevices.value = true
-  if (!silent) {
-    loadingDevices.value = true
-  }
-  try {
-    const nextDevices = await store.fetchHomeDevices(activeHomeId.value)
-    if (hasDeviceListChanged(nextDevices)) {
-      allDevices.value = nextDevices
-      store.devices.splice(0, store.devices.length, ...nextDevices)
-    }
-  } finally {
-    refreshingDevices.value = false
-    if (!silent) {
-      loadingDevices.value = false
-    }
-  }
-}
-
-
-function selectAllRooms() {
-  activeRoomFilter.value = 'all'
-}
-
-function selectRoom(roomId: string) {
-  activeRoomFilter.value = roomId
-  activeRoomId.value = roomId
-}
-
-async function onToggleDevice(id: string) {
-  await store.toggleDevice(id)
-  const storeDevice = store.devices.find(d => d.id === id)
-  if (storeDevice) {
-    const local = allDevices.value.find(d => d.id === id)
-    if (local) {
-      local.isOn = storeDevice.isOn
-      local.tone = storeDevice.tone
-      local.status = storeDevice.status
-    }
-  }
-}
-
-async function onRoomCreated() {
-  showAddRoom.value = false
-  activeRoomFilter.value = store.activeRoomId || 'all'
-  await refreshHomeDevices({ silent: true })
-}
-
-function requestRoomRename() {
-  if (activeRoomFilter.value === 'all') {
-    showToast('Seleccioná una habitación para editar.', 'error')
-    return
-  }
-
-  const room = store.rooms.find(currentRoom => currentRoom.id === activeRoomFilter.value)
-  if (!room) {
-    showToast('No se encontró la habitación seleccionada.', 'error')
-    return
-  }
-
-  pendingRoomEdition.value = { id: room.id, name: room.name }
-  showEditRoomModal.value = true
-}
+// ---- Routines ----
+const showCreateRoutine = ref(false)
+const runningRoutineId = ref<string | null>(null)
 
 async function executeRoutine(id: string) {
   if (runningRoutineId.value) return
   runningRoutineId.value = id
   try {
     await api.patch(`/routines/${id}/execute`, {})
-    // Refresh device states to reflect any changes made by the routine execution
-    await refreshHomeDevices({ silent: true })
+    await deviceList.refreshDevices({ silent: true })
     showToast('Rutina ejecutada correctamente.', 'success')
   } catch (e) {
-    const msg = e instanceof ApiError
-      ? `Error ${e.status} al ejecutar la rutina.`
-      : 'No se pudo ejecutar la rutina.'
-    showToast(msg, 'error')
+    const { message, type } = handleApiError(e)
+    showToast(message, type)
   } finally {
     runningRoutineId.value = null
+  }
+}
+
+async function toggleRoutineSchedule(id: string) {
+  const idx = routines.value.findIndex((r) => r.id === id)
+  if (idx < 0) return
+  const routine = routines.value[idx]!
+  if (routine.scheduleMode !== 'scheduled') return
+
+  try {
+    const existing = await api.get<{ id: string; name: string; actions?: unknown[]; metadata?: Record<string, unknown> }>(`/routines/${id}`)
+    const nextEnabled = !routine.scheduleEnabled
+    await api.put(`/routines/${id}`, {
+      name: existing.name,
+      actions: existing.actions ?? [],
+      metadata: {
+        ...existing.metadata,
+        scheduleEnabled: nextEnabled,
+      },
+    })
+    routine.scheduleEnabled = nextEnabled
+    showToast(nextEnabled ? 'Programación activada.' : 'Programación pausada.', 'success')
+  } catch (e: unknown) {
+    const apiError = e instanceof ApiError ? e : null
+    const msg = apiError
+      ? `Error ${apiError.status} al cambiar el estado.`
+      : 'No se pudo cambiar el estado de la programación.'
+    showToast(msg, 'error')
   }
 }
 
@@ -201,133 +128,6 @@ function onRoutineCreated(_routine: RoutineCard) {
   store.invalidateRoutines()
   void store.loadRoutines()
 }
-
-function closeEditRoomModal() {
-  if (renamingRoom.value) {
-    return
-  }
-  showEditRoomModal.value = false
-  pendingRoomEdition.value = null
-}
-
-async function confirmRoomRename(name: string) {
-  if (!pendingRoomEdition.value) {
-    return
-  }
-
-  renamingRoom.value = true
-  try {
-    await store.updateRoomName(pendingRoomEdition.value.id, name)
-    showEditRoomModal.value = false
-    pendingRoomEdition.value = null
-  } catch (e) {
-    if (e instanceof ApiError) {
-      const msg = (e.body as { error?: { description?: string } })?.error?.description
-      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
-      return
-    }
-    showToast(e instanceof Error ? e.message : 'Error inesperado. Intentá de nuevo.', 'error')
-  } finally {
-    renamingRoom.value = false
-  }
-}
-
-function requestRoomDeletion() {
-  if (activeRoomFilter.value === 'all') {
-    showToast('Seleccioná una habitación para eliminar.', 'error')
-    return
-  }
-
-  const room = store.rooms.find(currentRoom => currentRoom.id === activeRoomFilter.value)
-  if (!room) {
-    showToast('No se encontró la habitación seleccionada.', 'error')
-    return
-  }
-
-  pendingRoomDeletion.value = { id: room.id, name: room.name }
-  showDeleteRoomConfirm.value = true
-}
-
-function closeDeleteRoomConfirm() {
-  if (deletingRoom.value) {
-    return
-  }
-  showDeleteRoomConfirm.value = false
-  pendingRoomDeletion.value = null
-}
-
-async function confirmRoomDeletion() {
-  if (!pendingRoomDeletion.value) {
-    return
-  }
-
-  deletingRoom.value = true
-  try {
-    await store.deleteRoom(pendingRoomDeletion.value.id)
-    activeRoomFilter.value = store.activeRoomId || 'all'
-    showDeleteRoomConfirm.value = false
-    pendingRoomDeletion.value = null
-    await refreshHomeDevices({ silent: true })
-  } catch (e) {
-    if (e instanceof ApiError) {
-      const msg = (e.body as { error?: { description?: string } })?.error?.description
-      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
-      return
-    }
-    showToast('Error inesperado. Intentá de nuevo.', 'error')
-  } finally {
-    deletingRoom.value = false
-  }
-}
-
-watch([loading, activeHomeId], async ([isLoading, homeId], previousValue) => {
-  const previousHomeId = previousValue?.[1]
-
-  if (!homeId) {
-    allDevices.value = []
-    activeRoomFilter.value = 'all'
-    return
-  }
-
-  if (homeId !== previousHomeId) {
-    activeRoomFilter.value = 'all'
-  }
-
-  if (!isLoading) {
-    await refreshHomeDevices()
-  }
-}, { immediate: true })
-
-function extractDeviceIdFromEvent(eventData: Record<string, unknown>): string | undefined {
-  const nested = eventData['data'] as Record<string, unknown> | undefined
-  return (nested?.['deviceId'] ?? nested?.['device_id'] ?? eventData['deviceId'] ?? eventData['device_id']) as string | undefined
-}
-
-// Update quirúrgico cuando el payload WS trae device ID (1-2 llamadas en vez de N+1)
-watch(() => socketStore.lastDeviceEvent, async (eventData) => {
-  if (!eventData) return
-  const deviceId = extractDeviceIdFromEvent(eventData)
-  if (!deviceId) return
-  const updated = await store.fetchDeviceState(deviceId)
-  if (!updated) { void refreshHomeDevices({ silent: true }); return }
-  const local = allDevices.value.find(d => d.id === deviceId)
-  if (!local) { void refreshHomeDevices({ silent: true }); return }
-  local.isOn = updated.isOn
-  local.tone = updated.tone
-  local.status = updated.status
-})
-
-// Refresh completo solo cuando el payload no tiene device ID reconocible
-watch(() => socketStore.deviceStateVersion, () => {
-  const ev = socketStore.lastDeviceEvent
-  const deviceId = ev ? extractDeviceIdFromEvent(ev) : undefined
-  if (deviceId && allDevices.value.some(d => d.id === deviceId)) return
-  void refreshHomeDevices({ silent: true })
-})
-
-watch(() => socketStore.deviceListVersion, () => {
-  void refreshHomeDevices({ silent: true })
-})
 </script>
 
 <template>
@@ -342,14 +142,14 @@ watch(() => socketStore.deviceListVersion, () => {
             type="button"
             class="room-tab"
             :class="{ 'room-tab--active': activeRoomFilter === 'all' }"
-            @click="selectAllRooms"
+            @click="roomTabs.selectAllRooms"
           >
             Todos
           </button>
           <button
-            v-for="room in rooms" :key="room.id" type="button"
+            v-for="room in roomTabs.rooms" :key="room.id" type="button"
             class="room-tab" :class="{ 'room-tab--active': room.id === activeRoomFilter }"
-            @click="selectRoom(room.id)"
+            @click="roomTabs.selectRoom(room.id)"
           >
             {{ room.name }}
           </button>
@@ -357,7 +157,7 @@ watch(() => socketStore.deviceListVersion, () => {
             class="room-tab room-tab--icon"
             type="button"
             aria-label="Agregar habitación"
-            @click="showAddRoom = true"
+            @click="roomTabs.showAddRoom = true"
           >
             +
           </button>
@@ -365,8 +165,8 @@ watch(() => socketStore.deviceListVersion, () => {
             class="room-tab room-tab--icon"
             type="button"
             aria-label="Eliminar habitación"
-            :disabled="rooms.length === 0 || activeRoomFilter === 'all'"
-            @click="requestRoomDeletion"
+            :disabled="roomTabs.rooms.length === 0 || activeRoomFilter === 'all'"
+            @click="roomTabs.requestRoomDeletion"
           >
             <span aria-hidden="true">&#128465;</span>
           </button>
@@ -374,8 +174,8 @@ watch(() => socketStore.deviceListVersion, () => {
             class="room-tab room-tab--icon"
             type="button"
             aria-label="Editar habitación"
-            :disabled="rooms.length === 0 || activeRoomFilter === 'all'"
-            @click="requestRoomRename"
+            :disabled="roomTabs.rooms.length === 0 || activeRoomFilter === 'all'"
+            @click="roomTabs.requestRoomRename"
           >
             <span aria-hidden="true">&#9998;</span>
           </button>
@@ -384,7 +184,7 @@ watch(() => socketStore.deviceListVersion, () => {
     </div>
 
     <div v-if="error" class="notice notice--error" role="alert">{{ error }}</div>
-    <div v-else-if="loading || loadingDevices" class="notice">Cargando dashboard...</div>
+    <div v-else-if="loading || deviceList.loadingDevices.value" class="notice">Cargando dashboard...</div>
 
     <div v-else class="homes__content">
       <section class="panel panel--devices">
@@ -407,7 +207,7 @@ watch(() => socketStore.deviceListVersion, () => {
             <div class="device-card__top">
               <div
                 class="device-icon"
-                :class="{ 'device-icon--off': !device.isOn && device.kind !== 'fridge' && device.kind !== 'door' && device.kind !== 'alarm' }"
+                :class="{ 'device-icon--off': !device.isOn && device.kind !== 'fridge' && device.kind !== 'door' }"
                 aria-hidden="true"
               >
                 <DeviceIcon :kind="device.kind" />
@@ -417,7 +217,7 @@ watch(() => socketStore.deviceListVersion, () => {
                 <input
                   type="checkbox" :checked="device.isOn"
                   :disabled="pendingActions.has(device.id)"
-                  @change="onToggleDevice(device.id)"
+                  @change="deviceList.toggleDevice(device.id)"
                 />
                 <span class="switch__track"></span>
               </label>
@@ -428,8 +228,6 @@ watch(() => socketStore.deviceListVersion, () => {
               <p>{{ device.status }}</p>
             </div>
           </article>
-
-          
         </div>
       </section>
 
@@ -444,7 +242,15 @@ watch(() => socketStore.deviceListVersion, () => {
             <span class="routine-card__plus">+</span>
             <span>Nueva</span>
           </button>
-          <article v-for="routine in routines" :key="routine.id" class="routine-card">
+          <article
+            v-for="routine in routines"
+            :key="routine.id"
+            class="routine-card"
+            :class="{
+              'routine-card--scheduled': routine.scheduleMode === 'scheduled' && routine.scheduleEnabled,
+              'routine-card--scheduled-paused': routine.scheduleMode === 'scheduled' && !routine.scheduleEnabled,
+            }"
+          >
             <div class="routine-icon" aria-hidden="true">
               <RoutineIcon :icon="routine.icon" />
             </div>
@@ -454,11 +260,12 @@ watch(() => socketStore.deviceListVersion, () => {
               <span v-if="routine.time">{{ routine.time }}</span>
             </div>
             <button
+              v-if="routine.scheduleMode !== 'scheduled'"
               type="button"
               class="routine-card__play"
               :disabled="runningRoutineId !== null"
               :aria-label="`Ejecutar ${routine.name}`"
-              @click="executeRoutine(routine.id)"
+              @click.stop="executeRoutine(routine.id)"
             >
               <svg
                 v-if="runningRoutineId === routine.id"
@@ -473,9 +280,23 @@ watch(() => socketStore.deviceListVersion, () => {
                 <path d="M8 5v14l11-7z" />
               </svg>
             </button>
+            <button
+              v-else
+              type="button"
+              class="routine-card__play"
+              :class="{
+                'routine-card__play--scheduled-on': routine.scheduleEnabled,
+                'routine-card__play--scheduled-off': !routine.scheduleEnabled,
+              }"
+              :aria-label="routine.scheduleEnabled ? 'Pausar programación' : 'Activar programación'"
+              @click.stop="toggleRoutineSchedule(routine.id)"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 6v6l4 2" />
+              </svg>
+            </button>
           </article>
-
-          
         </div>
       </aside>
     </div>
@@ -490,25 +311,25 @@ watch(() => socketStore.deviceListVersion, () => {
 
     <AddDeviceModal
       v-if="showAddDevice"
-      :room-id="activeRoomId"
-      :room-name="store.rooms.find(r => r.id === activeRoomId)?.name ?? ''"
+      :room-id="store.activeRoomId"
+      :room-name="store.rooms.find(r => r.id === store.activeRoomId)?.name ?? ''"
       :show-room-selector="activeRoomFilter === 'all'"
       @close="showAddDevice = false"
       @created="onDeviceCreated"
     />
 
     <AddRoomModal
-      v-if="showAddRoom"
-      @close="showAddRoom = false"
-      @created="onRoomCreated"
+      v-if="roomTabs.showAddRoom"
+      @close="roomTabs.showAddRoom = false"
+      @created="roomTabs.onRoomCreated"
     />
 
     <DeleteRoomConfirmModal
-      v-if="showDeleteRoomConfirm && pendingRoomDeletion"
-      :room-name="pendingRoomDeletion.name"
-      :loading="deletingRoom"
-      @close="closeDeleteRoomConfirm"
-      @confirm="confirmRoomDeletion"
+      v-if="roomTabs.showDeleteRoomConfirm && roomTabs.pendingRoomDeletion"
+      :room-name="roomTabs.pendingRoomDeletion.name"
+      :loading="roomTabs.deletingRoom"
+      @close="roomTabs.closeDeleteRoomConfirm"
+      @confirm="roomTabs.confirmRoomDeletion"
     />
 
     <RoutineFormModal
@@ -519,13 +340,12 @@ watch(() => socketStore.deviceListVersion, () => {
     />
 
     <EditRoomModal
-      v-if="showEditRoomModal && pendingRoomEdition"
-      :room-name="pendingRoomEdition.name"
-      :loading="renamingRoom"
-      @close="closeEditRoomModal"
-      @updated="confirmRoomRename"
+      v-if="roomTabs.showEditRoomModal && roomTabs.pendingRoomEdition"
+      :room-name="roomTabs.pendingRoomEdition.name"
+      :loading="roomTabs.renamingRoom"
+      @close="roomTabs.closeEditRoomModal"
+      @updated="roomTabs.confirmRoomRename"
     />
-
   </section>
 </template>
 
@@ -552,5 +372,43 @@ watch(() => socketStore.deviceListVersion, () => {
   .homes__content {
     grid-template-columns: 1fr;
   }
+}
+
+/* Scheduled routine card states — match device on/off colours */
+.routine-card--scheduled {
+  background: rgba(190, 190, 166, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(158, 155, 142, 0.3);
+}
+
+.routine-card--scheduled:hover {
+  background: rgba(190, 190, 166, 0.75);
+}
+
+.routine-card--scheduled-paused {
+  background: rgba(255, 255, 255, 0.82);
+  box-shadow: inset 0 0 0 1px rgba(42, 40, 37, 0.06);
+}
+
+.routine-card--scheduled-paused:hover {
+  background: rgba(255, 255, 255, 0.95);
+}
+
+/* Schedule toggle button states — match device switch */
+.routine-card__play--scheduled-on {
+  background: rgba(63, 129, 102, 0.65);
+  color: #fff;
+}
+
+.routine-card__play--scheduled-on:hover:not(:disabled) {
+  background: rgba(63, 129, 102, 0.85);
+}
+
+.routine-card__play--scheduled-off {
+  background: rgba(42, 40, 37, 0.18);
+  color: rgba(42, 40, 37, 0.6);
+}
+
+.routine-card__play--scheduled-off:hover:not(:disabled) {
+  background: rgba(42, 40, 37, 0.3);
 }
 </style>

@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
-import { api, ApiError } from '@/services/api/client'
+import { api } from '@/services/api/client'
 import { useDashboardStore, labelForTypeId } from '@/app/stores/dashboard'
 import type { DeviceType } from '@/app/stores/dashboard'
 import CustomSelect from '@/shared/components/CustomSelect.vue'
 import { useToast } from '@/shared/composables/useToast'
+import { handleApiError } from '@/shared/utils/api-error-handler'
+import '@/shared/styles/auth-form.css'
 
 const props = defineProps<{
   roomId: string
@@ -90,12 +92,8 @@ async function handleSubmit() {
       typeName: selectedType?.name ?? '',
     })
   } catch (e) {
-    if (e instanceof ApiError) {
-      const msg = (e.body as { error?: { description?: string } })?.error?.description
-      showToast(msg ?? `Error ${e.status}. Intentá de nuevo.`, 'error')
-    } else {
-      showToast('Error inesperado. Intentá de nuevo.', 'error')
-    }
+    const { message, type } = handleApiError(e)
+    showToast(message, type)
   } finally {
     loading.value = false
   }
@@ -249,45 +247,6 @@ onBeforeUnmount(() => {
   gap: 1rem;
 }
 
-.field {
-  position: relative;
-}
-
-.field__input {
-  width: 100%;
-  height: 54px;
-  padding: 18px 1rem 4px;
-  background: rgba(255, 255, 255, 0.6);
-  border: 1.5px solid var(--color-sage);
-  border-radius: 12px;
-  font-size: 0.95rem;
-  font-family: var(--font-sans);
-  color: var(--color-text);
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.field__input:focus { border-color: var(--color-brown); }
-
-.field__label {
-  position: absolute;
-  left: 1rem;
-  top: 50%;
-  transform: translateY(-50%);
-  font-size: 0.95rem;
-  font-weight: 300;
-  color: var(--color-text-muted);
-  pointer-events: none;
-  transition: top 0.18s ease, font-size 0.18s ease, color 0.18s ease;
-}
-
-.field__input:focus ~ .field__label,
-.field__input:not(:placeholder-shown) ~ .field__label {
-  top: 16px;
-  font-size: 0.72rem;
-  color: var(--color-black);
-}
-
 .modal__actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -343,7 +302,4 @@ onBeforeUnmount(() => {
   text-align: center;
   padding: 1rem 0;
 }
-
-@keyframes spin { to { transform: rotate(360deg); } }
-.spinner { animation: spin 0.9s linear infinite; }
 </style>

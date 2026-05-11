@@ -5,6 +5,14 @@ import { useDashboardStore, labelForTypeId } from "@/app/stores/dashboard";
 import { useToast } from "@/shared/composables/useToast";
 import type { Device, DeviceKind } from "@/app/stores/dashboard";
 import DeviceIcon from "@/shared/components/DeviceIcon.vue";
+import RoutineIcon from "@/shared/components/RoutineIcon.vue";
+import RoutineScheduleStep, { type RoutineScheduleConfig } from "./RoutineScheduleStep.vue";
+import EditEntityModal from "@/app/components/EditEntityModal.vue";
+import DeleteEntityConfirmModal from "@/app/components/DeleteEntityConfirmModal.vue";
+import type {
+    RoutineCard,
+    RoutineIcon as RoutineIconType,
+} from "../components/RoutineFormModal.vue";
 import {
     getActionLabel,
     getAllowedActionsForType,
@@ -37,6 +45,11 @@ export type RoutineCard = {
     actionsCount: number;
     icon: RoutineIcon;
     displayOrder?: number;
+    isScheduled?: boolean;
+    isScheduleEnabled?: boolean;
+    scheduleTime?: string;
+    scheduleFrequency?: string;
+    scheduleDaysOfWeek?: number[];
 };
 
 /* ─── Internal types ─────────────────────────────────────── */
@@ -46,6 +59,11 @@ type ApiRoutineDetail = {
     id?: string;
     name?: string;
     actions?: ApiRoutineAction[];
+    schedule?: {
+        time?: string;
+        frequency?: string;
+        daysOfWeek?: number[];
+    };
     metadata?: Record<string, unknown>;
 };
 type ApiRoutineAction = {
@@ -59,7 +77,7 @@ type ApiRoutineAction = {
 const props = defineProps<{
     mode: "create" | "edit";
     routine?: RoutineCard;
-    initialStep?: 1 | 2;
+    initialStep?: 1 | 2 | 3;
 }>();
 
 const emit = defineEmits<{
@@ -92,8 +110,15 @@ const routineName = ref(props.routine?.name ?? "");
 const selectedIcon = ref<RoutineIcon>(props.routine?.icon ?? "bolt");
 const existingMetadata = ref<Record<string, unknown>>({});
 
-// Step 1 = details + devices, Step 2 = actions
-const activeStep = ref<1 | 2>(
+const scheduleConfig = ref<RoutineScheduleConfig>({
+    enabled: false,
+    time: "08:00",
+    frequency: "daily",
+    daysOfWeek: [1, 2, 3, 4, 5],
+});
+
+// Step 1 = details + devices, Step 2 = actions, Step 3 = schedule
+const activeStep = ref<1 | 2 | 3>(
     props.initialStep ?? (props.mode === "edit" ? 2 : 1),
 );
 const selectedRoomId = ref("all");
@@ -190,25 +215,37 @@ const selectedDevicesInfo = computed(() =>
 
 const isStep1 = computed(() => activeStep.value === 1);
 const isStep2 = computed(() => activeStep.value === 2);
+const isStep3 = computed(() => activeStep.value === 3);
 
 // Step 1 requires both a name and at least one device selected
 const canContinueStep1 = computed(
     () => routineName.value.trim() !== "" && selectedDeviceIds.value.length > 0,
 );
 
+// Step 2 requires at least one valid action per selected device
+const canContinueStep2 = computed(() => {
+    if (selectedDeviceIds.value.length === 0) return false;
+    return selectedDeviceIds.value.every((deviceId) => {
+        const actions = actionsByDevice.value[deviceId] ?? [];
+        return actions.some((a) => a.actionName);
+    });
+});
+
 const canSubmit = computed(
     () => routineName.value.trim() !== "" && selectedDeviceIds.value.length > 0,
 );
 
-const stepTitle = computed(() =>
-    isStep1.value ? "Dispositivos" : "Acciones",
-);
+const stepTitle = computed(() => {
+    if (isStep1.value) return "Dispositivos";
+    if (isStep2.value) return "Acciones";
+    return "Programación";
+});
 
-const stepSubtitle = computed(() =>
-    isStep1.value
-        ? "Seleccioná los dispositivos de la rutina."
-        : "Configura acciones para cada dispositivo.",
-);
+const stepSubtitle = computed(() => {
+    if (isStep1.value) return "Seleccioná los dispositivos de la rutina.";
+    if (isStep2.value) return "Configurá las acciones para cada dispositivo.";
+    return "Definí el horario y la frecuencia de ejecución.";
+});
 
 /* ─── Helpers ────────────────────────────────────────────── */
 
@@ -350,10 +387,26 @@ async function loadRoutineActions(routineId: string): Promise<void> {
         if (detail?.name && routineName.value.trim() === "") routineName.value = detail.name;
         if (detail?.metadata) {
             existingMetadata.value = detail.metadata;
-            const metaIcon = detail.metadata.icon as RoutineIcon | undefined;
+            const metaIcon = detail.metadata.icon as RoutineIconType | undefined;
             if (metaIcon && ICONS.includes(metaIcon)) {
                 selectedIcon.value = metaIcon;
             }
+        }
+        if (detail?.schedule) {
+            const sched = detail.schedule;
+            scheduleConfig.value = {
+                enabled: true,
+                time: sched.time ?? "08:00",
+                frequency: (sched.frequency as RoutineScheduleConfig['frequency']) ?? "daily",
+                daysOfWeek: Array.isArray(sched.daysOfWeek) ? sched.daysOfWeek : [1, 2, 3, 4, 5],
+            };
+        } else {
+            scheduleConfig.value = {
+                enabled: false,
+                time: "08:00",
+                frequency: "daily",
+                daysOfWeek: [1, 2, 3, 4, 5],
+            };
         }
         if (Array.isArray(detail?.actions)) {
             applyRoutineActions(detail.actions);
@@ -431,6 +484,26 @@ function continueToActions() {
 function backToStep1() {
     showActionErrors.value = false;
     activeStep.value = 1;
+}
+
+function continueToSchedule() {
+    showActionErrors.value = true;
+    const errorsByDevice = validateRoutineActions(
+        selectedDeviceIds.value,
+        actionsByDevice.value,
+        (deviceId, actionName) => getActionSchema(deviceId, actionName),
+        { disallowDuplicateActions: true },
+    );
+    validationErrorsByDeviceAction.value = errorsByDevice;
+    if (Object.keys(errorsByDevice).length > 0) {
+        showToast("Corregí los errores antes de continuar.", "error");
+        return;
+    }
+    activeStep.value = 3;
+}
+
+function backToStep2() {
+    activeStep.value = 2;
 }
 
 function isDeviceSelected(id: string) {
@@ -522,8 +595,22 @@ async function handleSubmit() {
                     };
                 });
         });
-        const metadata = { ...existingMetadata.value, icon: selectedIcon.value };
-        const body = { name: routineName.value.trim(), actions, metadata };
+        const isScheduled = scheduleConfig.value.enabled;
+        const schedule = isScheduled
+            ? {
+                time: scheduleConfig.value.time,
+                frequency: scheduleConfig.value.frequency,
+                daysOfWeek: scheduleConfig.value.frequency === 'weekly' ? scheduleConfig.value.daysOfWeek : undefined,
+            }
+            : undefined;
+        const metadata = {
+            ...existingMetadata.value,
+            icon: selectedIcon.value,
+            scheduleMode: isScheduled ? 'scheduled' : 'manual',
+            scheduleEnabled: isScheduled,
+        };
+        const body: Record<string, unknown> = { name: routineName.value.trim(), actions, metadata };
+        if (schedule) body.schedule = schedule;
         if (props.mode === "create") {
             const result = await api.post<ApiCreatedRoutine>("/routines", body);
             const card: RoutineCard = {
@@ -532,6 +619,8 @@ async function handleSubmit() {
                 deviceIds: selectedDeviceIds.value.slice(),
                 actionsCount: actions.length,
                 icon: selectedIcon.value,
+                isScheduled: isScheduled,
+                isScheduleEnabled: isScheduled,
             };
             emit("created", card);
         } else {
@@ -544,6 +633,8 @@ async function handleSubmit() {
                 actionsCount: actions.length,
                 icon: selectedIcon.value,
                 displayOrder: props.routine.displayOrder,
+                isScheduled: isScheduled,
+                isScheduleEnabled: isScheduled,
             };
             emit("updated", card);
         }
@@ -590,23 +681,25 @@ function onOverlayClick(e: MouseEvent) {
                         <!-- Step 1: name + icon editor -->
                         <div v-if="isStep1" class="step1-body">
                             <p class="field__label">Nombre de la Rutina</p>
-                            <div class="field">
-                                <input
-                                    v-model="routineName"
-                                    type="text"
-                                    class="field__input"
-                                    autocomplete="off"
-                                    maxlength="25"
-                                    aria-label="Nombre de la rutina"
-                                />
-                                <span class="field__icon" aria-hidden="true">
-                                    <svg viewBox="0 0 24 24" fill="none">
-                                        <path
-                                            d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
-                                            fill="currentColor"
-                                        />
-                                    </svg>
-                                </span>
+                            <div class="form-group">
+                                <div class="field">
+                                    <input
+                                        v-model="routineName"
+                                        type="text"
+                                        class="field__input"
+                                        autocomplete="off"
+                                        maxlength="25"
+                                        aria-label="Nombre de la rutina"
+                                    />
+                                    <span class="field__icon" aria-hidden="true">
+                                        <svg viewBox="0 0 24 24" fill="none">
+                                            <path
+                                                d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"
+                                                fill="currentColor"
+                                            />
+                                        </svg>
+                                    </span>
+                                </div>
                             </div>
 
                             <div class="preview">
@@ -622,8 +715,8 @@ function onOverlayClick(e: MouseEvent) {
                                 </div>
                             </div>
 
-                            <div class="icon-section">
-                                <p class="section-hint">Ícono</p>
+                            <div class="form-group">
+                                <p class="field__label">Ícono</p>
                                 <div class="icon-grid">
                                     <button
                                         v-for="ico in ICONS"
@@ -647,7 +740,7 @@ function onOverlayClick(e: MouseEvent) {
                             </div>
                         </div>
 
-                        <!-- Step 2: summary card (like AC modal left panel) -->
+                        <!-- Step 2 & 3: summary card (like AC modal left panel) -->
                         <div v-else class="summary-body">
                             <p class="field__label">RUTINA</p>
                             <div class="summary-center">
@@ -667,6 +760,7 @@ function onOverlayClick(e: MouseEvent) {
                                     dispositivo{{ selectedDeviceIds.length !== 1 ? "s" : "" }}
                                 </p>
                             </div>
+
                         </div>
 
                     </div>
@@ -675,7 +769,7 @@ function onOverlayClick(e: MouseEvent) {
                     <div class="panel-right">
 
                         <!-- Step header -->
-                        <div class="stepper">
+                        <div v-if="!isStep3" class="stepper">
                             <h3 class="panel-right__title">{{ stepTitle }}</h3>
                             <p class="panel-right__subtitle">{{ stepSubtitle }}</p>
                         </div>
@@ -737,7 +831,7 @@ function onOverlayClick(e: MouseEvent) {
                         </template>
 
                         <!-- ── Step 2: actions per device ── -->
-                        <template v-else>
+                        <template v-if="isStep2">
                             <div v-if="selectedDevicesInfo.length === 0" class="empty-devices">
                                 No hay dispositivos seleccionados.
                             </div>
@@ -939,7 +1033,7 @@ function onOverlayClick(e: MouseEvent) {
                                                                 @input="updateParamValue(device.id, index, param, ($event.target as HTMLInputElement).value)"
                                                             />
                                                         </template>
-                                                        <template v-else>
+                                                         <template v-else>
                                                             <input
                                                                 class="param-inline__input"
                                                                 type="text"
@@ -985,7 +1079,29 @@ function onOverlayClick(e: MouseEvent) {
                                 <button
                                     type="button"
                                     class="btn-continue"
-                                    :disabled="!canSubmit || submitting || !routineActionsLoaded || loadingDeviceTypes"
+                                    :disabled="!canContinueStep2 || submitting || !routineActionsLoaded || loadingDeviceTypes"
+                                    @click="continueToSchedule"
+                                >
+                                    Continuar a programación
+                                </button>
+                            </div>
+                        </template>
+
+                        <!-- ── Step 3: schedule ── -->
+                        <template v-if="isStep3">
+                            <RoutineScheduleStep v-model="scheduleConfig" />
+
+                            <div class="panel-right__footer">
+                                <button
+                                    type="button"
+                                    class="btn-back"
+                                    :disabled="submitting"
+                                    @click="backToStep2"
+                                >Volver</button>
+                                <button
+                                    type="button"
+                                    class="btn-continue"
+                                    :disabled="!canSubmit || submitting || !routineActionsLoaded"
                                     @click="handleSubmit"
                                 >
                                     <svg v-if="submitting" class="spinner" viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -1066,7 +1182,7 @@ function onOverlayClick(e: MouseEvent) {
     letter-spacing: 0.16em;
     text-transform: uppercase;
     color: rgba(52, 47, 41, 0.42);
-    margin: 0 0 0.5rem 0;
+    margin: 0;
     text-align: center;
     width: 100%;
     max-width: 200px;
@@ -1086,9 +1202,18 @@ function onOverlayClick(e: MouseEvent) {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 3.5rem;
-    padding: 3.2rem 2.2rem 2.2rem;
+    justify-content: center;
+    gap: 2rem;
+    padding: 2rem 1.5rem;
     width: 100%;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    gap: 0.6rem;
 }
 
 .field {
@@ -1133,8 +1258,8 @@ function onOverlayClick(e: MouseEvent) {
 }
 
 .preview__circle {
-    width: 54px;
-    height: 54px;
+    width: 72px;
+    height: 72px;
     border-radius: 50%;
     display: grid;
     place-items: center;
@@ -1142,8 +1267,8 @@ function onOverlayClick(e: MouseEvent) {
 }
 
 .preview__svg {
-    width: 26px;
-    height: 26px;
+    width: 32px;
+    height: 32px;
 }
 
 .section-hint {
@@ -1201,17 +1326,18 @@ function onOverlayClick(e: MouseEvent) {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 3.2rem 1.25rem 2.2rem;
+    justify-content: center;
+    gap: 1.25rem;
+    padding: 2.5rem 1.25rem 2rem;
     text-align: center;
 }
 
 .summary-center {
-    flex: 1;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1.25rem;
+    gap: 1.5rem;
 }
 
 .summary-label {

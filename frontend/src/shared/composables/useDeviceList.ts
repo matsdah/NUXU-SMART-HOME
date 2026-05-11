@@ -1,14 +1,34 @@
 /**
  * Composable compartido para manejar la lista de dispositivos,
  * incluyendo refresh, comparación de cambios, y sincronización
- * con la store. Usado por HomesPage y DevicesPage.
+ * con la store y WebSocket. Usado por HomesPage y DevicesPage.
+ *
+ * Centraliza:
+ *   - allDevices / loadingDevices / refreshingDevices
+ *   - hasDeviceListChanged (con displayOrder)
+ *   - refreshDevices (con guarda anti-doble fetch)
+ *   - applyDeviceUpdate (actualización local post-toggle)
+ *   - toggleDevice (vía store)
+ *   - Watchers WS (lastDeviceEvent, deviceStateVersion, deviceListVersion)
+ *   - Watcher de sincronización inicial (loading + activeHomeId)
  */
 import { ref, watch, type Ref } from 'vue'
 import { useDashboardStore } from '@/app/stores/dashboard'
 import { useSocketStore } from '@/app/stores/socket'
+import { statusForKind } from '@/shared/utils/store-helpers'
 import type { Device } from '@/app/stores/dashboard'
 
-export function useDeviceList(activeHomeId: Ref<string>) {
+export type DeviceListOptions = {
+  /** ID del hogar activo (Ref reactivo). */
+  activeHomeId: Ref<string>
+  /** Flag de carga del store (para coordinar el fetch inicial). */
+  loading?: Ref<boolean>
+  /** Callback cuando cambia el hogar activo (ej: resetear filtro de habitación). */
+  onHomeChanged?: () => void
+}
+
+export function useDeviceList(options: DeviceListOptions) {
+  const { activeHomeId, loading, onHomeChanged } = options
   const store = useDashboardStore()
   const socketStore = useSocketStore()
 
@@ -33,7 +53,8 @@ export function useDeviceList(activeHomeId: Ref<string>) {
         current.kind !== next.kind ||
         current.status !== next.status ||
         current.isOn !== next.isOn ||
-        current.tone !== next.tone
+        current.tone !== next.tone ||
+        current.displayOrder !== next.displayOrder
       ) return true
     }
     return false
@@ -66,12 +87,17 @@ export function useDeviceList(activeHomeId: Ref<string>) {
     }
   }
 
-  /** Actualiza un dispositivo localmente cuando llega un evento de cambio de estado. */
+  /**
+   * Actualiza localmente un dispositivo tras un toggle o evento WS.
+   * Luego consulta al backend el estado real (puede venir
+   * con más detalle que el simple on/off).
+   */
   function applyDeviceUpdate(id: string, isOn: boolean): void {
     const d = allDevices.value.find(x => x.id === id)
     if (!d) return
     d.isOn = isOn
     d.tone = isOn ? 'sage' : 'neutral'
+    d.status = statusForKind(d.kind, isOn)
     store.fetchDeviceState(id).then(state => {
       if (!state) return
       const device = allDevices.value.find(x => x.id === id)
@@ -91,41 +117,61 @@ export function useDeviceList(activeHomeId: Ref<string>) {
     local.status = storeDevice.status
   }
 
-  // ---- WebSocket watchers ----
-
   /** Extrae deviceId de un evento WebSocket (formato anidado o plano). */
   function extractDeviceIdFromEvent(eventData: Record<string, unknown>): string | undefined {
     const nested = eventData['data'] as Record<string, unknown> | undefined
     return (nested?.['deviceId'] ?? nested?.['device_id'] ?? eventData['deviceId'] ?? eventData['device_id']) as string | undefined
   }
 
-  /** Watcher: actualización quirúrgica cuando el payload tiene device ID. */
-  function watchDeviceEvents(): void {
-    watch(() => socketStore.lastDeviceEvent, async (eventData) => {
-      if (!eventData) return
-      const deviceId = extractDeviceIdFromEvent(eventData)
-      if (!deviceId) return
-      const updated = await store.fetchDeviceState(deviceId)
-      if (!updated) { void refreshDevices({ silent: true }); return }
-      const local = allDevices.value.find(d => d.id === deviceId)
-      if (!local) { void refreshDevices({ silent: true }); return }
-      local.isOn = updated.isOn
-      local.tone = updated.tone
-      local.status = updated.status
-    })
+  // ---- WebSocket watchers (se activan automáticamente) ----
 
-    // Refresh completo cuando el payload no tiene device ID reconocible
-    watch(() => socketStore.deviceStateVersion, () => {
-      const ev = socketStore.lastDeviceEvent
-      const deviceId = ev ? extractDeviceIdFromEvent(ev) : undefined
-      if (deviceId && allDevices.value.some(d => d.id === deviceId)) return
-      void refreshDevices({ silent: true })
-    })
+  /** Watcher: actualización quirúrgica cuando el payload tiene device ID (1-2 llamadas en vez de N+1). */
+  watch(() => socketStore.lastDeviceEvent, async (eventData) => {
+    if (!eventData) return
+    const deviceId = extractDeviceIdFromEvent(eventData)
+    if (!deviceId) return
+    const updated = await store.fetchDeviceState(deviceId)
+    if (!updated) { void refreshDevices({ silent: true }); return }
+    const local = allDevices.value.find(d => d.id === deviceId)
+    if (!local) { void refreshDevices({ silent: true }); return }
+    local.isOn = updated.isOn
+    local.tone = updated.tone
+    local.status = updated.status
+  })
 
-    // Refresh completo cuando cambia la lista (creado/eliminado)
-    watch(() => socketStore.deviceListVersion, () => {
-      void refreshDevices({ silent: true })
-    })
+  /** Refresh completo solo cuando el payload no tiene device ID reconocible. */
+  watch(() => socketStore.deviceStateVersion, () => {
+    const ev = socketStore.lastDeviceEvent
+    const deviceId = ev ? extractDeviceIdFromEvent(ev) : undefined
+    if (deviceId && allDevices.value.some(d => d.id === deviceId)) return
+    void refreshDevices({ silent: true })
+  })
+
+  /** Refresh completo cuando cambia la lista (creado/eliminado). */
+  watch(() => socketStore.deviceListVersion, () => {
+    void refreshDevices({ silent: true })
+  })
+
+  // ---- Watcher de sincronización inicial ----
+  // Se activa cuando loading termina (dashboard cargado) o cuando cambia el home.
+
+  if (loading) {
+    watch([loading, activeHomeId], async ([isLoading, homeId], prev) => {
+      const prevHomeId = prev?.[1]
+
+      if (!homeId) {
+        allDevices.value = []
+        return
+      }
+
+      if (homeId !== prevHomeId && onHomeChanged) {
+        onHomeChanged()
+      }
+
+      if (!isLoading) {
+        await refreshDevices()
+      }
+    }, { immediate: true })
   }
 
   return {
@@ -136,7 +182,5 @@ export function useDeviceList(activeHomeId: Ref<string>) {
     hasDeviceListChanged,
     applyDeviceUpdate,
     toggleDevice,
-    extractDeviceIdFromEvent,
-    watchDeviceEvents,
   }
 }

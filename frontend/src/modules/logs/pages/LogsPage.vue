@@ -80,13 +80,6 @@ function stringifyValue(value: unknown): string {
     }
 }
 
-function normalizeSuccess(value: unknown): boolean | null {
-    if (typeof value === "boolean") {
-        return value;
-    }
-    return null;
-}
-
 function mapLog(log: DeviceLog): DeviceLogRow {
     const deviceName =
         deviceNameById.value[log.deviceId] ?? "Dispositivo desconocido";
@@ -101,7 +94,7 @@ function mapLog(log: DeviceLog): DeviceLogRow {
         actionName: log.actionName,
         paramsText: stringifyValue(log.params),
         resultText: stringifyValue(log.result),
-        success: normalizeSuccess(log.result),
+        success: null,
     };
 }
 
@@ -236,12 +229,6 @@ async function loadAllLogs(): Promise<void> {
     } finally {
         loadingAll.value = false;
     }
-}
-
-function statusLabel(item: DeviceLogRow): string {
-    if (item.success === true) return "OK";
-    if (item.success === false) return "Error";
-    return "Info";
 }
 
 function toRangeDate(dateIso: string, endOfDay: boolean): Date | null {
@@ -549,7 +536,6 @@ onMounted(() => {
                         <th>Acción</th>
                         <th>Fecha</th>
                         <th>Hora</th>
-                        <th>Estado</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -565,14 +551,6 @@ onMounted(() => {
                         </td>
                         <td>{{ formatTimestamp(item.timestamp) }}</td>
                         <td>{{ formatTime(item.timestamp) }}</td>
-                        <td>
-                            <span
-                                class="status-pill"
-                                :class="`status-pill--${statusLabel(item).toLowerCase()}`"
-                            >
-                                {{ statusLabel(item) }}
-                            </span>
-                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -803,22 +781,19 @@ onMounted(() => {
 }
 
 .logs-table th:nth-child(1),
-.logs-table td:nth-child(1) { width: 18%; }
+.logs-table td:nth-child(1) { width: 20%; }
 
 .logs-table th:nth-child(2),
-.logs-table td:nth-child(2) { width: 16%; }
+.logs-table td:nth-child(2) { width: 18%; }
 
 .logs-table th:nth-child(3),
-.logs-table td:nth-child(3) { width: 22%; }
+.logs-table td:nth-child(3) { width: 24%; }
 
 .logs-table th:nth-child(4),
-.logs-table td:nth-child(4) { width: 14%; }
+.logs-table td:nth-child(4) { width: 18%; }
 
 .logs-table th:nth-child(5),
-.logs-table td:nth-child(5) { width: 14%; }
-
-.logs-table th:nth-child(6),
-.logs-table td:nth-child(6) { width: 16%; }
+.logs-table td:nth-child(5) { width: 20%; }
 
 .logs-table thead th {
     text-align: left;
@@ -866,32 +841,6 @@ onMounted(() => {
     margin-left: 0.25rem;
     font-size: 0.8rem;
     color: rgba(42, 40, 37, 0.62);
-}
-
-.status-pill {
-    display: inline-block;
-    white-space: nowrap;
-    font-size: 0.72rem;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    border-radius: 999px;
-    padding: 0.22rem 0.5rem;
-}
-
-.status-pill--ok {
-    background: rgba(62, 148, 99, 0.2);
-    color: rgba(34, 93, 58, 1);
-}
-
-.status-pill--error {
-    background: rgba(199, 71, 71, 0.2);
-    color: rgba(110, 31, 31, 1);
-}
-
-.status-pill--info {
-    background: rgba(66, 105, 187, 0.2);
-    color: rgba(33, 59, 116, 1);
 }
 
 .logs-list__footer {
