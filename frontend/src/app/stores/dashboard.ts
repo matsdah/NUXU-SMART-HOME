@@ -1,6 +1,7 @@
 import { ref, computed, watch } from 'vue'
 import { defineStore } from 'pinia'
 import { api, ApiError } from '@/services/api/client'
+import { useAuthStore } from '@/app/stores/auth'
 
 /* Tipos de la API */
 
@@ -638,7 +639,9 @@ export const useDashboardStore = defineStore('dashboard', () => {
     // Si la API no devuelve casas, creamos una por defecto en el backend
     if (data.length === 0) {
       try {
-        const newHome = await api.post<ApiHome>('/homes', { name: "Casa 1", metadata: {} })
+        const ownerName = useAuthStore().user?.name?.trim()
+        const defaultName = ownerName ? `Casa de ${ownerName}` : 'Mi casa'
+        const newHome = await api.post<ApiHome>('/homes', { name: defaultName, metadata: {} })
 
         /* Asignamos la casa recién creada con un ID real de la BD. */
         data = [newHome]

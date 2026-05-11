@@ -180,7 +180,7 @@ async function confirmAddMember() {
     showToastMsg('Miembro añadido correctamente')
   } catch (e: any) {
     if (e?.status === 409) showToastMsg('Este usuario ya es miembro', 'error')
-    else if (e?.status === 404) showToastMsg('Hogar no encontrado', 'error')
+    else if (e?.status === 404) showToastMsg('Email no encontrado', 'error')
     else if (e?.status === 400) showToastMsg('Email inválido', 'error')
     else showToastMsg('Error al añadir miembro', 'error')
   } finally {
@@ -331,12 +331,12 @@ watch(() => dashboard.activeHomeId, async (newId) => {
           <div class="profile-fields">
             <div class="form-group">
               <label class="form-label">Nombre de usuario</label>
-              <input v-model="profileData.name" class="form-input" type="text" aria-label="Nombre" />
+              <input v-model="profileData.name" class="form-input" type="text" aria-label="Nombre" maxlength="25" />
               <span class="form-hint">El nombre que se muestra en el sistema</span>
             </div>
             <div class="form-group">
               <label class="form-label">Email</label>
-              <input v-model="profileData.email" class="form-input" type="email" aria-label="Email" />
+              <input v-model="profileData.email" class="form-input" type="email" aria-label="Email" readonly />
               <span class="form-hint">Tu dirección de correo electrónico</span>
             </div>
           </div>
