@@ -69,8 +69,8 @@ function toggleDay(day: number) {
 function parseTime(timeStr: string): { hours: number; minutes: number } {
   const [h, m] = timeStr.split(':').map(Number)
   return {
-    hours: Number.isNaN(h) ? 8 : h,
-    minutes: Number.isNaN(m) ? 0 : m,
+    hours: h || 8,
+    minutes: m || 0,
   }
 }
 

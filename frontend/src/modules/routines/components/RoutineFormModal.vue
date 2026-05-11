@@ -9,10 +9,7 @@ import RoutineIcon from "@/shared/components/RoutineIcon.vue";
 import RoutineScheduleStep, { type RoutineScheduleConfig } from "./RoutineScheduleStep.vue";
 import EditEntityModal from "@/app/components/EditEntityModal.vue";
 import DeleteEntityConfirmModal from "@/app/components/DeleteEntityConfirmModal.vue";
-import type {
-    RoutineCard,
-    RoutineIcon as RoutineIconType,
-} from "../components/RoutineFormModal.vue";
+import type { RoutineIcon as RoutineIconType } from "../components/RoutineFormModal.vue";
 import {
     getActionLabel,
     getAllowedActionsForType,
@@ -615,7 +612,7 @@ async function handleSubmit() {
             const result = await api.post<ApiCreatedRoutine>("/routines", body);
             const card: RoutineCard = {
                 id: result?.id ?? `temp-${Date.now()}`,
-                name: body.name,
+                name: routineName.value.trim(),
                 deviceIds: selectedDeviceIds.value.slice(),
                 actionsCount: actions.length,
                 icon: selectedIcon.value,
@@ -628,7 +625,7 @@ async function handleSubmit() {
             await api.put<ApiCreatedRoutine>(`/routines/${props.routine.id}`, body);
             const card: RoutineCard = {
                 ...props.routine,
-                name: body.name,
+                name: routineName.value.trim(),
                 deviceIds: selectedDeviceIds.value.slice(),
                 actionsCount: actions.length,
                 icon: selectedIcon.value,
@@ -680,9 +677,8 @@ function onOverlayClick(e: MouseEvent) {
 
                         <!-- Step 1: name + icon editor -->
                         <div v-if="isStep1" class="step1-body">
-                            <p class="field__label">Nombre de la Rutina</p>
-                            <div class="form-group">
-                                <div class="field">
+                            <div class="form-group" style="width: 100%; max-width: 260px;">
+                                <div class="field" style="width: 100%;">
                                     <input
                                         v-model="routineName"
                                         type="text"
@@ -690,6 +686,7 @@ function onOverlayClick(e: MouseEvent) {
                                         autocomplete="off"
                                         maxlength="25"
                                         aria-label="Nombre de la rutina"
+                                        placeholder="Nombre de la Rutina"
                                     />
                                     <span class="field__icon" aria-hidden="true">
                                         <svg viewBox="0 0 24 24" fill="none">
@@ -702,7 +699,8 @@ function onOverlayClick(e: MouseEvent) {
                                 </div>
                             </div>
 
-                            <div class="preview">
+                            <p style="font-size: 0.82rem; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(52, 47, 41, 0.42); margin: 0; text-align: center;">Rutina</p>
+                            <div class="preview" style="margin-top: 1rem;">
                                 <div class="preview__circle">
                                     <svg class="preview__svg" viewBox="0 0 24 24" fill="none" stroke="rgba(42, 40, 37, 0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <template v-if="selectedIcon === 'bolt'"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></template>
@@ -716,7 +714,6 @@ function onOverlayClick(e: MouseEvent) {
                             </div>
 
                             <div class="form-group">
-                                <p class="field__label">Ícono</p>
                                 <div class="icon-grid">
                                     <button
                                         v-for="ico in ICONS"
@@ -742,7 +739,7 @@ function onOverlayClick(e: MouseEvent) {
 
                         <!-- Step 2 & 3: summary card (like AC modal left panel) -->
                         <div v-else class="summary-body">
-                            <p class="field__label">RUTINA</p>
+                            <p style="font-size: 0.82rem; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(52, 47, 41, 0.42); margin: 0; text-align: center;">Rutina</p>
                             <div class="summary-center">
                                 <div class="summary-circle">
                                     <svg class="summary-svg" viewBox="0 0 24 24" fill="none" stroke="rgba(42, 40, 37, 0.8)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
